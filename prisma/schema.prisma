@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite no soporta enums nativos en Prisma; el rol se valida a nivel de
+// aplicación con zod (ver lib/roles.ts) y se guarda como texto ("ADMIN" | "USUARIO").
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("USUARIO")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cityAccess UserCityAccess[]
+
+  @@map("users")
+}
+
+model City {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections   Section[]
+  userAccess UserCityAccess[]
+
+  @@map("cities")
+}
+
+model Section {
+  id    String @id @default(cuid())
+  name  String
+  slug  String
+  order Int    @default(0)
+
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   Section?  @relation("SectionToSection", fields: [parentId], references: [id], onDelete: Cascade)
+  children Section[] @relation("SectionToSection")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cityId, parentId, slug])
+  @@map("sections")
+}
+
+model UserCityAccess {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, cityId])
+  @@map("user_city_access")
+}
