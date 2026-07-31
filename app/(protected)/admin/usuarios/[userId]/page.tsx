@@ -5,6 +5,7 @@ import { deleteUser } from "@/actions/user-actions";
 import { ChangePasswordForm } from "@/components/admin/ChangePasswordForm";
 import { CityAccessCheckboxes } from "@/components/admin/CityAccessCheckboxes";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { roleLabels, type Role } from "@/lib/roles";
 
 export default async function UserDetailPage({
   params,
@@ -27,7 +28,7 @@ export default async function UserDetailPage({
           ← Volver a usuarios
         </Link>
         <h2 className="mt-2 text-xl font-semibold text-primary">{user.username}</h2>
-        <p className="text-sm text-ink">{user.role === "ADMIN" ? "Administrador" : "Usuario"}</p>
+        <p className="text-sm text-ink">{roleLabels[user.role as Role]}</p>
       </div>
 
       <section className="rounded-lg border border-gray-200 bg-white p-5">

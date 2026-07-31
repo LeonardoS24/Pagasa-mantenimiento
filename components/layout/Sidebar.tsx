@@ -4,6 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { City } from "@prisma/client";
 
+function CityDot() {
+  return <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-60" />;
+}
+
 export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean }) {
   const pathname = usePathname();
 
@@ -12,16 +16,20 @@ export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean 
       <nav className="flex flex-col py-4">
         <Link
           href="/dashboard"
-          className={`px-4 py-2 text-sm font-medium ${
+          className={`mx-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
             pathname === "/dashboard"
-              ? "border-l-4 border-accent text-primary"
-              : "border-l-4 border-transparent text-ink hover:bg-gray-50"
+              ? "bg-primary/10 text-primary"
+              : "text-ink hover:bg-gray-50"
           }`}
         >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 11.5 12 4l9 7.5" />
+            <path d="M5 10v9.5a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" />
+          </svg>
           Inicio
         </Link>
 
-        <p className="mt-4 px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <p className="mb-1 mt-5 px-5 text-xs font-semibold uppercase tracking-wide text-gray-400">
           Ciudades
         </p>
         {cities.map((city) => {
@@ -30,12 +38,13 @@ export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean 
             <Link
               key={city.id}
               href={`/ciudades/${city.slug}`}
-              className={`px-4 py-2 text-sm ${
+              className={`mx-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
                 active
-                  ? "border-l-4 border-accent font-medium text-primary"
-                  : "border-l-4 border-transparent text-ink hover:bg-gray-50"
+                  ? "bg-primary/10 font-medium text-primary"
+                  : "text-ink hover:bg-gray-50"
               }`}
             >
+              <CityDot />
               {city.name}
             </Link>
           );
@@ -43,17 +52,21 @@ export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean 
 
         {isAdmin && (
           <>
-            <p className="mt-4 px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <p className="mb-1 mt-5 px-5 text-xs font-semibold uppercase tracking-wide text-gray-400">
               Administración
             </p>
             <Link
               href="/admin/usuarios"
-              className={`px-4 py-2 text-sm ${
+              className={`mx-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
                 pathname.startsWith("/admin")
-                  ? "border-l-4 border-accent font-medium text-primary"
-                  : "border-l-4 border-transparent text-ink hover:bg-gray-50"
+                  ? "bg-accent/10 font-medium text-accent"
+                  : "text-ink hover:bg-gray-50"
               }`}
             >
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="3.2" />
+                <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+              </svg>
               Panel de administración
             </Link>
           </>

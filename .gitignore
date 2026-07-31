@@ -25,6 +25,9 @@ yarn-error.log*
 prisma/dev.db
 prisma/dev.db-journal
 
+# archivos subidos (PDFs por apartado)
+/uploads
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

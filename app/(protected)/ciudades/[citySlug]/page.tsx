@@ -19,13 +19,23 @@ export default async function CityPage({
     <div>
       <Breadcrumb items={[{ label: "Inicio", href: "/dashboard" }, { label: city.name }]} />
 
-      <h1 className="mb-6 text-2xl font-semibold text-primary">{city.name}</h1>
+      <div className="mb-6 flex items-center gap-3">
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="3" width="9" height="18" />
+            <rect x="14" y="8" width="6" height="13" />
+            <path d="M7 7h3M7 11h3M7 15h3M16.5 11.5h1M16.5 15h1" />
+          </svg>
+        </span>
+        <h1 className="text-2xl font-semibold text-primary">{city.name}</h1>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {children.map((section) => (
           <SectionCard
             key={section.id}
             name={section.name}
+            slug={section.slug}
             href={`/ciudades/${city.slug}/${section.slug}`}
           />
         ))}

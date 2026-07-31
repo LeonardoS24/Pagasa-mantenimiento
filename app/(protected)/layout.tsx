@@ -22,7 +22,7 @@ export default async function ProtectedLayout({
       <Header user={user} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar cities={cities} isAdmin={user.role === "ADMIN"} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-slate-50 p-6">{children}</main>
       </div>
     </div>
   );

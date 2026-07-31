@@ -34,3 +34,26 @@ export async function resolveSectionPath(
 
   return { city, chain, children };
 }
+
+// Reconstruye la cadena de apartados desde la raíz hasta `sectionId`,
+// siguiendo `parentId` hacia arriba. Útil cuando se parte de un registro hijo
+// (p. ej. un VehicleRecord) y se necesita el breadcrumb / slugs de su apartado.
+export async function getSectionChain(sectionId: string): Promise<Section[]> {
+  const chain: Section[] = [];
+  let currentId: string | null = sectionId;
+
+  while (currentId) {
+    const match: Section | null = await prisma.section.findUnique({
+      where: { id: currentId },
+    });
+    if (!match) break;
+    chain.unshift(match);
+    currentId = match.parentId;
+  }
+
+  return chain;
+}
+
+export function sectionBasePath(citySlug: string, chain: Section[]): string {
+  return `/ciudades/${citySlug}/${chain.map((section) => section.slug).join("/")}`;
+}

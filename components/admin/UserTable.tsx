@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { User } from "@prisma/client";
 import { deleteUser } from "@/actions/user-actions";
+import { roleLabels, type Role } from "@/lib/roles";
 import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
 
 export function UserTable({ users, currentUserId }: { users: User[]; currentUserId: string }) {
@@ -22,9 +23,7 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
                   {user.username}
                 </Link>
               </td>
-              <td className="px-4 py-2 text-ink">
-                {user.role === "ADMIN" ? "Administrador" : "Usuario"}
-              </td>
+              <td className="px-4 py-2 text-ink">{roleLabels[user.role as Role]}</td>
               <td className="px-4 py-2 text-right">
                 {user.id !== currentUserId && (
                   <form action={deleteUser.bind(null, user.id)}>

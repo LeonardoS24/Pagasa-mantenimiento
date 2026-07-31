@@ -2,6 +2,7 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { createUser, type ActionState } from "@/actions/user-actions";
+import { roleLabels } from "@/lib/roles";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -62,8 +63,9 @@ export function CreateUserForm() {
             defaultValue="USUARIO"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           >
-            <option value="USUARIO">Usuario</option>
-            <option value="ADMIN">Administrador</option>
+            <option value="USUARIO">{roleLabels.USUARIO}</option>
+            <option value="LECTOR">{roleLabels.LECTOR}</option>
+            <option value="ADMIN">{roleLabels.ADMIN}</option>
           </select>
         </div>
       </div>

@@ -8,7 +8,11 @@ datasource db {
 }
 
 // SQLite no soporta enums nativos en Prisma; el rol se valida a nivel de
-// aplicación con zod (ver lib/roles.ts) y se guarda como texto ("ADMIN" | "USUARIO").
+// aplicación con zod (ver lib/roles.ts) y se guarda como texto
+// ("ADMIN" | "USUARIO" | "LECTOR"). ADMIN administra todo; USUARIO puede
+// agregar/editar números económicos, fichas técnicas, bitácoras y archivos
+// pero no crear/eliminar ciudades ni apartados, ni renombrar nada existente;
+// LECTOR solo puede ver (equivalente al antiguo comportamiento de USUARIO).
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
@@ -17,7 +21,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  cityAccess UserCityAccess[]
+  cityAccess      UserCityAccess[]
+  documents       Document[]
+  maintenanceLogs MaintenanceLog[]
 
   @@map("users")
 }
@@ -49,11 +55,151 @@ model Section {
   parent   Section?  @relation("SectionToSection", fields: [parentId], references: [id], onDelete: Cascade)
   children Section[] @relation("SectionToSection")
 
+  vehicleRecords VehicleRecord[]
+  documents      Document[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([cityId, parentId, slug])
   @@map("sections")
+}
+
+// Registros de unidades (autotanques, vehículos, etc.) que se muestran como
+// tabla dentro de un apartado de "Unidad de distribución". El campo anterior
+// guarda el número económico o la localidad anterior de la unidad, cuando aplica.
+model VehicleRecord {
+  id    String @id @default(cuid())
+  order Int    @default(0)
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  numeroEconomico   String
+  sucursal          String
+  anio              String
+  placas            String
+  numeroAnterior    String?
+  localidadAnterior String?
+
+  // Dar de baja no elimina la unidad: se conserva en el sistema (con toda su
+  // ficha técnica, bitácora y documentos) marcada como inactiva. Solo un
+  // ADMIN puede cambiar este estatus.
+  activo    Boolean   @default(true)
+  fechaBaja DateTime?
+
+  documents       Document[]
+  technicalSheet  VehicleTechnicalSheet?
+  maintenanceLogs MaintenanceLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vehicle_records")
+}
+
+// Ficha técnica vehicular: datos del automóvil y, si aplica, del tanque de
+// gas LP que transporta. Relación 1:1 opcional con VehicleRecord (no todos
+// los vehículos la tienen llenada de inmediato).
+model VehicleTechnicalSheet {
+  id String @id @default(cuid())
+
+  vehicleRecordId String        @unique
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  // Automóvil
+  fabricante        String?
+  marca             String?
+  linea             String?
+  modelo            String?
+  peso              String?
+  serie             String?
+  combustible       String? // "GAS_LP" | "GASOLINA" | "DIESEL" | "ELECTRICA"
+  caracteristicas   String?
+  ubicacion         String?
+  potencia          String?
+  horasUsoDiario    String?
+  fechaAdquisicion  DateTime?
+
+  // Tanque
+  serieTanque           String?
+  capacidadTanque       String?
+  marcaTanque           String?
+  anioFabricacionTanque String?
+  numeroSerieTanque     String?
+  numeroUltimoUltrasonido String?
+  ultimoUltrasonido     DateTime?
+  fechaProximoUltrasonido DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vehicle_technical_sheets")
+}
+
+// Entrada de bitácora de mantenimiento de una unidad. El estatus se muestra
+// como resumen bajo la ficha técnica del vehículo y también alimenta el feed
+// de "Bitácoras de unidades" a nivel ciudad (ordenado por fecha).
+model MaintenanceLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  tipoMantenimiento String
+  tipoServicio      String
+  pieza             String?
+  cantidad          String?
+  unidad            String?
+  descripcion       String?
+  observacion       String?
+  fecha             DateTime
+
+  nombreOperador             String?
+  auxiliarTecnico            String?
+  responsableTrabajoMecanico String?
+
+  // "SIN_ATENCION" | "EN_PROCESO" | "TERMINADO" | "CANCELADO"
+  estatus String @default("SIN_ATENCION")
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("maintenance_logs")
+}
+
+// PDFs adjuntos a un apartado, o a una unidad (VehicleRecord) específica dentro
+// de un apartado de tipo "unidades" (vehicleRecordId presente). Solo un ADMIN
+// puede subir/eliminar (validado en el server action); cualquier usuario con
+// acceso a la ciudad puede descargarlos.
+model Document {
+  id String @id @default(cuid())
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  vehicleRecordId String?
+  vehicleRecord   VehicleRecord? @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  maintenanceLogId String?
+  maintenanceLog   MaintenanceLog? @relation(fields: [maintenanceLogId], references: [id], onDelete: Cascade)
+
+  fileName   String
+  storedName String
+  mimeType   String
+  size       Int
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("documents")
 }
 
 model UserCityAccess {
