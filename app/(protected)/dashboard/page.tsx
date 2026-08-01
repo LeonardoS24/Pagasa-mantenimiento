@@ -3,19 +3,25 @@ import { getAccessibleCities } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { CityCard } from "@/components/city/CityCard";
 import { UltrasoundAlertsPanel } from "@/components/dashboard/UltrasoundAlertsPanel";
+import { VisualInspectionAlertsPanel } from "@/components/dashboard/VisualInspectionAlertsPanel";
 import { getUltrasoundAlertLevel, daysUntil } from "@/lib/ultrasound-alerts";
+import { getVisualInspectionAlertLevel } from "@/lib/visual-inspection-alerts";
 
 export default async function DashboardPage() {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
   const cities = await getAccessibleCities(user);
 
+  const soon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const upcomingRecords = await prisma.vehicleRecord.findMany({
     where: {
       activo: true,
       section: { cityId: { in: cities.map((city) => city.id) } },
       technicalSheet: {
-        fechaProximoUltrasonido: { lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+        OR: [
+          { fechaProximoUltrasonido: { lte: soon } },
+          { fechaProximaInspeccionVisual: { lte: soon } },
+        ],
       },
     },
     include: { technicalSheet: true, section: { include: { city: true } } },
@@ -39,9 +45,28 @@ export default async function DashboardPage() {
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.fechaProximoUltrasonido) - daysUntil(b.fechaProximoUltrasonido));
 
+  const visualAlertVehicles = upcomingRecords
+    .map((record) => {
+      const fecha = record.technicalSheet?.fechaProximaInspeccionVisual;
+      if (!fecha) return null;
+      const level = getVisualInspectionAlertLevel(fecha);
+      if (level === "none") return null;
+      return {
+        id: record.id,
+        numeroEconomico: record.numeroEconomico,
+        citySlug: record.section.city.slug,
+        cityName: record.section.city.name,
+        fechaProximaInspeccionVisual: fecha,
+        level,
+      };
+    })
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .sort((a, b) => daysUntil(a.fechaProximaInspeccionVisual) - daysUntil(b.fechaProximaInspeccionVisual));
+
   return (
     <div>
       <UltrasoundAlertsPanel vehicles={alertVehicles} />
+      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
       <h1 className="mb-1 text-2xl font-semibold text-primary">Ciudades</h1>
       <p className="mb-6 text-sm text-ink">
         {cities.length > 0

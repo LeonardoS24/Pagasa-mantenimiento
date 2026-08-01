@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { maintenanceStatusSchema } from "@/lib/vehicle-enums";
+import { saveDocumentFile, maintenanceLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import type { ActionState } from "./user-actions";
 
 const requiredText = (label: string, max: number) =>
@@ -88,18 +89,36 @@ export async function createMaintenanceLog(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
+  const files = readOptionalPdfFiles(formData);
+  if (!Array.isArray(files)) return files;
+
   const vehicle = await prisma.vehicleRecord.findUnique({ where: { id: vehicleId } });
   if (!vehicle) {
     return { error: "El registro no existe." };
   }
 
-  await prisma.maintenanceLog.create({
+  const log = await prisma.maintenanceLog.create({
     data: {
       vehicleRecordId: vehicleId,
       createdById: editor.userId,
       ...parsed.data,
     },
   });
+
+  for (const file of files) {
+    const { storedName } = await saveDocumentFile(maintenanceLogOwnerKey(log.id), file);
+    await prisma.document.create({
+      data: {
+        sectionId: vehicle.sectionId,
+        maintenanceLogId: log.id,
+        fileName: file.name,
+        storedName,
+        mimeType: file.type,
+        size: file.size,
+        uploadedById: editor.userId,
+      },
+    });
+  }
 
   await revalidateVehicleAndCityFeed(vehicleId);
   return { success: "Mantenimiento registrado." };

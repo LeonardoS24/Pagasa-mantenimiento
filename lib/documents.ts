@@ -43,3 +43,28 @@ export function vehicleOwnerKey(vehicleRecordId: string): string {
 export function maintenanceLogOwnerKey(maintenanceLogId: string): string {
   return path.posix.join("maintenance-logs", maintenanceLogId);
 }
+
+export function ultrasoundLogOwnerKey(ultrasoundLogId: string): string {
+  return path.posix.join("ultrasound-logs", ultrasoundLogId);
+}
+
+export function visualInspectionLogOwnerKey(visualInspectionLogId: string): string {
+  return path.posix.join("visual-inspection-logs", visualInspectionLogId);
+}
+
+// Lee cero o más PDFs adjuntos en el mismo envío de un formulario (p. ej. al
+// registrar un mantenimiento o un ultrasonido, sin tener que subirlos después
+// por separado). A diferencia de un solo archivo requerido, aquí no adjuntar
+// nada es válido; solo se valida lo que sí venga.
+export function readOptionalPdfFiles(formData: FormData, fieldName = "files"): File[] | { error: string } {
+  const files = formData.getAll(fieldName).filter((value): value is File => value instanceof File && value.size > 0);
+  for (const file of files) {
+    if (file.type !== "application/pdf") {
+      return { error: `"${file.name}" no es un PDF.` };
+    }
+    if (file.size > MAX_DOCUMENT_SIZE) {
+      return { error: `"${file.name}" supera el tamaño máximo permitido (20 MB).` };
+    }
+  }
+  return files;
+}

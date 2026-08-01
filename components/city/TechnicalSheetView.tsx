@@ -6,6 +6,11 @@ import {
   ultrasoundAlertBadgeStyles,
   ultrasoundAlertLabel,
 } from "@/lib/ultrasound-alerts";
+import {
+  getVisualInspectionAlertLevel,
+  visualInspectionAlertBadgeStyles,
+  visualInspectionAlertLabel,
+} from "@/lib/visual-inspection-alerts";
 
 function Item({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
@@ -23,6 +28,7 @@ export function TechnicalSheetView({ sheet }: { sheet: VehicleTechnicalSheet | n
   }
 
   const alertLevel = getUltrasoundAlertLevel(sheet.fechaProximoUltrasonido);
+  const visualAlertLevel = getVisualInspectionAlertLevel(sheet.fechaProximaInspeccionVisual);
 
   return (
     <div className="space-y-6">
@@ -81,6 +87,32 @@ export function TechnicalSheetView({ sheet }: { sheet: VehicleTechnicalSheet | n
           <Item
             label="Fecha próxima de ultrasonido"
             value={formatDate(sheet.fechaProximoUltrasonido) || null}
+          />
+        </dl>
+      </div>
+
+      <div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Inspección Visual
+          </h3>
+          {visualAlertLevel !== "none" && sheet.fechaProximaInspeccionVisual && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${visualInspectionAlertBadgeStyles[visualAlertLevel]}`}
+            >
+              {visualInspectionAlertLabel(visualAlertLevel, sheet.fechaProximaInspeccionVisual)}
+            </span>
+          )}
+        </div>
+        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Item label="Número de última inspección visual" value={sheet.numeroUltimaInspeccionVisual} />
+          <Item
+            label="Fecha en que se realizó la última inspección visual"
+            value={formatDate(sheet.ultimaInspeccionVisual) || null}
+          />
+          <Item
+            label="Fecha próxima de inspección visual"
+            value={formatDate(sheet.fechaProximaInspeccionVisual) || null}
           />
         </dl>
       </div>

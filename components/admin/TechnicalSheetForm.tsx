@@ -15,21 +15,25 @@ function Field({
   label,
   defaultValue,
   type = "text",
+  required = false,
 }: {
   id: string;
   label: string;
   defaultValue?: string | null;
   type?: string;
+  required?: boolean;
 }) {
   return (
     <div>
       <label className="mb-1 block text-sm font-medium text-ink" htmlFor={id}>
         {label}
+        {required && <span className="ml-0.5 text-accent">*</span>}
       </label>
       <input
         id={id}
         name={id}
         type={type}
+        required={required}
         defaultValue={defaultValue ?? ""}
         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
       />
@@ -53,9 +57,13 @@ function SubmitButton() {
 export function TechnicalSheetForm({
   vehicleId,
   sheet,
+  requireProximoUltrasonido = false,
+  requireProximaInspeccionVisual = false,
 }: {
   vehicleId: string;
   sheet: VehicleTechnicalSheet | null;
+  requireProximoUltrasonido?: boolean;
+  requireProximaInspeccionVisual?: boolean;
 }) {
   const action = upsertTechnicalSheet.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
@@ -148,6 +156,7 @@ export function TechnicalSheetForm({
             id="fechaProximoUltrasonido"
             label="Fecha próxima de ultrasonido"
             type="date"
+            required={requireProximoUltrasonido}
             defaultValue={toDateInputValue(sheet?.fechaProximoUltrasonido)}
           />
         </div>
@@ -155,6 +164,49 @@ export function TechnicalSheetForm({
           Cuando falte un mes para la fecha próxima de ultrasonido, la unidad se marcará en
           amarillo; cuando falte una semana, se marcará en rojo con advertencias en el panel de
           alertas del inicio.
+          {requireProximoUltrasonido && (
+            <span className="block font-medium text-accent">
+              Este campo es obligatorio para Auto-Tanques: no se puede guardar la ficha técnica
+              sin la fecha próxima de ultrasonido.
+            </span>
+          )}
+        </p>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Inspección Visual
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Field
+            id="numeroUltimaInspeccionVisual"
+            label="Número de última inspección visual"
+            defaultValue={sheet?.numeroUltimaInspeccionVisual}
+          />
+          <Field
+            id="ultimaInspeccionVisual"
+            label="Fecha en que se realizó la última inspección visual"
+            type="date"
+            defaultValue={toDateInputValue(sheet?.ultimaInspeccionVisual)}
+          />
+          <Field
+            id="fechaProximaInspeccionVisual"
+            label="Fecha próxima de inspección visual"
+            type="date"
+            required={requireProximaInspeccionVisual}
+            defaultValue={toDateInputValue(sheet?.fechaProximaInspeccionVisual)}
+          />
+        </div>
+        <p className="mt-2 text-xs text-ink">
+          Cuando falte un mes para la fecha próxima de inspección visual, la unidad se marcará en
+          amarillo; cuando falte una semana, se marcará en rojo con advertencias en el panel de
+          alertas del inicio.
+          {requireProximaInspeccionVisual && (
+            <span className="block font-medium text-accent">
+              Este campo es obligatorio para Auto-Tanques: no se puede guardar la ficha técnica
+              sin la fecha próxima de inspección visual.
+            </span>
+          )}
         </p>
       </div>
 

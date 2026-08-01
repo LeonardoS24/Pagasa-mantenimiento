@@ -4,6 +4,7 @@ export default {
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
+    "./lib/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
@@ -16,7 +17,7 @@ export default {
           DEFAULT: "#D53F00",
           light: "#F7A540",
         },
-        ink: "#4B4F58",
+        ink: "#111318",
       },
     },
   },

@@ -23,7 +23,11 @@ model User {
 
   cityAccess      UserCityAccess[]
   documents       Document[]
-  maintenanceLogs MaintenanceLog[]
+  maintenanceLogs      MaintenanceLog[]
+  ultrasoundLogs       UltrasoundLog[]
+  visualInspectionLogs VisualInspectionLog[]
+  pieceOrders          PieceOrder[]
+  inventoryItems       InventoryItem[]
 
   @@map("users")
 }
@@ -57,6 +61,8 @@ model Section {
 
   vehicleRecords VehicleRecord[]
   documents      Document[]
+  pieceOrders    PieceOrder[]
+  inventoryItems InventoryItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,9 +94,11 @@ model VehicleRecord {
   activo    Boolean   @default(true)
   fechaBaja DateTime?
 
-  documents       Document[]
-  technicalSheet  VehicleTechnicalSheet?
-  maintenanceLogs MaintenanceLog[]
+  documents            Document[]
+  technicalSheet       VehicleTechnicalSheet?
+  maintenanceLogs      MaintenanceLog[]
+  ultrasoundLogs       UltrasoundLog[]
+  visualInspectionLogs VisualInspectionLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -130,6 +138,11 @@ model VehicleTechnicalSheet {
   numeroUltimoUltrasonido String?
   ultimoUltrasonido     DateTime?
   fechaProximoUltrasonido DateTime?
+
+  // Inspección visual (mismo mecanismo que el ultrasonido, ver VisualInspectionLog)
+  numeroUltimaInspeccionVisual String?
+  ultimaInspeccionVisual       DateTime?
+  fechaProximaInspeccionVisual DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -173,6 +186,135 @@ model MaintenanceLog {
   @@map("maintenance_logs")
 }
 
+// Registro de cada realización de ultrasonido de tanque (Auto-Tanques). Al
+// crearse, actualiza automáticamente ultimoUltrasonido/numeroUltimoUltrasonido
+// en la ficha técnica del vehículo (ver actions/ultrasound-actions.ts), de
+// modo que la ficha técnica siempre refleje el ultrasonido más reciente
+// mientras este registro conserva el historial completo (compañía,
+// responsable, documentos) de cada evento.
+model UltrasoundLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  compania          String?
+  numeroUltrasonido String?
+  responsable       String?
+
+  // Fecha del ultrasonido anterior, capturada como referencia al momento de
+  // registrar este nuevo evento.
+  fechaUltimoUltrasonido DateTime?
+  // Fecha en que se realizó este nuevo ultrasonido (pasa a ser el
+  // "ultimoUltrasonido" de la ficha técnica al aceptar el registro).
+  fechaRealizacion DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ultrasound_logs")
+}
+
+// Registro de cada realización de inspección visual de tanque (Auto-Tanques).
+// Funciona igual que UltrasoundLog: al crearse, actualiza automáticamente
+// ultimaInspeccionVisual/numeroUltimaInspeccionVisual en la ficha técnica del
+// vehículo (ver actions/visual-inspection-actions.ts).
+model VisualInspectionLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  compania        String?
+  numeroInspeccion String?
+  responsable     String?
+
+  // Fecha de la inspección visual anterior, capturada como referencia al
+  // momento de registrar este nuevo evento.
+  fechaUltimaInspeccion DateTime?
+  // Fecha en que se realizó esta nueva inspección visual (pasa a ser la
+  // "ultimaInspeccionVisual" de la ficha técnica al aceptar el registro).
+  fechaRealizacion DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("visual_inspection_logs")
+}
+
+// Orden de una pieza común solicitada para una ciudad, en el apartado "Orden
+// de Pieza". Al marcarse como ACEPTADA se crea automáticamente un
+// InventoryItem correspondiente en el apartado de Inventarios de la misma
+// ciudad (ver actions/piece-order-actions.ts). El registro de la orden
+// permanece aquí sin importar su estatus final.
+model PieceOrder {
+  id String @id @default(cuid())
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  pieza      String
+  cantidad   String?
+  fechaOrden DateTime
+
+  // "PENDIENTE" | "ACEPTADA" | "RECHAZADA"
+  estado String @default("PENDIENTE")
+
+  inventoryItem InventoryItem?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("piece_orders")
+}
+
+// Pieza en inventario, generada automáticamente al aceptar una PieceOrder.
+// "POR_UTILIZAR" pasa a "UTILIZADA" automáticamente 5 días después de
+// marcarse (barrido en actions/inventory-actions.ts que corre cada vez que
+// se visita el apartado de Inventarios de esa ciudad). Una vez "UTILIZADA"
+// el registro se conserva pero se muestra al final de la lista, igual que
+// al dar de baja una unidad.
+model InventoryItem {
+  id String @id @default(cuid())
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  pieceOrderId String?     @unique
+  pieceOrder   PieceOrder? @relation(fields: [pieceOrderId], references: [id], onDelete: SetNull)
+
+  pieza    String
+  cantidad String?
+
+  // "EN_INVENTARIO" | "POR_UTILIZAR" | "UTILIZADA"
+  estado String @default("EN_INVENTARIO")
+
+  fechaIngreso          DateTime  @default(now())
+  fechaPorUtilizarDesde DateTime?
+  fechaUtilizada        DateTime?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("inventory_items")
+}
+
 // PDFs adjuntos a un apartado, o a una unidad (VehicleRecord) específica dentro
 // de un apartado de tipo "unidades" (vehicleRecordId presente). Solo un ADMIN
 // puede subir/eliminar (validado en el server action); cualquier usuario con
@@ -188,6 +330,12 @@ model Document {
 
   maintenanceLogId String?
   maintenanceLog   MaintenanceLog? @relation(fields: [maintenanceLogId], references: [id], onDelete: Cascade)
+
+  ultrasoundLogId String?
+  ultrasoundLog   UltrasoundLog? @relation(fields: [ultrasoundLogId], references: [id], onDelete: Cascade)
+
+  visualInspectionLogId String?
+  visualInspectionLog   VisualInspectionLog? @relation(fields: [visualInspectionLogId], references: [id], onDelete: Cascade)
 
   fileName   String
   storedName String

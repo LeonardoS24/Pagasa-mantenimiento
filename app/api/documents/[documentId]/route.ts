@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { storagePathFor, vehicleOwnerKey, maintenanceLogOwnerKey } from "@/lib/documents";
+import {
+  storagePathFor,
+  vehicleOwnerKey,
+  maintenanceLogOwnerKey,
+  ultrasoundLogOwnerKey,
+  visualInspectionLogOwnerKey,
+} from "@/lib/documents";
 
 export async function GET(
   _request: NextRequest,
@@ -32,9 +38,13 @@ export async function GET(
 
   const ownerKey = document.maintenanceLogId
     ? maintenanceLogOwnerKey(document.maintenanceLogId)
-    : document.vehicleRecordId
-      ? vehicleOwnerKey(document.vehicleRecordId)
-      : document.sectionId;
+    : document.ultrasoundLogId
+      ? ultrasoundLogOwnerKey(document.ultrasoundLogId)
+      : document.visualInspectionLogId
+        ? visualInspectionLogOwnerKey(document.visualInspectionLogId)
+        : document.vehicleRecordId
+          ? vehicleOwnerKey(document.vehicleRecordId)
+          : document.sectionId;
 
   try {
     const buffer = await fs.readFile(storagePathFor(ownerKey, document.storedName));

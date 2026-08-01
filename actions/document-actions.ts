@@ -8,6 +8,8 @@ import {
   deleteDocumentFile,
   vehicleOwnerKey,
   maintenanceLogOwnerKey,
+  ultrasoundLogOwnerKey,
+  visualInspectionLogOwnerKey,
   MAX_DOCUMENT_SIZE,
 } from "@/lib/documents";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
@@ -143,6 +145,89 @@ export async function uploadMaintenanceLogDocument(
   return { success: "PDF subido correctamente." };
 }
 
+export async function uploadUltrasoundLogDocument(
+  ultrasoundLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.ultrasoundLog.findUnique({
+    where: { id: ultrasoundLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(ultrasoundLogOwnerKey(ultrasoundLogId), file);
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      ultrasoundLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "PDF subido correctamente." };
+}
+
+export async function uploadVisualInspectionLogDocument(
+  visualInspectionLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.visualInspectionLog.findUnique({
+    where: { id: visualInspectionLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(
+    visualInspectionLogOwnerKey(visualInspectionLogId),
+    file
+  );
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      visualInspectionLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "PDF subido correctamente." };
+}
+
 export async function deleteDocument(documentId: string) {
   await requireAdmin();
 
@@ -153,20 +238,36 @@ export async function deleteDocument(documentId: string) {
       maintenanceLog: {
         include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
       },
+      ultrasoundLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
+      visualInspectionLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
     },
   });
   if (!document) return;
 
   const ownerKey = document.maintenanceLogId
     ? maintenanceLogOwnerKey(document.maintenanceLogId)
-    : document.vehicleRecordId
-      ? vehicleOwnerKey(document.vehicleRecordId)
-      : document.sectionId;
+    : document.ultrasoundLogId
+      ? ultrasoundLogOwnerKey(document.ultrasoundLogId)
+      : document.visualInspectionLogId
+        ? visualInspectionLogOwnerKey(document.visualInspectionLogId)
+        : document.vehicleRecordId
+          ? vehicleOwnerKey(document.vehicleRecordId)
+          : document.sectionId;
   await deleteDocumentFile(ownerKey, document.storedName);
   await prisma.document.delete({ where: { id: documentId } });
 
   if (document.maintenanceLog) {
     const vehicle = document.maintenanceLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.ultrasoundLog) {
+    const vehicle = document.ultrasoundLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.visualInspectionLog) {
+    const vehicle = document.visualInspectionLog.vehicleRecord;
     revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
   } else if (document.vehicleRecordId) {
     revalidatePath(`/ciudades/${document.section.city.slug}/vehiculo/${document.vehicleRecordId}`);

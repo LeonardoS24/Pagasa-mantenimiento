@@ -46,46 +46,46 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="tipoMantenimiento">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-tipoMantenimiento">
               Tipo de mantenimiento
             </label>
-            <input id="tipoMantenimiento" name="tipoMantenimiento" required className={inputClass} />
+            <input id="mnt-tipoMantenimiento" name="tipoMantenimiento" required className={inputClass} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="tipoServicio">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-tipoServicio">
               Tipo de servicio
             </label>
-            <input id="tipoServicio" name="tipoServicio" required className={inputClass} />
+            <input id="mnt-tipoServicio" name="tipoServicio" required className={inputClass} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="fecha">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-fecha">
               Fecha
             </label>
-            <input id="fecha" name="fecha" type="date" required className={inputClass} />
+            <input id="mnt-fecha" name="fecha" type="date" required className={inputClass} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="pieza">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-pieza">
               Pieza
             </label>
-            <input id="pieza" name="pieza" className={inputClass} />
+            <input id="mnt-pieza" name="pieza" className={inputClass} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="cantidad">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-cantidad">
               Cantidad
             </label>
-            <input id="cantidad" name="cantidad" className={inputClass} />
+            <input id="mnt-cantidad" name="cantidad" className={inputClass} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="unidad">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-unidad">
               Unidad
             </label>
-            <input id="unidad" name="unidad" className={inputClass} />
+            <input id="mnt-unidad" name="unidad" className={inputClass} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="estatus">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-estatus">
               Estatus del proceso
             </label>
-            <select id="estatus" name="estatus" defaultValue="SIN_ATENCION" className={inputClass}>
+            <select id="mnt-estatus" name="estatus" defaultValue="SIN_ATENCION" className={inputClass}>
               {Object.entries(maintenanceStatusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -94,26 +94,26 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="nombreOperador">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-nombreOperador">
               Nombre del operador
             </label>
-            <input id="nombreOperador" name="nombreOperador" className={inputClass} />
+            <input id="mnt-nombreOperador" name="nombreOperador" className={inputClass} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="auxiliarTecnico">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-auxiliarTecnico">
               Auxiliar técnico
             </label>
-            <input id="auxiliarTecnico" name="auxiliarTecnico" className={inputClass} />
+            <input id="mnt-auxiliarTecnico" name="auxiliarTecnico" className={inputClass} />
           </div>
           <div>
             <label
               className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="responsableTrabajoMecanico"
+              htmlFor="mnt-responsableTrabajoMecanico"
             >
               Responsable del trabajo mecánico
             </label>
             <input
-              id="responsableTrabajoMecanico"
+              id="mnt-responsableTrabajoMecanico"
               name="responsableTrabajoMecanico"
               className={inputClass}
             />
@@ -121,16 +121,29 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="descripcion">
+          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-descripcion">
             Descripción
           </label>
-          <textarea id="descripcion" name="descripcion" rows={2} className={inputClass} />
+          <textarea id="mnt-descripcion" name="descripcion" rows={2} className={inputClass} />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="observacion">
+          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-observacion">
             Observación
           </label>
-          <textarea id="observacion" name="observacion" rows={2} className={inputClass} />
+          <textarea id="mnt-observacion" name="observacion" rows={2} className={inputClass} />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-files">
+            Documentos (PDF, opcional)
+          </label>
+          <input
+            id="mnt-files"
+            name="files"
+            type="file"
+            accept="application/pdf"
+            multiple
+            className="w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
+          />
         </div>
 
         <FormMessage state={state} />

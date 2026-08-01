@@ -148,6 +148,22 @@ const optionalDate = z.preprocess((value) => {
   return text.length > 0 ? new Date(text) : null;
 }, z.date().nullable());
 
+const requiredProximoUltrasonidoDate = z.preprocess((value) => {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? new Date(text) : undefined;
+}, z.date({
+  required_error: "La fecha próxima de ultrasonido es requerida para Auto-Tanques.",
+  invalid_type_error: "Fecha próxima de ultrasonido inválida.",
+}));
+
+const requiredProximaInspeccionVisualDate = z.preprocess((value) => {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? new Date(text) : undefined;
+}, z.date({
+  required_error: "La fecha próxima de inspección visual es requerida para Auto-Tanques.",
+  invalid_type_error: "Fecha próxima de inspección visual inválida.",
+}));
+
 const technicalSheetSchema = z.object({
   fabricante: optionalText(100),
   marca: optionalText(100),
@@ -172,6 +188,9 @@ const technicalSheetSchema = z.object({
   numeroUltimoUltrasonido: optionalText(100),
   ultimoUltrasonido: optionalDate,
   fechaProximoUltrasonido: optionalDate,
+  numeroUltimaInspeccionVisual: optionalText(100),
+  ultimaInspeccionVisual: optionalDate,
+  fechaProximaInspeccionVisual: optionalDate,
 });
 
 export async function upsertTechnicalSheet(
@@ -181,7 +200,25 @@ export async function upsertTechnicalSheet(
 ): Promise<ActionState> {
   await requireEditor();
 
-  const parsed = technicalSheetSchema.safeParse({
+  const vehicle = await prisma.vehicleRecord.findUnique({
+    where: { id: vehicleId },
+    include: { section: { include: { city: true } } },
+  });
+  if (!vehicle) {
+    return { error: "El registro no existe." };
+  }
+
+  // Auto-Tanques debe programar el próximo ultrasonido antes de poder
+  // guardar la ficha técnica; los demás tipos de unidad lo dejan opcional.
+  const schema =
+    vehicle.section.slug === "auto-tanques"
+      ? technicalSheetSchema.extend({
+          fechaProximoUltrasonido: requiredProximoUltrasonidoDate,
+          fechaProximaInspeccionVisual: requiredProximaInspeccionVisualDate,
+        })
+      : technicalSheetSchema;
+
+  const parsed = schema.safeParse({
     fabricante: formData.get("fabricante"),
     marca: formData.get("marca"),
     linea: formData.get("linea"),
@@ -202,18 +239,13 @@ export async function upsertTechnicalSheet(
     numeroUltimoUltrasonido: formData.get("numeroUltimoUltrasonido"),
     ultimoUltrasonido: formData.get("ultimoUltrasonido"),
     fechaProximoUltrasonido: formData.get("fechaProximoUltrasonido"),
+    numeroUltimaInspeccionVisual: formData.get("numeroUltimaInspeccionVisual"),
+    ultimaInspeccionVisual: formData.get("ultimaInspeccionVisual"),
+    fechaProximaInspeccionVisual: formData.get("fechaProximaInspeccionVisual"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
-  }
-
-  const vehicle = await prisma.vehicleRecord.findUnique({
-    where: { id: vehicleId },
-    include: { section: { include: { city: true } } },
-  });
-  if (!vehicle) {
-    return { error: "El registro no existe." };
   }
 
   await prisma.vehicleTechnicalSheet.upsert({

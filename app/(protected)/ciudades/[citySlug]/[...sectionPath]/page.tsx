@@ -11,6 +11,10 @@ import { DocumentList } from "@/components/city/DocumentList";
 import { UploadDocumentForm } from "@/components/admin/UploadDocumentForm";
 import { CreateVehicleForm } from "@/components/admin/CreateVehicleForm";
 import { CityMaintenanceFeed } from "@/components/city/CityMaintenanceFeed";
+import { CreatePieceOrderForm } from "@/components/admin/CreatePieceOrderForm";
+import { PieceOrderTable } from "@/components/city/PieceOrderTable";
+import { InventoryItemTable } from "@/components/city/InventoryItemTable";
+import { sweepExpiredPorUtilizar } from "@/actions/inventory-actions";
 
 export default async function SectionPage({
   params,
@@ -27,6 +31,8 @@ export default async function SectionPage({
 
   const current = chain[chain.length - 1];
   const isBitacoraFeed = chain.length === 1 && current.slug === "bitacoras-de-unidades";
+  const isOrdenDePieza = chain.length === 1 && current.slug === "orden-de-pieza";
+  const isInventarios = chain.length === 1 && current.slug === "inventarios";
 
   // Cualquier apartado hoja directamente dentro de "Unidad de distribución"
   // (en cualquier ciudad) es un apartado de tipo unidades: muestra la tabla
@@ -48,6 +54,23 @@ export default async function SectionPage({
         orderBy: { fecha: "desc" },
         take: 100,
         include: { vehicleRecord: true },
+      })
+    : [];
+
+  const pieceOrders = isOrdenDePieza
+    ? await prisma.pieceOrder.findMany({
+        where: { sectionId: current.id },
+        orderBy: { fechaOrden: "desc" },
+      })
+    : [];
+
+  if (isInventarios) {
+    await sweepExpiredPorUtilizar(current.id);
+  }
+  const inventoryItems = isInventarios
+    ? await prisma.inventoryItem.findMany({
+        where: { sectionId: current.id },
+        orderBy: { fechaIngreso: "desc" },
       })
     : [];
 
@@ -93,6 +116,13 @@ export default async function SectionPage({
         </div>
       ) : isBitacoraFeed ? (
         <CityMaintenanceFeed logs={cityMaintenanceLogs} citySlug={city.slug} />
+      ) : isOrdenDePieza ? (
+        <div className="space-y-3">
+          {isEditor && <CreatePieceOrderForm sectionId={current.id} />}
+          <PieceOrderTable orders={pieceOrders} canEdit={isEditor} isAdmin={isAdmin} />
+        </div>
+      ) : isInventarios ? (
+        <InventoryItemTable items={inventoryItems} canEdit={isEditor} isAdmin={isAdmin} />
       ) : isVehicleSection ? (
         <div>
           <VehicleTable records={vehicleRecords} citySlug={city.slug} />

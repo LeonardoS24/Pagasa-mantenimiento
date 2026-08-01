@@ -6,6 +6,17 @@ import {
   ultrasoundAlertLabel,
   ultrasoundAlertRowStyles,
 } from "@/lib/ultrasound-alerts";
+import {
+  getVisualInspectionAlertLevel,
+  visualInspectionAlertBadgeStyles,
+  visualInspectionAlertLabel,
+} from "@/lib/visual-inspection-alerts";
+
+function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
+  if (levels.includes("red")) return ultrasoundAlertRowStyles.red;
+  if (levels.includes("yellow")) return ultrasoundAlertRowStyles.yellow;
+  return "";
+}
 
 type VehicleRecordWithSheet = VehicleRecord & { technicalSheet: VehicleTechnicalSheet | null };
 
@@ -48,10 +59,13 @@ export function VehicleTable({
             const alertLevel = record.activo
               ? getUltrasoundAlertLevel(record.technicalSheet?.fechaProximoUltrasonido)
               : "none";
+            const visualAlertLevel = record.activo
+              ? getVisualInspectionAlertLevel(record.technicalSheet?.fechaProximaInspeccionVisual)
+              : "none";
             return (
               <tr
                 key={record.id}
-                className={`border-t border-gray-100 hover:bg-gray-50 ${!record.activo ? "bg-orange-50" : ultrasoundAlertRowStyles[alertLevel]}`}
+                className={`border-t border-gray-100 hover:bg-gray-50 ${!record.activo ? "bg-orange-50" : worstRowStyle(alertLevel, visualAlertLevel)}`}
               >
                 <td className="whitespace-nowrap px-4 py-2 font-medium text-primary">
                   <Link href={`/ciudades/${citySlug}/vehiculo/${record.id}`} className="hover:underline">
@@ -68,6 +82,16 @@ export function VehicleTable({
                       className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${ultrasoundAlertBadgeStyles[alertLevel]}`}
                     >
                       {ultrasoundAlertLabel(alertLevel, record.technicalSheet.fechaProximoUltrasonido)}
+                    </span>
+                  )}
+                  {visualAlertLevel !== "none" && record.technicalSheet?.fechaProximaInspeccionVisual && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${visualInspectionAlertBadgeStyles[visualAlertLevel]}`}
+                    >
+                      {visualInspectionAlertLabel(
+                        visualAlertLevel,
+                        record.technicalSheet.fechaProximaInspeccionVisual
+                      )}
                     </span>
                   )}
                 </td>

@@ -13,14 +13,23 @@ import { TechnicalSheetForm } from "@/components/admin/TechnicalSheetForm";
 import { TechnicalSheetView } from "@/components/city/TechnicalSheetView";
 import { CreateMaintenanceLogForm } from "@/components/admin/CreateMaintenanceLogForm";
 import { MaintenanceLogTable } from "@/components/city/MaintenanceLogTable";
+import { CreateUltrasoundLogForm } from "@/components/admin/CreateUltrasoundLogForm";
+import { UltrasoundLogTable } from "@/components/city/UltrasoundLogTable";
+import { CreateVisualInspectionLogForm } from "@/components/admin/CreateVisualInspectionLogForm";
+import { VisualInspectionLogTable } from "@/components/city/VisualInspectionLogTable";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { updateVehicleRecord, deleteVehicleRecord, setVehicleActive } from "@/actions/vehicle-actions";
-import { formatDate } from "@/lib/dates";
+import { formatDate, toDateInputValue } from "@/lib/dates";
 import {
   getUltrasoundAlertLevel,
   ultrasoundAlertBadgeStyles,
   ultrasoundAlertLabel,
 } from "@/lib/ultrasound-alerts";
+import {
+  getVisualInspectionAlertLevel,
+  visualInspectionAlertBadgeStyles,
+  visualInspectionAlertLabel,
+} from "@/lib/visual-inspection-alerts";
 
 export default async function VehicleDetailPage({
   params,
@@ -42,6 +51,14 @@ export default async function VehicleDetailPage({
         orderBy: { fecha: "desc" },
         include: { documents: { orderBy: { createdAt: "desc" } } },
       },
+      ultrasoundLogs: {
+        orderBy: { fechaRealizacion: "desc" },
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
+      visualInspectionLogs: {
+        orderBy: { fechaRealizacion: "desc" },
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
     },
   });
   if (!vehicle || vehicle.section.city.slug !== params.citySlug) notFound();
@@ -50,8 +67,12 @@ export default async function VehicleDetailPage({
   const basePath = sectionBasePath(params.citySlug, chain);
   const isAdmin = user.role === "ADMIN";
   const isEditor = canEdit(user.role);
+  const isAutoTanques = vehicle.section.slug === "auto-tanques";
   const alertLevel = vehicle.activo
     ? getUltrasoundAlertLevel(vehicle.technicalSheet?.fechaProximoUltrasonido)
+    : "none";
+  const visualAlertLevel = vehicle.activo
+    ? getVisualInspectionAlertLevel(vehicle.technicalSheet?.fechaProximaInspeccionVisual)
     : "none";
 
   const breadcrumbItems: BreadcrumbItem[] = [
@@ -83,6 +104,16 @@ export default async function VehicleDetailPage({
             className={`rounded-full px-3 py-1 text-xs font-medium ${ultrasoundAlertBadgeStyles[alertLevel]}`}
           >
             {ultrasoundAlertLabel(alertLevel, vehicle.technicalSheet.fechaProximoUltrasonido)}
+          </span>
+        )}
+        {visualAlertLevel !== "none" && vehicle.technicalSheet?.fechaProximaInspeccionVisual && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${visualInspectionAlertBadgeStyles[visualAlertLevel]}`}
+          >
+            {visualInspectionAlertLabel(
+              visualAlertLevel,
+              vehicle.technicalSheet.fechaProximaInspeccionVisual
+            )}
           </span>
         )}
       </div>
@@ -131,14 +162,59 @@ export default async function VehicleDetailPage({
           Ficha técnica
         </h2>
         {isEditor ? (
-          <TechnicalSheetForm vehicleId={vehicle.id} sheet={vehicle.technicalSheet} />
+          <TechnicalSheetForm
+            vehicleId={vehicle.id}
+            sheet={vehicle.technicalSheet}
+            requireProximoUltrasonido={isAutoTanques}
+            requireProximaInspeccionVisual={isAutoTanques}
+          />
         ) : (
           <TechnicalSheetView sheet={vehicle.technicalSheet} />
         )}
       </div>
 
-      <div className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      {isAutoTanques && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Registro de ultrasonido
+          </h2>
+          <div className="space-y-3">
+            {isEditor && (
+              <CreateUltrasoundLogForm
+                vehicleId={vehicle.id}
+                ultimoUltrasonido={toDateInputValue(vehicle.technicalSheet?.ultimoUltrasonido)}
+              />
+            )}
+            <UltrasoundLogTable logs={vehicle.ultrasoundLogs} canEdit={isEditor} isAdmin={isAdmin} />
+          </div>
+        </div>
+      )}
+
+      {isAutoTanques && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Inspección Visual
+          </h2>
+          <div className="space-y-3">
+            {isEditor && (
+              <CreateVisualInspectionLogForm
+                vehicleId={vehicle.id}
+                ultimaInspeccionVisual={toDateInputValue(
+                  vehicle.technicalSheet?.ultimaInspeccionVisual
+                )}
+              />
+            )}
+            <VisualInspectionLogTable
+              logs={vehicle.visualInspectionLogs}
+              canEdit={isEditor}
+              isAdmin={isAdmin}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Bitácora de mantenimiento
         </h2>
         <div className="space-y-3">
@@ -147,8 +223,8 @@ export default async function VehicleDetailPage({
         </div>
       </div>
 
-      <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Documentos (PDF)
         </h2>
         <div className="space-y-3">
@@ -158,7 +234,7 @@ export default async function VehicleDetailPage({
       </div>
 
       {isAdmin && (
-        <div className="mt-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
             Estatus de la unidad
           </h2>
@@ -187,7 +263,7 @@ export default async function VehicleDetailPage({
       )}
 
       {isAdmin && (
-        <div className="mt-8 rounded-lg border border-red-200 bg-white p-5">
+        <div className="mb-8 rounded-lg border border-red-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
             Zona de peligro
           </h2>
