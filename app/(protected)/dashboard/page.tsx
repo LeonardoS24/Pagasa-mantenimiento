@@ -8,12 +8,16 @@ import { TightnessTestAlertsPanel } from "@/components/dashboard/TightnessTestAl
 import { InternalVisualInspectionAlertsPanel } from "@/components/dashboard/InternalVisualInspectionAlertsPanel";
 import { HydrostaticTestAlertsPanel } from "@/components/dashboard/HydrostaticTestAlertsPanel";
 import { ExtinguisherAlertsPanel } from "@/components/dashboard/ExtinguisherAlertsPanel";
+import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlertsPanel";
 import { getUltrasoundAlertLevel, daysUntil } from "@/lib/ultrasound-alerts";
 import { getVisualInspectionAlertLevel } from "@/lib/visual-inspection-alerts";
 import { getTightnessTestAlertLevel } from "@/lib/tightness-test-alerts";
 import { getInternalVisualInspectionAlertLevel } from "@/lib/internal-visual-inspection-alerts";
 import { getHydrostaticTestAlertLevel } from "@/lib/hydrostatic-test-alerts";
 import { getExtinguisherAlertLevel } from "@/lib/extinguisher-alerts";
+import { getMaintenanceAlertLevel } from "@/lib/maintenance-alerts";
+import { getValveAlertLevel, getValveVencimiento, oldestValve } from "@/lib/valve-alerts";
+import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -33,6 +37,11 @@ export default async function DashboardPage() {
           { fechaProximaInspeccionVisualInterna: { lte: soon } },
           { fechaProximaPruebaHidrostatica: { lte: soon } },
           { calidadExtintor: "MALA" },
+          { fechaProximoMantenimiento: { lte: soon } },
+          { fechaFabricacionValvulaLlenado: { not: null } },
+          { fechaFabricacionValvulaServicio: { not: null } },
+          { fechaFabricacionValvulaMaximoLlenado: { not: null } },
+          { fechaFabricacionValvulaAlivio: { not: null } },
         ],
       },
     },
@@ -160,6 +169,51 @@ export default async function DashboardPage() {
       return aTime - bTime;
     });
 
+  const maintenanceAlertVehicles = upcomingRecords
+    .map((record) => {
+      const fecha = record.technicalSheet?.fechaProximoMantenimiento;
+      if (!fecha) return null;
+      const level = getMaintenanceAlertLevel(fecha);
+      if (level === "none") return null;
+      return {
+        id: record.id,
+        numeroEconomico: record.numeroEconomico,
+        citySlug: record.section.city.slug,
+        cityName: record.section.city.name,
+        fechaProximoMantenimiento: fecha,
+        kilometrajeProximoMantenimiento: record.technicalSheet?.kilometrajeProximoMantenimiento ?? null,
+        level,
+      };
+    })
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .sort((a, b) => daysUntil(a.fechaProximoMantenimiento) - daysUntil(b.fechaProximoMantenimiento));
+
+  const valveAlertVehicles = upcomingRecords
+    .map((record) => {
+      const dates = {
+        fechaFabricacionValvulaLlenado: record.technicalSheet?.fechaFabricacionValvulaLlenado,
+        fechaFabricacionValvulaServicio: record.technicalSheet?.fechaFabricacionValvulaServicio,
+        fechaFabricacionValvulaMaximoLlenado:
+          record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
+        fechaFabricacionValvulaAlivio: record.technicalSheet?.fechaFabricacionValvulaAlivio,
+      };
+      const level = getValveAlertLevel(dates);
+      if (level === "none") return null;
+      const vencimiento = getValveVencimiento(dates);
+      if (!vencimiento) return null;
+      return {
+        id: record.id,
+        numeroEconomico: record.numeroEconomico,
+        citySlug: record.section.city.slug,
+        cityName: record.section.city.name,
+        vencimiento,
+        valvulaMasAntigua: oldestValve(dates)?.key,
+        level,
+      };
+    })
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
+
   return (
     <div>
       <UltrasoundAlertsPanel vehicles={alertVehicles} />
@@ -168,6 +222,8 @@ export default async function DashboardPage() {
       <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} />
       <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} />
       <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
+      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
+      <ValveAlertsPanel vehicles={valveAlertVehicles} />
       <h1 className="mb-1 text-2xl font-semibold text-primary">Ciudades</h1>
       <p className="mb-6 text-sm text-ink">
         {cities.length > 0

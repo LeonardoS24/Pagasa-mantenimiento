@@ -84,6 +84,17 @@ export default async function SectionPage({
     ? await prisma.inventoryItem.findMany({
         where: { sectionId: current.id },
         orderBy: { fechaIngreso: "desc" },
+        include: { usedOnVehicle: { select: { numeroEconomico: true } } },
+      })
+    : [];
+
+  // Unidades activas de la ciudad, para elegir dónde se colocó una pieza al
+  // marcarla "Utilizada" (ver InventoryItemStatusForm).
+  const cityVehicles = isInventarios
+    ? await prisma.vehicleRecord.findMany({
+        where: { activo: true, section: { cityId: city.id } },
+        orderBy: [{ section: { order: "asc" } }, { numeroEconomico: "asc" }],
+        select: { id: true, numeroEconomico: true, section: { select: { name: true } } },
       })
     : [];
 
@@ -135,7 +146,13 @@ export default async function SectionPage({
           <PieceOrderTable orders={pieceOrders} canEdit={isEditor} isAdmin={isAdmin} />
         </div>
       ) : isInventarios ? (
-        <InventoryItemTable items={inventoryItems} canEdit={isEditor} isAdmin={isAdmin} />
+        <InventoryItemTable
+          items={inventoryItems}
+          vehicles={cityVehicles}
+          citySlug={city.slug}
+          canEdit={isEditor}
+          isAdmin={isAdmin}
+        />
       ) : isVehicleSection ? (
         <div>
           <VehicleTable records={vehicleRecords} citySlug={city.slug} />

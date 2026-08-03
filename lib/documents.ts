@@ -68,6 +68,14 @@ export function extinguisherChangeLogOwnerKey(extinguisherChangeLogId: string): 
   return path.posix.join("extinguisher-change-logs", extinguisherChangeLogId);
 }
 
+export function valveChangeLogOwnerKey(valveChangeLogId: string): string {
+  return path.posix.join("valve-change-logs", valveChangeLogId);
+}
+
+export function valveCorrectiveMaintenanceLogOwnerKey(valveCorrectiveMaintenanceLogId: string): string {
+  return path.posix.join("valve-corrective-maintenance-logs", valveCorrectiveMaintenanceLogId);
+}
+
 // Lee cero o más PDFs adjuntos en el mismo envío de un formulario (p. ej. al
 // registrar un mantenimiento o un ultrasonido, sin tener que subirlos después
 // por separado). A diferencia de un solo archivo requerido, aquí no adjuntar

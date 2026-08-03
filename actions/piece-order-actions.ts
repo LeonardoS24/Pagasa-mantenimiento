@@ -41,7 +41,52 @@ const createPieceOrderSchema = z.object({
     const text = String(value ?? "").trim();
     return text.length > 0 ? new Date(text) : undefined;
   }, z.date({ required_error: "La fecha de la orden es requerida", invalid_type_error: "Fecha inválida" })),
+  // Se puede registrar la orden ya aceptada/rechazada desde el mismo
+  // formulario, sin tener que cambiarla después en la tabla.
+  estado: pieceOrderStatusSchema.default("PENDIENTE"),
 });
+
+// Da de alta los renglones en el apartado de Inventarios de la misma ciudad
+// al aceptar una orden (desde su creación o desde un cambio de estatus
+// posterior). Los tipos contables se desglosan uno por uno —5 refacciones
+// son 5 renglones independientes, cada uno con su propio estatus y su propio
+// plazo de 5 días—; el consumible se queda en un solo renglón con el total
+// (20 lts, no 20 renglones de 1 lt). No hace nada si la orden ya tiene
+// renglones generados (evita duplicar si se acepta dos veces).
+async function createInventoryItemsForAcceptedOrder(order: {
+  id: string;
+  cityId: string;
+  citySlug: string;
+  tipo: string;
+  nombre: string;
+  unidad: string;
+  cantidad: number;
+  createdById: string;
+}) {
+  const existing = await prisma.inventoryItem.count({ where: { pieceOrderId: order.id } });
+  if (existing > 0) return;
+
+  const inventarios = await prisma.section.findFirst({
+    where: { cityId: order.cityId, parentId: null, slug: "inventarios" },
+  });
+  if (!inventarios) return;
+
+  const contable = esContable(order.tipo as Parameters<typeof esContable>[0]);
+  const filas = contable ? Array.from({ length: order.cantidad }, () => 1) : [order.cantidad];
+
+  await prisma.inventoryItem.createMany({
+    data: filas.map((cantidad) => ({
+      sectionId: inventarios.id,
+      pieceOrderId: order.id,
+      tipo: order.tipo,
+      nombre: order.nombre,
+      unidad: order.unidad,
+      cantidad,
+      createdById: order.createdById,
+    })),
+  });
+  revalidatePath(sectionBasePath(order.citySlug, [inventarios]));
+}
 
 export async function createPieceOrder(
   sectionId: string,
@@ -58,6 +103,7 @@ export async function createPieceOrder(
     unidadConsumible: formData.get("unidadConsumible"),
     cantidad: formData.get("cantidad"),
     fechaOrden: formData.get("fechaOrden"),
+    estado: formData.get("estado"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -71,17 +117,32 @@ export async function createPieceOrder(
     return { error: "El apartado no existe." };
   }
 
-  await prisma.pieceOrder.create({
+  const unidad = unidadParaTipo(parsed.data.tipo, parsed.data.unidadConsumible);
+  const order = await prisma.pieceOrder.create({
     data: {
       sectionId,
       createdById: editor.userId,
       tipo: parsed.data.tipo,
       nombre: parsed.data.nombre,
-      unidad: unidadParaTipo(parsed.data.tipo, parsed.data.unidadConsumible),
+      unidad,
       cantidad: parsed.data.cantidad,
       fechaOrden: parsed.data.fechaOrden,
+      estado: parsed.data.estado,
     },
   });
+
+  if (parsed.data.estado === "ACEPTADA") {
+    await createInventoryItemsForAcceptedOrder({
+      id: order.id,
+      cityId: section.cityId,
+      citySlug: section.city.slug,
+      tipo: order.tipo,
+      nombre: order.nombre,
+      unidad: order.unidad,
+      cantidad: order.cantidad,
+      createdById: order.createdById,
+    });
+  }
 
   revalidatePath(sectionBasePath(section.city.slug, [section]));
   return { success: "Orden registrada." };
@@ -101,7 +162,7 @@ export async function updatePieceOrderEstado(
 
   const order = await prisma.pieceOrder.findUnique({
     where: { id: orderId },
-    include: { section: { include: { city: true } }, inventoryItems: { select: { id: true } } },
+    include: { section: { include: { city: true } } },
   });
   if (!order) {
     return { error: "El registro no existe." };
@@ -109,34 +170,17 @@ export async function updatePieceOrderEstado(
 
   await prisma.pieceOrder.update({ where: { id: orderId }, data: { estado: parsed.data } });
 
-  // Al aceptar la orden (una sola vez) se dan de alta los renglones en el
-  // apartado de Inventarios de la misma ciudad. Los tipos contables se
-  // desglosan uno por uno —5 refacciones son 5 renglones independientes, cada
-  // uno con su propio estatus y su propio plazo de 5 días—; el consumible se
-  // queda en un solo renglón con el total (20 lts, no 20 renglones de 1 lt).
-  if (parsed.data === "ACEPTADA" && order.inventoryItems.length === 0) {
-    const inventarios = await prisma.section.findFirst({
-      where: { cityId: order.section.cityId, parentId: null, slug: "inventarios" },
+  if (parsed.data === "ACEPTADA") {
+    await createInventoryItemsForAcceptedOrder({
+      id: order.id,
+      cityId: order.section.cityId,
+      citySlug: order.section.city.slug,
+      tipo: order.tipo,
+      nombre: order.nombre,
+      unidad: order.unidad,
+      cantidad: order.cantidad,
+      createdById: order.createdById,
     });
-    if (inventarios) {
-      const contable = esContable(order.tipo as Parameters<typeof esContable>[0]);
-      const filas = contable
-        ? Array.from({ length: order.cantidad }, () => 1)
-        : [order.cantidad];
-
-      await prisma.inventoryItem.createMany({
-        data: filas.map((cantidad) => ({
-          sectionId: inventarios.id,
-          pieceOrderId: order.id,
-          tipo: order.tipo,
-          nombre: order.nombre,
-          unidad: order.unidad,
-          cantidad,
-          createdById: order.createdById,
-        })),
-      });
-      revalidatePath(sectionBasePath(order.section.city.slug, [inventarios]));
-    }
   }
 
   revalidatePath(sectionBasePath(order.section.city.slug, [order.section]));

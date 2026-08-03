@@ -74,6 +74,15 @@ export function formatCantidad(cantidad: number, unidad: string): string {
   return `${cantidad} lts`;
 }
 
+// Abreviatura de unidad sin cantidad, para prellenar el campo "Unidad" de la
+// bitácora de mantenimiento cuando una pieza de inventario se marca
+// "Utilizada" (ver actions/inventory-actions.ts).
+export function unidadAbreviatura(unidad: string): string {
+  if (unidad === "PZA") return "pza";
+  if (unidad === "KG") return "kg";
+  return "lts";
+}
+
 // Etiqueta completa de un renglón: "Balata delantera (Refacción) · 5 pzas"
 export function describeOrden(
   tipo: string,

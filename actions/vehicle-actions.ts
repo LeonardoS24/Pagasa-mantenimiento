@@ -223,6 +223,11 @@ const technicalSheetSchema = z.object({
   // No editable desde el formulario: se recalcula más abajo a partir de la
   // transición de calidadExtintor (ver fechaCalidadMalaTransition).
   fechaCalidadMalaExtintor: optionalDate,
+  fechaInstalacionValvulas: optionalDate,
+  fechaFabricacionValvulaLlenado: optionalDate,
+  fechaFabricacionValvulaServicio: optionalDate,
+  fechaFabricacionValvulaMaximoLlenado: optionalDate,
+  fechaFabricacionValvulaAlivio: optionalDate,
 });
 
 export async function upsertTechnicalSheet(
@@ -291,6 +296,11 @@ export async function upsertTechnicalSheet(
     fechaInstalacionExtintor: formData.get("fechaInstalacionExtintor"),
     fechaVencimientoExtintor: formData.get("fechaVencimientoExtintor"),
     calidadExtintor: formData.get("calidadExtintor"),
+    fechaInstalacionValvulas: formData.get("fechaInstalacionValvulas"),
+    fechaFabricacionValvulaLlenado: formData.get("fechaFabricacionValvulaLlenado"),
+    fechaFabricacionValvulaServicio: formData.get("fechaFabricacionValvulaServicio"),
+    fechaFabricacionValvulaMaximoLlenado: formData.get("fechaFabricacionValvulaMaximoLlenado"),
+    fechaFabricacionValvulaAlivio: formData.get("fechaFabricacionValvulaAlivio"),
   });
 
   if (!parsed.success) {
@@ -317,6 +327,13 @@ export async function upsertTechnicalSheet(
         ? vehicle.technicalSheet.fechaCalidadMalaExtintor
         : new Date()
       : null;
+
+  // Vehículo con tanque de carburación siempre usa gas LP y gasolina: se
+  // fija en el servidor sin importar lo que llegue del formulario (el campo
+  // se muestra bloqueado en la UI, pero esto es la garantía real).
+  if (vehicle.section.slug === "vehiculo-con-tanque-de-carburacion") {
+    data.combustible = "GAS_LP_GASOLINA";
+  }
 
   // La Serie del vehículo y el Número de serie del tanque identifican una
   // unidad física de forma única: no pueden repetirse entre dos números

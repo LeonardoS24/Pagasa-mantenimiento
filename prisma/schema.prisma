@@ -30,6 +30,8 @@ model User {
   internalVisualInspectionLogs  InternalVisualInspectionLog[]
   hydrostaticTestLogs           HydrostaticTestLog[]
   extinguisherChangeLogs        ExtinguisherChangeLog[]
+  valveChangeLogs               ValveChangeLog[]
+  valveCorrectiveMaintenanceLogs ValveCorrectiveMaintenanceLog[]
   pieceOrders                   PieceOrder[]
   inventoryItems                InventoryItem[]
 
@@ -107,6 +109,13 @@ model VehicleRecord {
   internalVisualInspectionLogs InternalVisualInspectionLog[]
   hydrostaticTestLogs          HydrostaticTestLog[]
   extinguisherChangeLogs       ExtinguisherChangeLog[]
+  valveChangeLogs              ValveChangeLog[]
+  valveCorrectiveMaintenanceLogs ValveCorrectiveMaintenanceLog[]
+  // Piezas de inventario (de cualquier ciudad) que se marcaron "Utilizada" en
+  // esta unidad (ver actions/inventory-actions.ts). No es lo mismo que
+  // "documents"/"maintenanceLogs": es solo trazabilidad de dónde se colocó
+  // cada pieza.
+  inventoryItemsColocados       InventoryItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -188,6 +197,30 @@ model VehicleTechnicalSheet {
   calidadExtintor          String? // "EXCELENTE" | "BUENA" | "MALA"
   fechaCalidadMalaExtintor DateTime?
 
+  // Mantenimiento preventivo: se actualiza automáticamente con cada
+  // mantenimiento que incluya kilometraje (ver actions/maintenance-actions.ts).
+  // El siguiente preventivo se calcula en ese momento como
+  // kilometrajeUltimoMantenimiento + 10,000 km y fechaUltimoMantenimiento + 6
+  // meses; el aviso (como el de ultrasonido) se evalúa por fecha, que es lo
+  // único que se puede verificar sin un kilometraje en vivo — el kilometraje
+  // objetivo se muestra como referencia para que el personal lo confirme
+  // contra el odómetro real.
+  kilometrajeUltimoMantenimiento   Int?
+  fechaUltimoMantenimiento         DateTime?
+  kilometrajeProximoMantenimiento  Int?
+  fechaProximoMantenimiento        DateTime?
+
+  // Cambio de válvulas: solo para Vehículo con tanque de carburación. Cada
+  // válvula guarda su propia fecha de fabricación; la alerta (igual que la
+  // de ultrasonido) se calcula sobre la más antigua de las 4, venciendo a
+  // los 5 años (ver lib/valve-alerts.ts). fechaInstalacionValvulas es la
+  // fecha general en que se instaló el juego de válvulas.
+  fechaInstalacionValvulas             DateTime?
+  fechaFabricacionValvulaLlenado       DateTime?
+  fechaFabricacionValvulaServicio      DateTime?
+  fechaFabricacionValvulaMaximoLlenado DateTime?
+  fechaFabricacionValvulaAlivio        DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -211,6 +244,10 @@ model MaintenanceLog {
   descripcion       String?
   observacion       String?
   fecha             DateTime
+  // Kilometraje del odómetro al momento de este mantenimiento. Si viene, se
+  // usa para actualizar la ficha técnica y calcular el próximo mantenimiento
+  // preventivo (ver actions/maintenance-actions.ts).
+  kilometraje       Int?
 
   nombreOperador             String?
   auxiliarTecnico            String?
@@ -406,6 +443,65 @@ model ExtinguisherChangeLog {
   @@map("extinguisher_change_logs")
 }
 
+// Registro de cada cambio de válvulas de tanque. Solo aplica a Vehículo con
+// tanque de carburación. Cada una de las 4 válvulas guarda su propia fecha
+// de fabricación (usadas para la alerta de 5 años); fechaInstalacion es la
+// fecha general en que se instaló el juego completo. Al aceptarse, actualiza
+// automáticamente los 5 campos correspondientes en la ficha técnica (ver
+// actions/valve-actions.ts).
+model ValveChangeLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  responsable String?
+
+  fechaInstalacion DateTime
+
+  fechaFabricacionValvulaLlenado       DateTime
+  fechaFabricacionValvulaServicio      DateTime
+  fechaFabricacionValvulaMaximoLlenado DateTime
+  fechaFabricacionValvulaAlivio        DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("valve_change_logs")
+}
+
+// Registro de mantenimiento CORRECTIVO de válvulas (reparación puntual fuera
+// del ciclo preventivo de 5 años de ValveChangeLog). Solo aplica a Vehículo
+// con tanque de carburación. No sincroniza nada en la ficha técnica: es solo
+// historial de qué se reparó, cuándo y en qué válvula.
+model ValveCorrectiveMaintenanceLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  // "LLENADO" | "SERVICIO" | "MAXIMO_LLENADO" | "ALIVIO" | "GENERAL" (ver lib/valve-alerts.ts)
+  valvula     String
+  descripcion String
+  responsable String?
+  fecha       DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("valve_corrective_maintenance_logs")
+}
+
 // Orden de una pieza común solicitada para una ciudad, en el apartado "Orden
 // de Pieza". Al marcarse como ACEPTADA se crea automáticamente un
 // InventoryItem correspondiente en el apartado de Inventarios de la misma
@@ -468,6 +564,12 @@ model InventoryItem {
   // "EN_INVENTARIO" | "POR_UTILIZAR" | "UTILIZADA"
   estado String @default("EN_INVENTARIO")
 
+  // Unidad en la que se colocó la pieza. Se pide obligatoriamente al marcar
+  // "Utilizada" (ver actions/inventory-actions.ts); onDelete SetNull para no
+  // perder el historial del inventario si la unidad se elimina después.
+  usedOnVehicleId String?
+  usedOnVehicle   VehicleRecord? @relation(fields: [usedOnVehicleId], references: [id], onDelete: SetNull)
+
   fechaIngreso          DateTime  @default(now())
   fechaPorUtilizarDesde DateTime?
   fechaUtilizada        DateTime?
@@ -514,6 +616,12 @@ model Document {
 
   extinguisherChangeLogId String?
   extinguisherChangeLog   ExtinguisherChangeLog? @relation(fields: [extinguisherChangeLogId], references: [id], onDelete: Cascade)
+
+  valveChangeLogId String?
+  valveChangeLog   ValveChangeLog? @relation(fields: [valveChangeLogId], references: [id], onDelete: Cascade)
+
+  valveCorrectiveMaintenanceLogId String?
+  valveCorrectiveMaintenanceLog   ValveCorrectiveMaintenanceLog? @relation(fields: [valveCorrectiveMaintenanceLogId], references: [id], onDelete: Cascade)
 
   fileName   String
   storedName String

@@ -9,16 +9,24 @@ import {
   type InventoryItemStatus,
   type OrdenTipo,
 } from "@/lib/inventory-enums";
-import { InventoryItemStatusForm } from "@/components/admin/InventoryItemStatusForm";
+import { InventoryItemStatusForm, type VehicleOption } from "@/components/admin/InventoryItemStatusForm";
 import { deleteInventoryItem } from "@/actions/inventory-actions";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 
+type InventoryItemWithVehicle = InventoryItem & {
+  usedOnVehicle: { numeroEconomico: string } | null;
+};
+
 export function InventoryItemTable({
   items,
+  vehicles,
+  citySlug,
   canEdit,
   isAdmin,
 }: {
-  items: InventoryItem[];
+  items: InventoryItemWithVehicle[];
+  vehicles: VehicleOption[];
+  citySlug: string;
   canEdit: boolean;
   isAdmin: boolean;
 }) {
@@ -50,6 +58,7 @@ export function InventoryItemTable({
             <th className="whitespace-nowrap px-4 py-2">Cantidad</th>
             <th className="whitespace-nowrap px-4 py-2">Fecha</th>
             <th className="whitespace-nowrap px-4 py-2">Estado</th>
+            <th className="whitespace-nowrap px-4 py-2">Colocado en</th>
             {isAdmin && <th className="whitespace-nowrap px-4 py-2" />}
           </tr>
         </thead>
@@ -73,7 +82,11 @@ export function InventoryItemTable({
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{formatDate(fecha)}</td>
                 <td className="whitespace-nowrap px-4 py-2">
                   {canEdit && !utilizada ? (
-                    <InventoryItemStatusForm itemId={item.id} estado={item.estado} />
+                    <InventoryItemStatusForm
+                      itemId={item.id}
+                      estado={item.estado}
+                      vehicles={vehicles}
+                    />
                   ) : (
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${inventoryItemStatusStyles[estado]}`}
@@ -81,6 +94,9 @@ export function InventoryItemTable({
                       {inventoryItemStatusLabels[estado]}
                     </span>
                   )}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-ink">
+                  {item.usedOnVehicle?.numeroEconomico ?? "—"}
                 </td>
                 {isAdmin && (
                   <td className="whitespace-nowrap px-4 py-2">

@@ -5,11 +5,33 @@ import type { VehicleTechnicalSheet } from "@prisma/client";
 import { upsertTechnicalSheet } from "@/actions/vehicle-actions";
 import type { ActionState } from "@/actions/user-actions";
 import { combustibleLabels, calidadExtintorLabels } from "@/lib/vehicle-enums";
-import { toDateInputValue } from "@/lib/dates";
+import { toDateInputValue, formatDate } from "@/lib/dates";
 import { getExtinguisherAlertLevel, extinguisherAlertBadgeStyles, extinguisherAlertLabel } from "@/lib/extinguisher-alerts";
+import {
+  getMaintenanceAlertLevel,
+  maintenanceAlertBadgeStyles,
+  maintenanceAlertLabel,
+} from "@/lib/maintenance-alerts";
+import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
+
+// Cada subsección de la ficha técnica lleva un acento de color distinto para
+// que se distingan a simple vista (antes todas se veían igual: solo un
+// encabezado gris y espacio en blanco).
+const SECTION_STYLES = {
+  automovil: "border-l-4 border-l-slate-400 bg-slate-50/60",
+  extintor: "border-l-4 border-l-red-400 bg-red-50/60",
+  mantenimiento: "border-l-4 border-l-emerald-400 bg-emerald-50/60",
+  tanque: "border-l-4 border-l-sky-400 bg-sky-50/60",
+  valvulas: "border-l-4 border-l-indigo-400 bg-indigo-50/60",
+  ultrasonido: "border-l-4 border-l-cyan-400 bg-cyan-50/60",
+  visualExterna: "border-l-4 border-l-purple-400 bg-purple-50/60",
+  hermeticidad: "border-l-4 border-l-fuchsia-400 bg-fuchsia-50/60",
+  visualInterna: "border-l-4 border-l-violet-400 bg-violet-50/60",
+  hidrostatica: "border-l-4 border-l-blue-400 bg-blue-50/60",
+} as const;
 
 function Field({
   id,
@@ -62,6 +84,9 @@ export function TechnicalSheetForm({
   requireProximaInspeccionVisual = false,
   requireProximaPruebaHermeticidad = false,
   useDeliveryFormat = false,
+  showValveSection = false,
+  showTankSection = true,
+  lockCombustibleGasLpGasolina = false,
 }: {
   vehicleId: string;
   sheet: VehicleTechnicalSheet | null;
@@ -72,6 +97,16 @@ export function TechnicalSheetForm({
   // "Peso" se reemplaza por dos pesos brutos y "Tanque" pasa a llamarse
   // "Tanque de carburación".
   useDeliveryFormat?: boolean;
+  // Solo Vehículo con tanque de carburación (no Vehículo de reparto, aunque
+  // comparta useDeliveryFormat).
+  showValveSection?: boolean;
+  // false solo para Vehículo de reparto: no tiene tanque, así que no aplica
+  // ninguna ficha técnica de tanque.
+  showTankSection?: boolean;
+  // Vehículo con tanque de carburación siempre usa Gas LP/Gasolina: el
+  // select queda visible pero el valor se fuerza en el servidor (ver
+  // actions/vehicle-actions.ts) sin importar lo que se elija aquí.
+  lockCombustibleGasLpGasolina?: boolean;
 }) {
   const action = upsertTechnicalSheet.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
@@ -79,10 +114,23 @@ export function TechnicalSheetForm({
     sheet?.calidadExtintor,
     sheet?.fechaCalidadMalaExtintor
   );
+  const maintenanceAlertLevel = getMaintenanceAlertLevel(sheet?.fechaProximoMantenimiento);
+  const valveAlertLevel = getValveAlertLevel({
+    fechaFabricacionValvulaLlenado: sheet?.fechaFabricacionValvulaLlenado,
+    fechaFabricacionValvulaServicio: sheet?.fechaFabricacionValvulaServicio,
+    fechaFabricacionValvulaMaximoLlenado: sheet?.fechaFabricacionValvulaMaximoLlenado,
+    fechaFabricacionValvulaAlivio: sheet?.fechaFabricacionValvulaAlivio,
+  });
+  const valveVencimiento = getValveVencimiento({
+    fechaFabricacionValvulaLlenado: sheet?.fechaFabricacionValvulaLlenado,
+    fechaFabricacionValvulaServicio: sheet?.fechaFabricacionValvulaServicio,
+    fechaFabricacionValvulaMaximoLlenado: sheet?.fechaFabricacionValvulaMaximoLlenado,
+    fechaFabricacionValvulaAlivio: sheet?.fechaFabricacionValvulaAlivio,
+  });
 
   return (
     <form action={formAction} className="space-y-6">
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Automóvil
         </h3>
@@ -115,7 +163,7 @@ export function TechnicalSheetForm({
             <select
               id="combustible"
               name="combustible"
-              defaultValue={sheet?.combustible ?? ""}
+              defaultValue={lockCombustibleGasLpGasolina ? "GAS_LP_GASOLINA" : sheet?.combustible ?? ""}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="">Selecciona...</option>
@@ -125,6 +173,11 @@ export function TechnicalSheetForm({
                 </option>
               ))}
             </select>
+            {lockCombustibleGasLpGasolina && (
+              <p className="mt-1 text-xs text-gray-500">
+                Fijo en Gas LP/Gasolina para Vehículo con tanque de carburación.
+              </p>
+            )}
           </div>
           <Field id="horasUsoDiario" label="Horas de uso diario" defaultValue={sheet?.horasUsoDiario} />
           <Field
@@ -148,7 +201,7 @@ export function TechnicalSheetForm({
         </div>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Extintor</h3>
           {extinguisherAlertLevel !== "none" && (
@@ -197,34 +250,125 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Field id="serieTanque" label="Serie de tanque" defaultValue={sheet?.serieTanque} />
-          <Field id="capacidadTanque" label="Capacidad" defaultValue={sheet?.capacidadTanque} />
-          <Field id="marcaTanque" label="Marca de tanque" defaultValue={sheet?.marcaTanque} />
-          <Field
-            id="anioFabricacionTanque"
-            label="Año de fabricación"
-            defaultValue={sheet?.anioFabricacionTanque}
-          />
-          <Field
-            id="fechaFabricacionTanque"
-            label="Fecha de fabricación"
-            type="date"
-            defaultValue={toDateInputValue(sheet?.fechaFabricacionTanque)}
-          />
-          <Field
-            id="numeroSerieTanque"
-            label="Número de serie"
-            defaultValue={sheet?.numeroSerieTanque}
-          />
+      <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Mantenimiento preventivo
+          </h3>
+          {maintenanceAlertLevel !== "none" && sheet?.fechaProximoMantenimiento && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${maintenanceAlertBadgeStyles[maintenanceAlertLevel]}`}
+            >
+              {maintenanceAlertLabel(
+                maintenanceAlertLevel,
+                sheet.fechaProximoMantenimiento,
+                sheet.kilometrajeProximoMantenimiento
+              )}
+            </span>
+          )}
         </div>
+        {sheet?.fechaUltimoMantenimiento ? (
+          <p className="text-sm text-ink">
+            Último mantenimiento con kilometraje: {formatDate(sheet.fechaUltimoMantenimiento)}
+            {sheet.kilometrajeUltimoMantenimiento != null &&
+              ` a los ${sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km`}
+            . Próximo preventivo:{" "}
+            {sheet.fechaProximoMantenimiento && formatDate(sheet.fechaProximoMantenimiento)}
+            {sheet.kilometrajeProximoMantenimiento != null &&
+              ` o a los ${sheet.kilometrajeProximoMantenimiento.toLocaleString("es-MX")} km`}
+            , lo que se cumpla primero.
+          </p>
+        ) : (
+          <p className="text-sm text-ink">
+            Sin kilometraje registrado todavía. Se calcula solo al capturar el kilometraje en un
+            mantenimiento (ver Bitácora de mantenimiento).
+          </p>
+        )}
       </div>
 
-      <div>
+      {showTankSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Field id="serieTanque" label="Serie de tanque" defaultValue={sheet?.serieTanque} />
+            <Field id="capacidadTanque" label="Capacidad" defaultValue={sheet?.capacidadTanque} />
+            <Field id="marcaTanque" label="Marca de tanque" defaultValue={sheet?.marcaTanque} />
+            <Field
+              id="anioFabricacionTanque"
+              label="Año de fabricación"
+              defaultValue={sheet?.anioFabricacionTanque}
+            />
+            <Field
+              id="fechaFabricacionTanque"
+              label="Fecha de fabricación"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionTanque)}
+            />
+            <Field
+              id="numeroSerieTanque"
+              label="Número de serie"
+              defaultValue={sheet?.numeroSerieTanque}
+            />
+          </div>
+        </div>
+      )}
+
+      {showValveSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Cambio de válvulas
+            </h3>
+            {valveAlertLevel !== "none" && valveVencimiento && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
+              >
+                {valveAlertLabel(valveAlertLevel, valveVencimiento)}
+              </span>
+            )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Field
+              id="fechaInstalacionValvulas"
+              label="Fecha de instalación"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaInstalacionValvulas)}
+            />
+            <Field
+              id="fechaFabricacionValvulaLlenado"
+              label="Válvula de llenado"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaLlenado)}
+            />
+            <Field
+              id="fechaFabricacionValvulaServicio"
+              label="Válvula de servicio"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaServicio)}
+            />
+            <Field
+              id="fechaFabricacionValvulaMaximoLlenado"
+              label="Válvula de máximo llenado"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado)}
+            />
+            <Field
+              id="fechaFabricacionValvulaAlivio"
+              label="Válvula de alivio (seguridad)"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaAlivio)}
+            />
+          </div>
+          <p className="mt-2 text-xs text-ink">
+            El cambio de válvulas debe hacerse cada 5 años. El aviso se calcula sobre la fecha de
+            fabricación más antigua de las 4 válvulas.
+          </p>
+        </div>
+      )}
+
+      <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Ultrasonido
         </h3>
@@ -261,7 +405,7 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Inspección Visual Externa
         </h3>
@@ -298,7 +442,7 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Prueba de Hermeticidad
         </h3>
@@ -335,7 +479,7 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Inspección Visual Interna
         </h3>
@@ -366,7 +510,7 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Prueba Hidrostática
         </h3>

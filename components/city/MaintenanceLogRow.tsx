@@ -130,6 +130,10 @@ export function MaintenanceLogRow({
             <Field label="Tipo de mantenimiento" value={log.tipoMantenimiento} />
             <Field label="Tipo de servicio" value={log.tipoServicio} />
             <Field label="Fecha" value={formatDate(log.fecha)} />
+            <Field
+              label="Kilometraje"
+              value={log.kilometraje != null ? `${log.kilometraje.toLocaleString("es-MX")} km` : null}
+            />
             <Field label="Pieza" value={log.pieza} />
             <Field label="Cantidad" value={log.cantidad} />
             <Field label="Unidad" value={log.unidad} />

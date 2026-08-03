@@ -31,6 +31,27 @@ import {
   hydrostaticTestAlertBadgeStyles,
   hydrostaticTestAlertLabel,
 } from "@/lib/hydrostatic-test-alerts";
+import {
+  getMaintenanceAlertLevel,
+  maintenanceAlertBadgeStyles,
+  maintenanceAlertLabel,
+} from "@/lib/maintenance-alerts";
+import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+
+// Mismo acento de color por subsección que TechnicalSheetForm, para que la
+// vista de solo lectura (LECTOR/USUARIO) se distinga igual de fácil.
+const SECTION_STYLES = {
+  automovil: "border-l-4 border-l-slate-400 bg-slate-50/60",
+  extintor: "border-l-4 border-l-red-400 bg-red-50/60",
+  mantenimiento: "border-l-4 border-l-emerald-400 bg-emerald-50/60",
+  tanque: "border-l-4 border-l-sky-400 bg-sky-50/60",
+  valvulas: "border-l-4 border-l-indigo-400 bg-indigo-50/60",
+  ultrasonido: "border-l-4 border-l-cyan-400 bg-cyan-50/60",
+  visualExterna: "border-l-4 border-l-purple-400 bg-purple-50/60",
+  hermeticidad: "border-l-4 border-l-fuchsia-400 bg-fuchsia-50/60",
+  visualInterna: "border-l-4 border-l-violet-400 bg-violet-50/60",
+  hidrostatica: "border-l-4 border-l-blue-400 bg-blue-50/60",
+} as const;
 
 function Item({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
@@ -45,12 +66,18 @@ function Item({ label, value }: { label: string; value?: string | null }) {
 export function TechnicalSheetView({
   sheet,
   useDeliveryFormat = false,
+  showValveSection = false,
+  showTankSection = true,
 }: {
   sheet: VehicleTechnicalSheet | null;
   // Formato para Vehículo de reparto y Vehículo con tanque de carburación:
   // dos pesos brutos en vez de "Peso" y "Tanque de carburación" en vez de
   // "Tanque" (ver TechnicalSheetForm).
   useDeliveryFormat?: boolean;
+  // Solo Vehículo con tanque de carburación (no Vehículo de reparto).
+  showValveSection?: boolean;
+  // false solo para Vehículo de reparto: no tiene tanque.
+  showTankSection?: boolean;
 }) {
   if (!sheet) {
     return <p className="text-sm text-ink">Sin ficha técnica registrada.</p>;
@@ -67,10 +94,19 @@ export function TechnicalSheetView({
     sheet.calidadExtintor,
     sheet.fechaCalidadMalaExtintor
   );
+  const maintenanceAlertLevel = getMaintenanceAlertLevel(sheet.fechaProximoMantenimiento);
+  const valveDates = {
+    fechaFabricacionValvulaLlenado: sheet.fechaFabricacionValvulaLlenado,
+    fechaFabricacionValvulaServicio: sheet.fechaFabricacionValvulaServicio,
+    fechaFabricacionValvulaMaximoLlenado: sheet.fechaFabricacionValvulaMaximoLlenado,
+    fechaFabricacionValvulaAlivio: sheet.fechaFabricacionValvulaAlivio,
+  };
+  const valveAlertLevel = getValveAlertLevel(valveDates);
+  const valveVencimiento = getValveVencimiento(valveDates);
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Automóvil
         </h3>
@@ -105,7 +141,7 @@ export function TechnicalSheetView({
         )}
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Extintor</h3>
           {extinguisherAlertLevel !== "none" && (
@@ -136,21 +172,107 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
-        </h3>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Mantenimiento preventivo
+          </h3>
+          {maintenanceAlertLevel !== "none" && sheet.fechaProximoMantenimiento && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${maintenanceAlertBadgeStyles[maintenanceAlertLevel]}`}
+            >
+              {maintenanceAlertLabel(
+                maintenanceAlertLevel,
+                sheet.fechaProximoMantenimiento,
+                sheet.kilometrajeProximoMantenimiento
+              )}
+            </span>
+          )}
+        </div>
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Item label="Serie de tanque" value={sheet.serieTanque} />
-          <Item label="Capacidad" value={sheet.capacidadTanque} />
-          <Item label="Marca de tanque" value={sheet.marcaTanque} />
-          <Item label="Año de fabricación" value={sheet.anioFabricacionTanque} />
-          <Item label="Fecha de fabricación" value={formatDate(sheet.fechaFabricacionTanque) || null} />
-          <Item label="Número de serie" value={sheet.numeroSerieTanque} />
+          <Item
+            label="Kilometraje del último mantenimiento"
+            value={
+              sheet.kilometrajeUltimoMantenimiento != null
+                ? `${sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km`
+                : null
+            }
+          />
+          <Item
+            label="Fecha del último mantenimiento"
+            value={formatDate(sheet.fechaUltimoMantenimiento) || null}
+          />
+          <Item
+            label="Próximo mantenimiento preventivo"
+            value={
+              sheet.fechaProximoMantenimiento
+                ? `${formatDate(sheet.fechaProximoMantenimiento)}${
+                    sheet.kilometrajeProximoMantenimiento != null
+                      ? ` o a los ${sheet.kilometrajeProximoMantenimiento.toLocaleString("es-MX")} km`
+                      : ""
+                  }`
+                : null
+            }
+          />
         </dl>
       </div>
 
-      <div>
+      {showTankSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
+          </h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Item label="Serie de tanque" value={sheet.serieTanque} />
+            <Item label="Capacidad" value={sheet.capacidadTanque} />
+            <Item label="Marca de tanque" value={sheet.marcaTanque} />
+            <Item label="Año de fabricación" value={sheet.anioFabricacionTanque} />
+            <Item label="Fecha de fabricación" value={formatDate(sheet.fechaFabricacionTanque) || null} />
+            <Item label="Número de serie" value={sheet.numeroSerieTanque} />
+          </dl>
+        </div>
+      )}
+
+      {showValveSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Cambio de válvulas
+            </h3>
+            {valveAlertLevel !== "none" && valveVencimiento && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
+              >
+                {valveAlertLabel(valveAlertLevel, valveVencimiento)}
+              </span>
+            )}
+          </div>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Item
+              label="Fecha de instalación"
+              value={formatDate(sheet.fechaInstalacionValvulas) || null}
+            />
+            <Item
+              label="Válvula de llenado"
+              value={formatDate(sheet.fechaFabricacionValvulaLlenado) || null}
+            />
+            <Item
+              label="Válvula de servicio"
+              value={formatDate(sheet.fechaFabricacionValvulaServicio) || null}
+            />
+            <Item
+              label="Válvula de máximo llenado"
+              value={formatDate(sheet.fechaFabricacionValvulaMaximoLlenado) || null}
+            />
+            <Item
+              label="Válvula de alivio (seguridad)"
+              value={formatDate(sheet.fechaFabricacionValvulaAlivio) || null}
+            />
+          </dl>
+        </div>
+      )}
+
+      <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Ultrasonido
@@ -176,7 +298,7 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Inspección Visual Externa
@@ -202,7 +324,7 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Prueba de Hermeticidad
@@ -228,7 +350,7 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Inspección Visual Interna
@@ -260,7 +382,7 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div>
+      <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Prueba Hidrostática

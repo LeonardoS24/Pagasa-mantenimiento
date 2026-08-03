@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { createMaintenanceLog } from "@/actions/maintenance-actions";
 import type { ActionState } from "@/actions/user-actions";
@@ -29,9 +30,25 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
   const action = createMaintenanceLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const searchParams = useSearchParams();
+
+  // Cuando una pieza de inventario se marca "Utilizada", se redirige aquí
+  // con estos datos ya listos (ver actions/inventory-actions.ts) para no
+  // tener que volver a escribirlos.
+  const prefillPieza = searchParams.get("prefillPieza") ?? "";
+  const prefillCantidad = searchParams.get("prefillCantidad") ?? "";
+  const prefillUnidad = searchParams.get("prefillUnidad") ?? "";
+  const hasPrefill = Boolean(prefillPieza || prefillCantidad || prefillUnidad);
+
+  useEffect(() => {
+    if (hasPrefill && detailsRef.current) {
+      detailsRef.current.open = true;
+    }
+  }, [hasPrefill]);
 
   return (
-    <details className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
+    <details ref={detailsRef} className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
       <summary className="cursor-pointer text-sm font-semibold text-primary">
         Registrar mantenimiento
       </summary>
@@ -64,22 +81,49 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
             <input id="mnt-fecha" name="fecha" type="date" required className={inputClass} />
           </div>
           <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-kilometraje">
+              Kilometraje actual
+            </label>
+            <input
+              id="mnt-kilometraje"
+              name="kilometraje"
+              type="number"
+              min={0}
+              className={inputClass}
+            />
+          </div>
+          <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-pieza">
               Pieza
             </label>
-            <input id="mnt-pieza" name="pieza" className={inputClass} />
+            <input
+              id="mnt-pieza"
+              name="pieza"
+              defaultValue={prefillPieza}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-cantidad">
               Cantidad
             </label>
-            <input id="mnt-cantidad" name="cantidad" className={inputClass} />
+            <input
+              id="mnt-cantidad"
+              name="cantidad"
+              defaultValue={prefillCantidad}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-unidad">
               Unidad
             </label>
-            <input id="mnt-unidad" name="unidad" className={inputClass} />
+            <input
+              id="mnt-unidad"
+              name="unidad"
+              defaultValue={prefillUnidad}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-estatus">

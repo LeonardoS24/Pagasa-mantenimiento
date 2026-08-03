@@ -9,6 +9,7 @@ import {
   consumibleUnidadLabels,
   ordenNombreLabels,
   ordenNombrePlaceholders,
+  pieceOrderStatusLabels,
   formatCantidad,
   unidadParaTipo,
   type OrdenTipo,
@@ -165,6 +166,19 @@ export function CreatePieceOrderForm({ sectionId }: { sectionId: string }) {
               required
               className={inputClass}
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-estado">
+              Estatus
+            </label>
+            <select id="op-estado" name="estado" defaultValue="PENDIENTE" className={inputClass}>
+              {Object.entries(pieceOrderStatusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

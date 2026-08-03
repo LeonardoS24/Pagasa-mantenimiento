@@ -14,6 +14,8 @@ import {
   internalVisualInspectionLogOwnerKey,
   hydrostaticTestLogOwnerKey,
   extinguisherChangeLogOwnerKey,
+  valveChangeLogOwnerKey,
+  valveCorrectiveMaintenanceLogOwnerKey,
   MAX_DOCUMENT_SIZE,
 } from "@/lib/documents";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
@@ -401,6 +403,89 @@ export async function uploadExtinguisherChangeLogDocument(
   return { success: "PDF subido correctamente." };
 }
 
+export async function uploadValveChangeLogDocument(
+  valveChangeLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.valveChangeLog.findUnique({
+    where: { id: valveChangeLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(valveChangeLogOwnerKey(valveChangeLogId), file);
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      valveChangeLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "PDF subido correctamente." };
+}
+
+export async function uploadValveCorrectiveMaintenanceLogDocument(
+  valveCorrectiveMaintenanceLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.valveCorrectiveMaintenanceLog.findUnique({
+    where: { id: valveCorrectiveMaintenanceLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(
+    valveCorrectiveMaintenanceLogOwnerKey(valveCorrectiveMaintenanceLogId),
+    file
+  );
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      valveCorrectiveMaintenanceLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "PDF subido correctamente." };
+}
+
 export async function deleteDocument(documentId: string) {
   await requireAdmin();
 
@@ -429,6 +514,12 @@ export async function deleteDocument(documentId: string) {
       extinguisherChangeLog: {
         include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
       },
+      valveChangeLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
+      valveCorrectiveMaintenanceLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
     },
   });
   if (!document) return;
@@ -447,9 +538,13 @@ export async function deleteDocument(documentId: string) {
               ? hydrostaticTestLogOwnerKey(document.hydrostaticTestLogId)
               : document.extinguisherChangeLogId
                 ? extinguisherChangeLogOwnerKey(document.extinguisherChangeLogId)
-                : document.vehicleRecordId
-                  ? vehicleOwnerKey(document.vehicleRecordId)
-                  : document.sectionId;
+                : document.valveChangeLogId
+                  ? valveChangeLogOwnerKey(document.valveChangeLogId)
+                  : document.valveCorrectiveMaintenanceLogId
+                    ? valveCorrectiveMaintenanceLogOwnerKey(document.valveCorrectiveMaintenanceLogId)
+                    : document.vehicleRecordId
+                      ? vehicleOwnerKey(document.vehicleRecordId)
+                      : document.sectionId;
   await deleteDocumentFile(ownerKey, document.storedName);
   await prisma.document.delete({ where: { id: documentId } });
 
@@ -473,6 +568,12 @@ export async function deleteDocument(documentId: string) {
     revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
   } else if (document.extinguisherChangeLog) {
     const vehicle = document.extinguisherChangeLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.valveChangeLog) {
+    const vehicle = document.valveChangeLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.valveCorrectiveMaintenanceLog) {
+    const vehicle = document.valveCorrectiveMaintenanceLog.vehicleRecord;
     revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
   } else if (document.vehicleRecordId) {
     revalidatePath(`/ciudades/${document.section.city.slug}/vehiculo/${document.vehicleRecordId}`);

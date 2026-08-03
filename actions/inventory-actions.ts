@@ -1,10 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor } from "@/lib/auth";
 import { sectionBasePath } from "@/lib/section-path";
-import { inventoryItemStatusSchema, INVENTORY_POR_UTILIZAR_DAYS } from "@/lib/inventory-enums";
+import {
+  inventoryItemStatusSchema,
+  unidadAbreviatura,
+  INVENTORY_POR_UTILIZAR_DAYS,
+} from "@/lib/inventory-enums";
 import type { ActionState } from "./user-actions";
 
 // Pasa automáticamente a "UTILIZADA" cualquier pieza marcada "POR_UTILIZAR"
@@ -39,6 +44,45 @@ export async function updateInventoryItemEstado(
     return { error: "El registro no existe." };
   }
 
+  // "Utilizada" exige indicar en qué unidad se colocó la pieza: se valida que
+  // exista, esté activa y sea de la misma ciudad que el inventario, y al
+  // terminar se redirige a esa unidad para registrar el mantenimiento con los
+  // datos de la pieza ya prellenados.
+  if (parsed.data === "UTILIZADA") {
+    const vehicleId = String(formData.get("vehicleRecordId") ?? "").trim();
+    if (!vehicleId) {
+      return { error: "Selecciona la unidad en la que se colocó la pieza." };
+    }
+
+    const vehicle = await prisma.vehicleRecord.findUnique({
+      where: { id: vehicleId },
+      include: { section: { include: { city: true } } },
+    });
+    if (!vehicle || !vehicle.activo || vehicle.section.cityId !== item.section.cityId) {
+      return { error: "La unidad seleccionada no es válida." };
+    }
+
+    await prisma.inventoryItem.update({
+      where: { id: itemId },
+      data: {
+        estado: "UTILIZADA",
+        fechaUtilizada: item.fechaUtilizada ?? new Date(),
+        usedOnVehicleId: vehicleId,
+      },
+    });
+
+    revalidatePath(sectionBasePath(item.section.city.slug, [item.section]));
+
+    const prefill = new URLSearchParams({
+      prefillPieza: item.nombre,
+      prefillCantidad: String(item.cantidad),
+      prefillUnidad: unidadAbreviatura(item.unidad),
+    });
+    redirect(
+      `/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}?${prefill.toString()}#mantenimiento`
+    );
+  }
+
   const data: {
     estado: string;
     fechaPorUtilizarDesde?: Date | null;
@@ -47,8 +91,6 @@ export async function updateInventoryItemEstado(
 
   if (parsed.data === "POR_UTILIZAR" && item.estado !== "POR_UTILIZAR") {
     data.fechaPorUtilizarDesde = new Date();
-  } else if (parsed.data === "UTILIZADA") {
-    data.fechaUtilizada = item.fechaUtilizada ?? new Date();
   } else if (parsed.data === "EN_INVENTARIO") {
     data.fechaPorUtilizarDesde = null;
     data.fechaUtilizada = null;

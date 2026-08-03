@@ -20,6 +20,11 @@ const optionalText = (max: number) =>
     return text.length > 0 ? text : null;
   }, z.string().max(max).nullable());
 
+const optionalInt = z.preprocess((value) => {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? Number(text) : null;
+}, z.number().int().min(0).nullable());
+
 const createLogSchema = z.object({
   tipoMantenimiento: requiredText("El tipo de mantenimiento", 100),
   tipoServicio: requiredText("El tipo de servicio", 100),
@@ -32,11 +37,18 @@ const createLogSchema = z.object({
     const text = String(value ?? "").trim();
     return text.length > 0 ? new Date(text) : undefined;
   }, z.date({ required_error: "La fecha es requerida", invalid_type_error: "Fecha inválida" })),
+  kilometraje: optionalInt,
   nombreOperador: optionalText(150),
   auxiliarTecnico: optionalText(150),
   responsableTrabajoMecanico: optionalText(150),
   estatus: maintenanceStatusSchema.default("SIN_ATENCION"),
 });
+
+// Suma 6 meses a una fecha (UTC, sin desfase de zona horaria) — mismo patrón
+// que addTenYears en actions/vehicle-actions.ts.
+function addSixMonths(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 6, date.getUTCDate()));
+}
 
 async function revalidateVehicleAndCityFeed(vehicleId: string) {
   const vehicle = await prisma.vehicleRecord.findUnique({
@@ -79,6 +91,7 @@ export async function createMaintenanceLog(
     descripcion: formData.get("descripcion"),
     observacion: formData.get("observacion"),
     fecha: formData.get("fecha"),
+    kilometraje: formData.get("kilometraje"),
     nombreOperador: formData.get("nombreOperador"),
     auxiliarTecnico: formData.get("auxiliarTecnico"),
     responsableTrabajoMecanico: formData.get("responsableTrabajoMecanico"),
@@ -116,6 +129,29 @@ export async function createMaintenanceLog(
         mimeType: file.type,
         size: file.size,
         uploadedById: editor.userId,
+      },
+    });
+  }
+
+  // Si se capturó kilometraje, este mantenimiento cuenta como el punto de
+  // referencia para el siguiente preventivo: 10,000 km o 6 meses después,
+  // lo que se cumpla primero (ver lib/maintenance-alerts.ts). Cualquier
+  // mantenimiento con kilometraje reinicia el conteo, no solo el preventivo.
+  if (parsed.data.kilometraje !== null) {
+    await prisma.vehicleTechnicalSheet.upsert({
+      where: { vehicleRecordId: vehicleId },
+      update: {
+        kilometrajeUltimoMantenimiento: parsed.data.kilometraje,
+        fechaUltimoMantenimiento: parsed.data.fecha,
+        kilometrajeProximoMantenimiento: parsed.data.kilometraje + 10000,
+        fechaProximoMantenimiento: addSixMonths(parsed.data.fecha),
+      },
+      create: {
+        vehicleRecordId: vehicleId,
+        kilometrajeUltimoMantenimiento: parsed.data.kilometraje,
+        fechaUltimoMantenimiento: parsed.data.fecha,
+        kilometrajeProximoMantenimiento: parsed.data.kilometraje + 10000,
+        fechaProximoMantenimiento: addSixMonths(parsed.data.fecha),
       },
     });
   }

@@ -32,6 +32,12 @@ import {
   extinguisherAlertBadgeStyles,
   extinguisherAlertLabel,
 } from "@/lib/extinguisher-alerts";
+import {
+  getMaintenanceAlertLevel,
+  maintenanceAlertBadgeStyles,
+  maintenanceAlertLabel,
+} from "@/lib/maintenance-alerts";
+import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 
 function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
   if (levels.includes("red")) return ultrasoundAlertRowStyles.red;
@@ -101,6 +107,18 @@ export function VehicleTable({
                   record.technicalSheet?.fechaCalidadMalaExtintor
                 )
               : "none";
+            const maintenanceAlertLevel = record.activo
+              ? getMaintenanceAlertLevel(record.technicalSheet?.fechaProximoMantenimiento)
+              : "none";
+            const valveDates = {
+              fechaFabricacionValvulaLlenado: record.technicalSheet?.fechaFabricacionValvulaLlenado,
+              fechaFabricacionValvulaServicio: record.technicalSheet?.fechaFabricacionValvulaServicio,
+              fechaFabricacionValvulaMaximoLlenado:
+                record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
+              fechaFabricacionValvulaAlivio: record.technicalSheet?.fechaFabricacionValvulaAlivio,
+            };
+            const valveAlertLevel = record.activo ? getValveAlertLevel(valveDates) : "none";
+            const valveVencimiento = getValveVencimiento(valveDates);
             return (
               <Fragment key={record.id}>
                 {isFirstInactive && (
@@ -122,7 +140,9 @@ export function VehicleTable({
                         tightnessAlertLevel,
                         internalVisualAlertLevel,
                         hydrostaticAlertLevel,
-                        extinguisherAlertLevel
+                        extinguisherAlertLevel,
+                        maintenanceAlertLevel,
+                        valveAlertLevel
                       )
                 }`}
               >
@@ -194,6 +214,24 @@ export function VehicleTable({
                         extinguisherAlertLevel,
                         record.technicalSheet?.fechaCalidadMalaExtintor
                       )}
+                    </span>
+                  )}
+                  {maintenanceAlertLevel !== "none" && record.technicalSheet?.fechaProximoMantenimiento && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${maintenanceAlertBadgeStyles[maintenanceAlertLevel]}`}
+                    >
+                      {maintenanceAlertLabel(
+                        maintenanceAlertLevel,
+                        record.technicalSheet.fechaProximoMantenimiento,
+                        record.technicalSheet.kilometrajeProximoMantenimiento
+                      )}
+                    </span>
+                  )}
+                  {valveAlertLevel !== "none" && valveVencimiento && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
+                    >
+                      {valveAlertLabel(valveAlertLevel, valveVencimiento)}
                     </span>
                   )}
                 </td>
