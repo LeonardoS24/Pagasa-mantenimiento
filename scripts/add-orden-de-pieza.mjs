@@ -1,5 +1,6 @@
-// Agrega el apartado fijo "Orden de Pieza" (order 8, justo antes de
-// Inventarios) a todas las ciudades existentes.
+// Agrega el apartado fijo "Orden" (order 8, justo antes de Inventarios) a
+// todas las ciudades existentes. El slug sigue siendo "orden-de-pieza" por
+// compatibilidad con las URLs ya existentes; solo cambió el nombre visible.
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
@@ -27,11 +28,11 @@ for (const city of cities) {
       cityId: city.id,
       parentId: null,
       slug: "orden-de-pieza",
-      name: "Orden de Pieza",
+      name: "Orden",
       order: 8,
     },
   });
-  console.log(`CREATE ${city.name}: Orden de Pieza`);
+  console.log(`CREATE ${city.name}: Orden`);
 }
 
 await prisma.$disconnect();

@@ -17,6 +17,14 @@ import { CreateUltrasoundLogForm } from "@/components/admin/CreateUltrasoundLogF
 import { UltrasoundLogTable } from "@/components/city/UltrasoundLogTable";
 import { CreateVisualInspectionLogForm } from "@/components/admin/CreateVisualInspectionLogForm";
 import { VisualInspectionLogTable } from "@/components/city/VisualInspectionLogTable";
+import { CreateTightnessTestLogForm } from "@/components/admin/CreateTightnessTestLogForm";
+import { TightnessTestLogTable } from "@/components/city/TightnessTestLogTable";
+import { CreateInternalVisualInspectionLogForm } from "@/components/admin/CreateInternalVisualInspectionLogForm";
+import { InternalVisualInspectionLogTable } from "@/components/city/InternalVisualInspectionLogTable";
+import { CreateHydrostaticTestLogForm } from "@/components/admin/CreateHydrostaticTestLogForm";
+import { HydrostaticTestLogTable } from "@/components/city/HydrostaticTestLogTable";
+import { CreateExtinguisherChangeLogForm } from "@/components/admin/CreateExtinguisherChangeLogForm";
+import { ExtinguisherChangeLogTable } from "@/components/city/ExtinguisherChangeLogTable";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { updateVehicleRecord, deleteVehicleRecord, setVehicleActive } from "@/actions/vehicle-actions";
 import { formatDate, toDateInputValue } from "@/lib/dates";
@@ -30,6 +38,26 @@ import {
   visualInspectionAlertBadgeStyles,
   visualInspectionAlertLabel,
 } from "@/lib/visual-inspection-alerts";
+import {
+  getTightnessTestAlertLevel,
+  tightnessTestAlertBadgeStyles,
+  tightnessTestAlertLabel,
+} from "@/lib/tightness-test-alerts";
+import {
+  getInternalVisualInspectionAlertLevel,
+  internalVisualInspectionAlertBadgeStyles,
+  internalVisualInspectionAlertLabel,
+} from "@/lib/internal-visual-inspection-alerts";
+import {
+  getHydrostaticTestAlertLevel,
+  hydrostaticTestAlertBadgeStyles,
+  hydrostaticTestAlertLabel,
+} from "@/lib/hydrostatic-test-alerts";
+import {
+  getExtinguisherAlertLevel,
+  extinguisherAlertBadgeStyles,
+  extinguisherAlertLabel,
+} from "@/lib/extinguisher-alerts";
 
 export default async function VehicleDetailPage({
   params,
@@ -59,6 +87,22 @@ export default async function VehicleDetailPage({
         orderBy: { fechaRealizacion: "desc" },
         include: { documents: { orderBy: { createdAt: "desc" } } },
       },
+      tightnessTestLogs: {
+        orderBy: { fechaRealizacion: "desc" },
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
+      internalVisualInspectionLogs: {
+        orderBy: { fechaRealizacion: "desc" },
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
+      hydrostaticTestLogs: {
+        orderBy: { fechaRealizacion: "desc" },
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
+      extinguisherChangeLogs: {
+        orderBy: { fechaRealizacion: "desc" },
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
     },
   });
   if (!vehicle || vehicle.section.city.slug !== params.citySlug) notFound();
@@ -68,11 +112,29 @@ export default async function VehicleDetailPage({
   const isAdmin = user.role === "ADMIN";
   const isEditor = canEdit(user.role);
   const isAutoTanques = vehicle.section.slug === "auto-tanques";
+  const useDeliveryFormat =
+    vehicle.section.slug === "vehiculo-de-reparto" ||
+    vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const alertLevel = vehicle.activo
     ? getUltrasoundAlertLevel(vehicle.technicalSheet?.fechaProximoUltrasonido)
     : "none";
   const visualAlertLevel = vehicle.activo
     ? getVisualInspectionAlertLevel(vehicle.technicalSheet?.fechaProximaInspeccionVisual)
+    : "none";
+  const tightnessAlertLevel = vehicle.activo
+    ? getTightnessTestAlertLevel(vehicle.technicalSheet?.fechaProximaPruebaHermeticidad)
+    : "none";
+  const internalVisualAlertLevel = vehicle.activo
+    ? getInternalVisualInspectionAlertLevel(vehicle.technicalSheet?.fechaProximaInspeccionVisualInterna)
+    : "none";
+  const hydrostaticAlertLevel = vehicle.activo
+    ? getHydrostaticTestAlertLevel(vehicle.technicalSheet?.fechaProximaPruebaHidrostatica)
+    : "none";
+  const extinguisherAlertLevel = vehicle.activo
+    ? getExtinguisherAlertLevel(
+        vehicle.technicalSheet?.calidadExtintor,
+        vehicle.technicalSheet?.fechaCalidadMalaExtintor
+      )
     : "none";
 
   const breadcrumbItems: BreadcrumbItem[] = [
@@ -114,6 +176,44 @@ export default async function VehicleDetailPage({
               visualAlertLevel,
               vehicle.technicalSheet.fechaProximaInspeccionVisual
             )}
+          </span>
+        )}
+        {tightnessAlertLevel !== "none" && vehicle.technicalSheet?.fechaProximaPruebaHermeticidad && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${tightnessTestAlertBadgeStyles[tightnessAlertLevel]}`}
+          >
+            {tightnessTestAlertLabel(
+              tightnessAlertLevel,
+              vehicle.technicalSheet.fechaProximaPruebaHermeticidad
+            )}
+          </span>
+        )}
+        {internalVisualAlertLevel !== "none" &&
+          vehicle.technicalSheet?.fechaProximaInspeccionVisualInterna && (
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${internalVisualInspectionAlertBadgeStyles[internalVisualAlertLevel]}`}
+            >
+              {internalVisualInspectionAlertLabel(
+                internalVisualAlertLevel,
+                vehicle.technicalSheet.fechaProximaInspeccionVisualInterna
+              )}
+            </span>
+          )}
+        {hydrostaticAlertLevel !== "none" && vehicle.technicalSheet?.fechaProximaPruebaHidrostatica && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${hydrostaticTestAlertBadgeStyles[hydrostaticAlertLevel]}`}
+          >
+            {hydrostaticTestAlertLabel(
+              hydrostaticAlertLevel,
+              vehicle.technicalSheet.fechaProximaPruebaHidrostatica
+            )}
+          </span>
+        )}
+        {extinguisherAlertLevel !== "none" && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${extinguisherAlertBadgeStyles[extinguisherAlertLevel]}`}
+          >
+            {extinguisherAlertLabel(extinguisherAlertLevel, vehicle.technicalSheet?.fechaCalidadMalaExtintor)}
           </span>
         )}
       </div>
@@ -167,9 +267,11 @@ export default async function VehicleDetailPage({
             sheet={vehicle.technicalSheet}
             requireProximoUltrasonido={isAutoTanques}
             requireProximaInspeccionVisual={isAutoTanques}
+            requireProximaPruebaHermeticidad={isAutoTanques}
+            useDeliveryFormat={useDeliveryFormat}
           />
         ) : (
-          <TechnicalSheetView sheet={vehicle.technicalSheet} />
+          <TechnicalSheetView sheet={vehicle.technicalSheet} useDeliveryFormat={useDeliveryFormat} />
         )}
       </div>
 
@@ -193,7 +295,7 @@ export default async function VehicleDetailPage({
       {isAutoTanques && (
         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Inspección Visual
+            Inspección Visual Externa
           </h2>
           <div className="space-y-3">
             {isEditor && (
@@ -212,6 +314,89 @@ export default async function VehicleDetailPage({
           </div>
         </div>
       )}
+
+      {isAutoTanques && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Prueba de Hermeticidad
+          </h2>
+          <div className="space-y-3">
+            {isEditor && (
+              <CreateTightnessTestLogForm
+                vehicleId={vehicle.id}
+                ultimaPruebaHermeticidad={toDateInputValue(
+                  vehicle.technicalSheet?.ultimaPruebaHermeticidad
+                )}
+              />
+            )}
+            <TightnessTestLogTable
+              logs={vehicle.tightnessTestLogs}
+              canEdit={isEditor}
+              isAdmin={isAdmin}
+            />
+          </div>
+        </div>
+      )}
+
+      {isAutoTanques && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Inspección Visual Interna
+          </h2>
+          <div className="space-y-3">
+            {isEditor && (
+              <CreateInternalVisualInspectionLogForm
+                vehicleId={vehicle.id}
+                ultimaInspeccionVisualInterna={toDateInputValue(
+                  vehicle.technicalSheet?.ultimaInspeccionVisualInterna
+                )}
+              />
+            )}
+            <InternalVisualInspectionLogTable
+              logs={vehicle.internalVisualInspectionLogs}
+              canEdit={isEditor}
+              isAdmin={isAdmin}
+            />
+          </div>
+        </div>
+      )}
+
+      {isAutoTanques && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Prueba Hidrostática
+          </h2>
+          <div className="space-y-3">
+            {isEditor && (
+              <CreateHydrostaticTestLogForm
+                vehicleId={vehicle.id}
+                ultimaPruebaHidrostatica={toDateInputValue(
+                  vehicle.technicalSheet?.ultimaPruebaHidrostatica
+                )}
+              />
+            )}
+            <HydrostaticTestLogTable
+              logs={vehicle.hydrostaticTestLogs}
+              canEdit={isEditor}
+              isAdmin={isAdmin}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Cambio de extintor
+        </h2>
+        <div className="space-y-3">
+          {isEditor && <CreateExtinguisherChangeLogForm vehicleId={vehicle.id} />}
+          <ExtinguisherChangeLogTable
+            logs={vehicle.extinguisherChangeLogs}
+            canEdit={isEditor}
+            isAdmin={isAdmin}
+          />
+        </div>
+      </div>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">

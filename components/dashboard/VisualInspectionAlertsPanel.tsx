@@ -21,7 +21,7 @@ export function VisualInspectionAlertsPanel({ vehicles }: { vehicles: AlertVehic
   return (
     <div className="mb-8 rounded-lg border border-red-200 bg-white p-5">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
-        Alertas de inspección visual de tanque
+        Alertas de inspección visual externa de tanque
       </h2>
       <ul className="space-y-2">
         {vehicles.map((vehicle) => (

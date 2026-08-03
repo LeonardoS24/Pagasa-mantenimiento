@@ -38,7 +38,7 @@ export function CreateVisualInspectionLogForm({
   return (
     <details className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
       <summary className="cursor-pointer text-sm font-semibold text-primary">
-        Registrar inspección visual
+        Registrar inspección visual externa
       </summary>
 
       <form
@@ -73,7 +73,7 @@ export function CreateVisualInspectionLogForm({
               className="mb-1 block text-sm font-medium text-ink"
               htmlFor="vi-fechaUltimaInspeccion"
             >
-              Última fecha de inspección visual
+              Última fecha de inspección visual externa
             </label>
             <input
               id="vi-fechaUltimaInspeccion"
@@ -85,7 +85,7 @@ export function CreateVisualInspectionLogForm({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="vi-fechaRealizacion">
-              Fecha de realización de la nueva inspección visual
+              Fecha de realización de la nueva inspección visual externa
             </label>
             <input
               id="vi-fechaRealizacion"
@@ -112,7 +112,7 @@ export function CreateVisualInspectionLogForm({
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente su "última inspección visual"
+          Al aceptar, la ficha técnica actualizará automáticamente su "última inspección visual externa"
           con esta fecha.
         </p>
 

@@ -14,6 +14,7 @@ export const sessionOptions: SessionOptions = {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,
     sameSite: "lax",
-    maxAge: 60 * 60 * 8,
+    // 1 hora de inactividad permitida antes de tener que volver a entrar.
+    maxAge: 60 * 60,
   },
 };

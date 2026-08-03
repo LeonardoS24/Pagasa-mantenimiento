@@ -10,6 +10,10 @@ import {
   maintenanceLogOwnerKey,
   ultrasoundLogOwnerKey,
   visualInspectionLogOwnerKey,
+  tightnessTestLogOwnerKey,
+  internalVisualInspectionLogOwnerKey,
+  hydrostaticTestLogOwnerKey,
+  extinguisherChangeLogOwnerKey,
   MAX_DOCUMENT_SIZE,
 } from "@/lib/documents";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
@@ -228,6 +232,175 @@ export async function uploadVisualInspectionLogDocument(
   return { success: "PDF subido correctamente." };
 }
 
+export async function uploadTightnessTestLogDocument(
+  tightnessTestLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.tightnessTestLog.findUnique({
+    where: { id: tightnessTestLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(tightnessTestLogOwnerKey(tightnessTestLogId), file);
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      tightnessTestLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "PDF subido correctamente." };
+}
+
+export async function uploadInternalVisualInspectionLogDocument(
+  internalVisualInspectionLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.internalVisualInspectionLog.findUnique({
+    where: { id: internalVisualInspectionLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(
+    internalVisualInspectionLogOwnerKey(internalVisualInspectionLogId),
+    file
+  );
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      internalVisualInspectionLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "PDF subido correctamente." };
+}
+
+export async function uploadHydrostaticTestLogDocument(
+  hydrostaticTestLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.hydrostaticTestLog.findUnique({
+    where: { id: hydrostaticTestLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(
+    hydrostaticTestLogOwnerKey(hydrostaticTestLogId),
+    file
+  );
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      hydrostaticTestLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "PDF subido correctamente." };
+}
+
+export async function uploadExtinguisherChangeLogDocument(
+  extinguisherChangeLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.extinguisherChangeLog.findUnique({
+    where: { id: extinguisherChangeLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(
+    extinguisherChangeLogOwnerKey(extinguisherChangeLogId),
+    file
+  );
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      extinguisherChangeLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "PDF subido correctamente." };
+}
+
 export async function deleteDocument(documentId: string) {
   await requireAdmin();
 
@@ -244,6 +417,18 @@ export async function deleteDocument(documentId: string) {
       visualInspectionLog: {
         include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
       },
+      tightnessTestLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
+      internalVisualInspectionLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
+      hydrostaticTestLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
+      extinguisherChangeLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
     },
   });
   if (!document) return;
@@ -254,9 +439,17 @@ export async function deleteDocument(documentId: string) {
       ? ultrasoundLogOwnerKey(document.ultrasoundLogId)
       : document.visualInspectionLogId
         ? visualInspectionLogOwnerKey(document.visualInspectionLogId)
-        : document.vehicleRecordId
-          ? vehicleOwnerKey(document.vehicleRecordId)
-          : document.sectionId;
+        : document.tightnessTestLogId
+          ? tightnessTestLogOwnerKey(document.tightnessTestLogId)
+          : document.internalVisualInspectionLogId
+            ? internalVisualInspectionLogOwnerKey(document.internalVisualInspectionLogId)
+            : document.hydrostaticTestLogId
+              ? hydrostaticTestLogOwnerKey(document.hydrostaticTestLogId)
+              : document.extinguisherChangeLogId
+                ? extinguisherChangeLogOwnerKey(document.extinguisherChangeLogId)
+                : document.vehicleRecordId
+                  ? vehicleOwnerKey(document.vehicleRecordId)
+                  : document.sectionId;
   await deleteDocumentFile(ownerKey, document.storedName);
   await prisma.document.delete({ where: { id: documentId } });
 
@@ -268,6 +461,18 @@ export async function deleteDocument(documentId: string) {
     revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
   } else if (document.visualInspectionLog) {
     const vehicle = document.visualInspectionLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.tightnessTestLog) {
+    const vehicle = document.tightnessTestLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.internalVisualInspectionLog) {
+    const vehicle = document.internalVisualInspectionLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.hydrostaticTestLog) {
+    const vehicle = document.hydrostaticTestLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.extinguisherChangeLog) {
+    const vehicle = document.extinguisherChangeLog.vehicleRecord;
     revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
   } else if (document.vehicleRecordId) {
     revalidatePath(`/ciudades/${document.section.city.slug}/vehiculo/${document.vehicleRecordId}`);

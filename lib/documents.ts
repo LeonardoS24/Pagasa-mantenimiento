@@ -52,6 +52,22 @@ export function visualInspectionLogOwnerKey(visualInspectionLogId: string): stri
   return path.posix.join("visual-inspection-logs", visualInspectionLogId);
 }
 
+export function tightnessTestLogOwnerKey(tightnessTestLogId: string): string {
+  return path.posix.join("tightness-test-logs", tightnessTestLogId);
+}
+
+export function internalVisualInspectionLogOwnerKey(internalVisualInspectionLogId: string): string {
+  return path.posix.join("internal-visual-inspection-logs", internalVisualInspectionLogId);
+}
+
+export function hydrostaticTestLogOwnerKey(hydrostaticTestLogId: string): string {
+  return path.posix.join("hydrostatic-test-logs", hydrostaticTestLogId);
+}
+
+export function extinguisherChangeLogOwnerKey(extinguisherChangeLogId: string): string {
+  return path.posix.join("extinguisher-change-logs", extinguisherChangeLogId);
+}
+
 // Lee cero o más PDFs adjuntos en el mismo envío de un formulario (p. ej. al
 // registrar un mantenimiento o un ultrasonido, sin tener que subirlos después
 // por separado). A diferencia de un solo archivo requerido, aquí no adjuntar

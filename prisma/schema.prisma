@@ -23,11 +23,15 @@ model User {
 
   cityAccess      UserCityAccess[]
   documents       Document[]
-  maintenanceLogs      MaintenanceLog[]
-  ultrasoundLogs       UltrasoundLog[]
-  visualInspectionLogs VisualInspectionLog[]
-  pieceOrders          PieceOrder[]
-  inventoryItems       InventoryItem[]
+  maintenanceLogs               MaintenanceLog[]
+  ultrasoundLogs                UltrasoundLog[]
+  visualInspectionLogs          VisualInspectionLog[]
+  tightnessTestLogs             TightnessTestLog[]
+  internalVisualInspectionLogs  InternalVisualInspectionLog[]
+  hydrostaticTestLogs           HydrostaticTestLog[]
+  extinguisherChangeLogs        ExtinguisherChangeLog[]
+  pieceOrders                   PieceOrder[]
+  inventoryItems                InventoryItem[]
 
   @@map("users")
 }
@@ -94,11 +98,15 @@ model VehicleRecord {
   activo    Boolean   @default(true)
   fechaBaja DateTime?
 
-  documents            Document[]
-  technicalSheet       VehicleTechnicalSheet?
-  maintenanceLogs      MaintenanceLog[]
-  ultrasoundLogs       UltrasoundLog[]
-  visualInspectionLogs VisualInspectionLog[]
+  documents                    Document[]
+  technicalSheet               VehicleTechnicalSheet?
+  maintenanceLogs              MaintenanceLog[]
+  ultrasoundLogs               UltrasoundLog[]
+  visualInspectionLogs         VisualInspectionLog[]
+  tightnessTestLogs            TightnessTestLog[]
+  internalVisualInspectionLogs InternalVisualInspectionLog[]
+  hydrostaticTestLogs          HydrostaticTestLog[]
+  extinguisherChangeLogs       ExtinguisherChangeLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -121,6 +129,10 @@ model VehicleTechnicalSheet {
   linea             String?
   modelo            String?
   peso              String?
+  // Solo para Vehículo de reparto y Vehículo con tanque de carburación:
+  // reemplazan a "peso" en el formulario (ver useDeliveryFormat).
+  pesoBrutoVacio    String?
+  pesoBrutoMaximo   String?
   serie             String?
   combustible       String? // "GAS_LP" | "GASOLINA" | "DIESEL" | "ELECTRICA"
   caracteristicas   String?
@@ -134,15 +146,47 @@ model VehicleTechnicalSheet {
   capacidadTanque       String?
   marcaTanque           String?
   anioFabricacionTanque String?
+  // Fecha de fabricación real (a diferencia de anioFabricacionTanque, texto
+  // libre): ancla el cálculo automático de la inspección visual interna y la
+  // prueba hidrostática, que vencen cada 10 años a partir de esta fecha.
+  fechaFabricacionTanque DateTime?
   numeroSerieTanque     String?
   numeroUltimoUltrasonido String?
   ultimoUltrasonido     DateTime?
   fechaProximoUltrasonido DateTime?
 
-  // Inspección visual (mismo mecanismo que el ultrasonido, ver VisualInspectionLog)
+  // Inspección visual EXTERNA (mismo mecanismo que el ultrasonido, ver VisualInspectionLog)
   numeroUltimaInspeccionVisual String?
   ultimaInspeccionVisual       DateTime?
   fechaProximaInspeccionVisual DateTime?
+
+  // Prueba de hermeticidad (mismo mecanismo, fecha próxima manual, ver TightnessTestLog)
+  numeroUltimaPruebaHermeticidad String?
+  ultimaPruebaHermeticidad       DateTime?
+  fechaProximaPruebaHermeticidad DateTime?
+
+  // Inspección visual INTERNA: vence cada 10 años a partir de
+  // fechaFabricacionTanque; fechaProxima se calcula sola si se deja vacía
+  // (ver actions/vehicle-actions.ts e internal-visual-inspection-actions.ts).
+  numeroUltimaInspeccionVisualInterna String?
+  ultimaInspeccionVisualInterna       DateTime?
+  fechaProximaInspeccionVisualInterna DateTime?
+
+  // Prueba hidrostática: mismo esquema de 10 años que la inspección visual interna.
+  numeroUltimaPruebaHidrostatica String?
+  ultimaPruebaHidrostatica       DateTime?
+  fechaProximaPruebaHidrostatica DateTime?
+
+  // Extintor: aplica a TODOS los tipos de unidad (no solo Auto-Tanques). La
+  // alerta no se basa en fecha próxima sino en la calidad: cuando pasa a
+  // "MALA" se guarda fechaCalidadMalaExtintor (primera vez que se detectó);
+  // amarilla los primeros 2 días desde esa fecha, roja después. Se limpia si
+  // la calidad vuelve a Excelente/Buena (ver actions/vehicle-actions.ts y
+  // actions/extinguisher-actions.ts).
+  fechaInstalacionExtintor DateTime?
+  fechaVencimientoExtintor DateTime?
+  calidadExtintor          String? // "EXCELENTE" | "BUENA" | "MALA"
+  fechaCalidadMalaExtintor DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -252,6 +296,116 @@ model VisualInspectionLog {
   @@map("visual_inspection_logs")
 }
 
+// Registro de cada realización de prueba de hermeticidad de tanque
+// (Auto-Tanques). Funciona igual que VisualInspectionLog: fecha próxima
+// manual en la ficha técnica, se revisa típicamente cada año.
+model TightnessTestLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  compania    String?
+  numeroPrueba String?
+  responsable String?
+
+  fechaUltimaPrueba DateTime?
+  fechaRealizacion  DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tightness_test_logs")
+}
+
+// Registro de cada realización de inspección visual INTERNA de tanque
+// (Auto-Tanques). A diferencia de UltrasoundLog/VisualInspectionLog, al
+// aceptarse recalcula fechaProximaInspeccionVisualInterna automáticamente
+// como fechaRealizacion + 10 años (ver actions/internal-visual-inspection-actions.ts).
+model InternalVisualInspectionLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  compania         String?
+  numeroInspeccion String?
+  responsable      String?
+
+  fechaUltimaInspeccion DateTime?
+  fechaRealizacion      DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("internal_visual_inspection_logs")
+}
+
+// Registro de cada realización de prueba hidrostática de tanque
+// (Auto-Tanques). Mismo esquema de recalculo automático a 10 años que
+// InternalVisualInspectionLog.
+model HydrostaticTestLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  compania     String?
+  numeroPrueba String?
+  responsable  String?
+
+  fechaUltimaPrueba DateTime?
+  fechaRealizacion  DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("hydrostatic_test_logs")
+}
+
+// Registro de cada cambio/inspección de extintor. Aplica a TODOS los tipos
+// de unidad. Al aceptarse actualiza automáticamente fechaInstalacionExtintor,
+// fechaVencimientoExtintor y calidadExtintor en la ficha técnica (ver
+// actions/extinguisher-actions.ts).
+model ExtinguisherChangeLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  responsable String?
+
+  fechaInstalacion DateTime
+  fechaVencimiento DateTime
+  calidad          String // "EXCELENTE" | "BUENA" | "MALA"
+  fechaRealizacion DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("extinguisher_change_logs")
+}
+
 // Orden de una pieza común solicitada para una ciudad, en el apartado "Orden
 // de Pieza". Al marcarse como ACEPTADA se crea automáticamente un
 // InventoryItem correspondiente en el apartado de Inventarios de la misma
@@ -263,14 +417,23 @@ model PieceOrder {
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
-  pieza      String
-  cantidad   String?
+  // "REFACCION" | "PIEZA" | "HERRAMIENTA" | "CONSUMIBLE" (ver lib/inventory-enums.ts)
+  tipo String
+  // Qué se pide en concreto ("Balata delantera", "Aceite 15W40"). Por ahora
+  // es texto libre; más adelante puede volverse un catálogo seleccionable.
+  nombre String
+  // Unidad ya resuelta: "PZA" para los contables, "LTS"/"KG" para consumibles.
+  unidad     String
+  cantidad   Int
   fechaOrden DateTime
 
   // "PENDIENTE" | "ACEPTADA" | "RECHAZADA"
   estado String @default("PENDIENTE")
 
-  inventoryItem InventoryItem?
+  // Una orden aceptada genera VARIOS renglones de inventario cuando el tipo
+  // es contable (5 refacciones -> 5 renglones independientes); el consumible
+  // genera uno solo con el total.
+  inventoryItems InventoryItem[]
 
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
@@ -293,11 +456,14 @@ model InventoryItem {
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
-  pieceOrderId String?     @unique
+  pieceOrderId String?
   pieceOrder   PieceOrder? @relation(fields: [pieceOrderId], references: [id], onDelete: SetNull)
 
-  pieza    String
-  cantidad String?
+  // Mismos campos que la orden que lo generó (ver lib/inventory-enums.ts).
+  tipo     String
+  nombre   String
+  unidad   String
+  cantidad Int
 
   // "EN_INVENTARIO" | "POR_UTILIZAR" | "UTILIZADA"
   estado String @default("EN_INVENTARIO")
@@ -336,6 +502,18 @@ model Document {
 
   visualInspectionLogId String?
   visualInspectionLog   VisualInspectionLog? @relation(fields: [visualInspectionLogId], references: [id], onDelete: Cascade)
+
+  tightnessTestLogId String?
+  tightnessTestLog   TightnessTestLog? @relation(fields: [tightnessTestLogId], references: [id], onDelete: Cascade)
+
+  internalVisualInspectionLogId String?
+  internalVisualInspectionLog   InternalVisualInspectionLog? @relation(fields: [internalVisualInspectionLogId], references: [id], onDelete: Cascade)
+
+  hydrostaticTestLogId String?
+  hydrostaticTestLog   HydrostaticTestLog? @relation(fields: [hydrostaticTestLogId], references: [id], onDelete: Cascade)
+
+  extinguisherChangeLogId String?
+  extinguisherChangeLog   ExtinguisherChangeLog? @relation(fields: [extinguisherChangeLogId], references: [id], onDelete: Cascade)
 
   fileName   String
   storedName String

@@ -3,7 +3,11 @@ import { formatDate } from "@/lib/dates";
 import {
   inventoryItemStatusLabels,
   inventoryItemStatusStyles,
+  ordenTipoLabels,
+  formatCantidad,
+  describeOrden,
   type InventoryItemStatus,
+  type OrdenTipo,
 } from "@/lib/inventory-enums";
 import { InventoryItemStatusForm } from "@/components/admin/InventoryItemStatusForm";
 import { deleteInventoryItem } from "@/actions/inventory-actions";
@@ -21,7 +25,7 @@ export function InventoryItemTable({
   if (items.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-ink">
-        Todavía no hay piezas en inventario.
+        Todavía no hay artículos en inventario.
       </p>
     );
   }
@@ -41,7 +45,8 @@ export function InventoryItemTable({
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
           <tr>
-            <th className="whitespace-nowrap px-4 py-2">Pieza</th>
+            <th className="whitespace-nowrap px-4 py-2">Nombre</th>
+            <th className="whitespace-nowrap px-4 py-2">Orden</th>
             <th className="whitespace-nowrap px-4 py-2">Cantidad</th>
             <th className="whitespace-nowrap px-4 py-2">Fecha</th>
             <th className="whitespace-nowrap px-4 py-2">Estado</th>
@@ -58,8 +63,13 @@ export function InventoryItemTable({
                 key={item.id}
                 className={`border-t border-gray-100 ${utilizada ? "bg-gray-50 opacity-70" : ""}`}
               >
-                <td className="whitespace-nowrap px-4 py-2 font-medium text-ink">{item.pieza}</td>
-                <td className="whitespace-nowrap px-4 py-2 text-ink">{item.cantidad ?? "—"}</td>
+                <td className="whitespace-nowrap px-4 py-2 font-medium text-ink">{item.nombre}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-ink">
+                  {ordenTipoLabels[item.tipo as OrdenTipo] ?? item.tipo}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-ink">
+                  {formatCantidad(item.cantidad, item.unidad)}
+                </td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{formatDate(fecha)}</td>
                 <td className="whitespace-nowrap px-4 py-2">
                   {canEdit && !utilizada ? (
@@ -76,7 +86,7 @@ export function InventoryItemTable({
                   <td className="whitespace-nowrap px-4 py-2">
                     <form action={deleteInventoryItem.bind(null, item.id)}>
                       <ConfirmSubmitButton
-                        confirmMessage={`¿Eliminar "${item.pieza}" del inventario?`}
+                        confirmMessage={`¿Eliminar ${describeOrden(item.tipo, item.nombre, item.cantidad, item.unidad)} del inventario?`}
                         className="text-xs text-accent hover:underline"
                       >
                         Eliminar

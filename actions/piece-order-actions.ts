@@ -5,21 +5,38 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { sectionBasePath } from "@/lib/section-path";
-import { pieceOrderStatusSchema } from "@/lib/inventory-enums";
+import {
+  pieceOrderStatusSchema,
+  ordenTipoSchema,
+  consumibleUnidadSchema,
+  unidadParaTipo,
+  esContable,
+} from "@/lib/inventory-enums";
 import type { ActionState } from "./user-actions";
 
-const optionalText = (max: number) =>
-  z.preprocess((value) => {
-    const text = String(value ?? "").trim();
-    return text.length > 0 ? text : null;
-  }, z.string().max(max).nullable());
-
 const createPieceOrderSchema = z.object({
-  pieza: z.preprocess(
+  tipo: ordenTipoSchema,
+  nombre: z.preprocess(
     (value) => String(value ?? "").trim(),
-    z.string().min(1, "La pieza es requerida").max(150)
+    z.string().min(1, "El nombre es requerido").max(150)
   ),
-  cantidad: optionalText(50),
+  // Solo se usa cuando tipo === "CONSUMIBLE"; para los demás la unidad se
+  // deduce sola (piezas).
+  unidadConsumible: z.preprocess((value) => {
+    const text = String(value ?? "").trim();
+    return text.length > 0 ? text : undefined;
+  }, consumibleUnidadSchema.optional()),
+  cantidad: z.preprocess(
+    (value) => {
+      const text = String(value ?? "").trim();
+      return text.length > 0 ? Number(text) : undefined;
+    },
+    z
+      .number({ required_error: "La cantidad es requerida", invalid_type_error: "Cantidad inválida" })
+      .int("La cantidad debe ser un número entero")
+      .min(1, "La cantidad debe ser al menos 1")
+      .max(1000, "La cantidad no puede ser mayor a 1000")
+  ),
   fechaOrden: z.preprocess((value) => {
     const text = String(value ?? "").trim();
     return text.length > 0 ? new Date(text) : undefined;
@@ -36,7 +53,9 @@ export async function createPieceOrder(
   if (sessionError) return { error: sessionError };
 
   const parsed = createPieceOrderSchema.safeParse({
-    pieza: formData.get("pieza"),
+    tipo: formData.get("tipo"),
+    nombre: formData.get("nombre"),
+    unidadConsumible: formData.get("unidadConsumible"),
     cantidad: formData.get("cantidad"),
     fechaOrden: formData.get("fechaOrden"),
   });
@@ -56,12 +75,16 @@ export async function createPieceOrder(
     data: {
       sectionId,
       createdById: editor.userId,
-      ...parsed.data,
+      tipo: parsed.data.tipo,
+      nombre: parsed.data.nombre,
+      unidad: unidadParaTipo(parsed.data.tipo, parsed.data.unidadConsumible),
+      cantidad: parsed.data.cantidad,
+      fechaOrden: parsed.data.fechaOrden,
     },
   });
 
   revalidatePath(sectionBasePath(section.city.slug, [section]));
-  return { success: "Orden de pieza registrada." };
+  return { success: "Orden registrada." };
 }
 
 export async function updatePieceOrderEstado(
@@ -78,7 +101,7 @@ export async function updatePieceOrderEstado(
 
   const order = await prisma.pieceOrder.findUnique({
     where: { id: orderId },
-    include: { section: { include: { city: true } }, inventoryItem: true },
+    include: { section: { include: { city: true } }, inventoryItems: { select: { id: true } } },
   });
   if (!order) {
     return { error: "El registro no existe." };
@@ -86,21 +109,31 @@ export async function updatePieceOrderEstado(
 
   await prisma.pieceOrder.update({ where: { id: orderId }, data: { estado: parsed.data } });
 
-  // Al aceptar la orden (una sola vez), se crea la pieza correspondiente en
-  // el apartado de Inventarios de la misma ciudad.
-  if (parsed.data === "ACEPTADA" && !order.inventoryItem) {
+  // Al aceptar la orden (una sola vez) se dan de alta los renglones en el
+  // apartado de Inventarios de la misma ciudad. Los tipos contables se
+  // desglosan uno por uno —5 refacciones son 5 renglones independientes, cada
+  // uno con su propio estatus y su propio plazo de 5 días—; el consumible se
+  // queda en un solo renglón con el total (20 lts, no 20 renglones de 1 lt).
+  if (parsed.data === "ACEPTADA" && order.inventoryItems.length === 0) {
     const inventarios = await prisma.section.findFirst({
       where: { cityId: order.section.cityId, parentId: null, slug: "inventarios" },
     });
     if (inventarios) {
-      await prisma.inventoryItem.create({
-        data: {
+      const contable = esContable(order.tipo as Parameters<typeof esContable>[0]);
+      const filas = contable
+        ? Array.from({ length: order.cantidad }, () => 1)
+        : [order.cantidad];
+
+      await prisma.inventoryItem.createMany({
+        data: filas.map((cantidad) => ({
           sectionId: inventarios.id,
           pieceOrderId: order.id,
-          pieza: order.pieza,
-          cantidad: order.cantidad,
+          tipo: order.tipo,
+          nombre: order.nombre,
+          unidad: order.unidad,
+          cantidad,
           createdById: order.createdById,
-        },
+        })),
       });
       revalidatePath(sectionBasePath(order.section.city.slug, [inventarios]));
     }

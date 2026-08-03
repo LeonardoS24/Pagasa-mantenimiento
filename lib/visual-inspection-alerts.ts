@@ -1,6 +1,7 @@
-// Sistema de alertas de inspección visual de tanque: funciona igual que
-// lib/ultrasound-alerts.ts (amarillo si falta 1 mes o menos, rojo si falta 1
-// semana o menos, incluye vencido), pero basado en fechaProximaInspeccionVisual.
+// Sistema de alertas de inspección visual EXTERNA de tanque: funciona igual
+// que lib/ultrasound-alerts.ts (amarillo si falta 1 mes o menos, rojo si
+// falta 1 semana o menos, incluye vencido), pero basado en
+// fechaProximaInspeccionVisual.
 import { daysUntil } from "./ultrasound-alerts";
 
 export type VisualInspectionAlertLevel = "none" | "yellow" | "red";
@@ -30,11 +31,11 @@ export const visualInspectionAlertRowStyles: Record<VisualInspectionAlertLevel, 
 export function visualInspectionAlertLabel(level: VisualInspectionAlertLevel, fecha: Date): string {
   const daysLeft = daysUntil(fecha);
   if (level === "red") {
-    if (daysLeft < 0) return `Inspección visual vencida hace ${Math.abs(daysLeft)} día(s)`;
-    if (daysLeft === 0) return "Inspección visual vence hoy";
-    return `Faltan ${daysLeft} día(s) para la inspección visual`;
+    if (daysLeft < 0) return `Inspección visual externa vencida hace ${Math.abs(daysLeft)} día(s)`;
+    if (daysLeft === 0) return "Inspección visual externa vence hoy";
+    return `Faltan ${daysLeft} día(s) para la inspección visual externa`;
   }
-  if (level === "yellow") return `Faltan ${daysLeft} día(s) para la inspección visual`;
+  if (level === "yellow") return `Faltan ${daysLeft} día(s) para la inspección visual externa`;
   return "";
 }
 
@@ -47,12 +48,12 @@ export function visualInspectionAlertMessage(
   const daysLeft = daysUntil(fecha);
   if (level === "red") {
     if (daysLeft < 0) {
-      return `¡URGENTE! La inspección visual del tanque de "${numeroEconomico}" está VENCIDA desde hace ${Math.abs(daysLeft)} día(s).`;
+      return `¡URGENTE! La inspección visual externa del tanque de "${numeroEconomico}" está VENCIDA desde hace ${Math.abs(daysLeft)} día(s).`;
     }
     if (daysLeft === 0) {
-      return `¡URGENTE! La inspección visual del tanque de "${numeroEconomico}" vence HOY.`;
+      return `¡URGENTE! La inspección visual externa del tanque de "${numeroEconomico}" vence HOY.`;
     }
-    return `¡URGENTE! Solo falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para la inspección visual del tanque de "${numeroEconomico}".`;
+    return `¡URGENTE! Solo falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para la inspección visual externa del tanque de "${numeroEconomico}".`;
   }
-  return `Atención: falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para la próxima inspección visual del tanque de "${numeroEconomico}".`;
+  return `Atención: falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para la próxima inspección visual externa del tanque de "${numeroEconomico}".`;
 }

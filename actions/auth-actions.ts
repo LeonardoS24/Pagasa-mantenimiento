@@ -51,9 +51,3 @@ export async function loginAction(
 
   redirect("/dashboard");
 }
-
-export async function logoutAction() {
-  const session = await getSession();
-  session.destroy();
-  redirect("/login");
-}

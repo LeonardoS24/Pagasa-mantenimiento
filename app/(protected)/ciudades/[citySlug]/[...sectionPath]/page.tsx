@@ -40,12 +40,25 @@ export default async function SectionPage({
   const isUnderUnidadDistribucion = chain.length >= 2 && chain[0].slug === "unidad-de-distribucion";
   const isVehicleSection = children.length === 0 && !isBitacoraFeed && isUnderUnidadDistribucion;
 
+  // Las unidades dadas de baja se listan aparte, siempre al final: entre
+  // ellas se ordenan por fecha de baja (más reciente primero) en vez del
+  // orden manual usado para las unidades activas.
   const vehicleRecords = isVehicleSection
-    ? await prisma.vehicleRecord.findMany({
-        where: { sectionId: current.id },
-        orderBy: { order: "asc" },
-        include: { technicalSheet: true },
-      })
+    ? await (async () => {
+        const [activeRecords, inactiveRecords] = await Promise.all([
+          prisma.vehicleRecord.findMany({
+            where: { sectionId: current.id, activo: true },
+            orderBy: { order: "asc" },
+            include: { technicalSheet: true },
+          }),
+          prisma.vehicleRecord.findMany({
+            where: { sectionId: current.id, activo: false },
+            orderBy: { fechaBaja: "desc" },
+            include: { technicalSheet: true },
+          }),
+        ]);
+        return [...activeRecords, ...inactiveRecords];
+      })()
     : [];
 
   const cityMaintenanceLogs = isBitacoraFeed

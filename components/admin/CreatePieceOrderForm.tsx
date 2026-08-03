@@ -1,9 +1,19 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { createPieceOrder } from "@/actions/piece-order-actions";
 import type { ActionState } from "@/actions/user-actions";
+import {
+  ordenTipoLabels,
+  consumibleUnidadLabels,
+  ordenNombreLabels,
+  ordenNombrePlaceholders,
+  formatCantidad,
+  unidadParaTipo,
+  type OrdenTipo,
+  type ConsumibleUnidad,
+} from "@/lib/inventory-enums";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -29,10 +39,24 @@ export function CreatePieceOrderForm({ sectionId }: { sectionId: string }) {
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // La unidad no se captura: se deduce del tipo. Solo el consumible deja
+  // elegir entre litros y kilos, y ese selector aparece únicamente entonces.
+  const [tipo, setTipo] = useState<OrdenTipo | "">("");
+  const [unidadConsumible, setUnidadConsumible] = useState<ConsumibleUnidad>("LTS");
+  const [cantidad, setCantidad] = useState("1");
+
+  const esConsumible = tipo === "CONSUMIBLE";
+  const unidad = tipo ? unidadParaTipo(tipo, unidadConsumible) : null;
+  const cantidadNum = Number(cantidad);
+  const vistaPrevia =
+    unidad && Number.isInteger(cantidadNum) && cantidadNum >= 1
+      ? formatCantidad(cantidadNum, unidad)
+      : null;
+
   return (
     <details className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
       <summary className="cursor-pointer text-sm font-semibold text-primary">
-        Registrar orden de pieza
+        Registrar orden
       </summary>
 
       <form
@@ -40,29 +64,117 @@ export function CreatePieceOrderForm({ sectionId }: { sectionId: string }) {
         action={async (formData) => {
           await formAction(formData);
           formRef.current?.reset();
+          setTipo("");
+          setUnidadConsumible("LTS");
+          setCantidad("1");
         }}
         className="mt-4 space-y-3"
       >
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="pieza">
-              Pieza
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-tipo">
+              Orden
             </label>
-            <input id="pieza" name="pieza" required className={inputClass} />
+            <select
+              id="op-tipo"
+              name="tipo"
+              required
+              value={tipo}
+              onChange={(event) => setTipo(event.target.value as OrdenTipo | "")}
+              className={inputClass}
+            >
+              <option value="" disabled>
+                Selecciona...
+              </option>
+              {Object.entries(ordenTipoLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </div>
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="cantidad">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-nombre">
+              {tipo ? ordenNombreLabels[tipo] : "Nombre"}
+            </label>
+            <input
+              id="op-nombre"
+              name="nombre"
+              required
+              disabled={!tipo}
+              placeholder={tipo ? ordenNombrePlaceholders[tipo] : "Elige primero el tipo"}
+              className={`${inputClass} disabled:bg-gray-50 disabled:text-gray-400`}
+            />
+          </div>
+
+          {esConsumible && (
+            <div>
+              <label
+                className="mb-1 block text-sm font-medium text-ink"
+                htmlFor="op-unidadConsumible"
+              >
+                Unidad
+              </label>
+              <select
+                id="op-unidadConsumible"
+                name="unidadConsumible"
+                required
+                value={unidadConsumible}
+                onChange={(event) => setUnidadConsumible(event.target.value as ConsumibleUnidad)}
+                className={inputClass}
+              >
+                {Object.entries(consumibleUnidadLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-cantidad">
               Cantidad
             </label>
-            <input id="cantidad" name="cantidad" className={inputClass} />
+            <input
+              id="op-cantidad"
+              name="cantidad"
+              type="number"
+              min={1}
+              max={1000}
+              step={1}
+              required
+              value={cantidad}
+              onChange={(event) => setCantidad(event.target.value)}
+              className={inputClass}
+            />
+            {vistaPrevia && (
+              <p className="mt-1 text-xs text-gray-500">Se registrará como: {vistaPrevia}</p>
+            )}
           </div>
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="fechaOrden">
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-fechaOrden">
               Fecha de la orden
             </label>
-            <input id="fechaOrden" name="fechaOrden" type="date" required className={inputClass} />
+            <input
+              id="op-fechaOrden"
+              name="fechaOrden"
+              type="date"
+              required
+              className={inputClass}
+            />
           </div>
         </div>
+
+        {tipo && (
+          <p className="text-xs text-ink">
+            {esConsumible
+              ? "Al aceptarse, el consumible entrará al inventario como un solo registro con la cantidad total."
+              : `Al aceptarse, entrarán al inventario ${cantidadNum >= 1 ? cantidadNum : 1} registro(s) independiente(s), uno por cada unidad.`}
+          </p>
+        )}
 
         <FormMessage state={state} />
 

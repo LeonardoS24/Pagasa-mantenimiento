@@ -86,7 +86,7 @@ export async function createVisualInspectionLog(
   }
 
   // Al aceptar el registro, la ficha técnica refleja automáticamente la
-  // inspección visual recién realizada como la "última inspección visual".
+  // inspección visual externa recién realizada como la "última inspección visual externa".
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
     update: {
@@ -103,7 +103,7 @@ export async function createVisualInspectionLog(
   });
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
-  return { success: "Inspección visual registrada y ficha técnica actualizada." };
+  return { success: "Inspección visual externa registrada y ficha técnica actualizada." };
 }
 
 export async function deleteVisualInspectionLog(logId: string) {

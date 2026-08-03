@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { logoutAction } from "@/actions/auth-actions";
 import type { SessionData } from "@/lib/session";
 import { roleLabels } from "@/lib/roles";
 
@@ -21,11 +20,19 @@ export function Header({ user }: { user: SessionData }) {
           Sistema Integral de Mantenimiento
         </p>
       </div>
+      <form action="/buscar" method="GET" className="hidden flex-1 max-w-xs md:block">
+        <input
+          type="search"
+          name="q"
+          placeholder="Buscar número económico, placas..."
+          className="w-full rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-blue-100 focus:bg-white focus:text-ink focus:outline-none focus:ring-2 focus:ring-white/60"
+        />
+      </form>
       <div className="flex items-center gap-4 text-sm">
         <span>
           {user.username} <span className="text-blue-200">({roleLabels[user.role]})</span>
         </span>
-        <form action={logoutAction}>
+        <form action="/api/logout" method="POST">
           <button
             type="submit"
             className="rounded-md border border-white/40 px-3 py-1 text-sm transition hover:bg-white/10"

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
-import { combustibleSchema } from "@/lib/vehicle-enums";
+import { combustibleSchema, calidadExtintorSchema } from "@/lib/vehicle-enums";
 import type { ActionState } from "./user-actions";
 
 const vehicleSchema = z.object({
@@ -160,9 +160,22 @@ const requiredProximaInspeccionVisualDate = z.preprocess((value) => {
   const text = String(value ?? "").trim();
   return text.length > 0 ? new Date(text) : undefined;
 }, z.date({
-  required_error: "La fecha próxima de inspección visual es requerida para Auto-Tanques.",
-  invalid_type_error: "Fecha próxima de inspección visual inválida.",
+  required_error: "La fecha próxima de inspección visual externa es requerida para Auto-Tanques.",
+  invalid_type_error: "Fecha próxima de inspección visual externa inválida.",
 }));
+
+const requiredProximaPruebaHermeticidadDate = z.preprocess((value) => {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? new Date(text) : undefined;
+}, z.date({
+  required_error: "La fecha próxima de prueba de hermeticidad es requerida para Auto-Tanques.",
+  invalid_type_error: "Fecha próxima de prueba de hermeticidad inválida.",
+}));
+
+// Suma 10 años a una fecha (UTC, sin desfase de zona horaria).
+function addTenYears(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear() + 10, date.getUTCMonth(), date.getUTCDate()));
+}
 
 const technicalSheetSchema = z.object({
   fabricante: optionalText(100),
@@ -170,20 +183,21 @@ const technicalSheetSchema = z.object({
   linea: optionalText(100),
   modelo: optionalText(100),
   peso: optionalText(50),
+  pesoBrutoVacio: optionalText(50),
+  pesoBrutoMaximo: optionalText(50),
   serie: optionalText(100),
   combustible: z.preprocess((value) => {
     const text = String(value ?? "").trim();
     return text.length > 0 ? text : null;
   }, combustibleSchema.nullable()),
   caracteristicas: optionalText(1000),
-  ubicacion: optionalText(100),
-  potencia: optionalText(50),
   horasUsoDiario: optionalText(50),
   fechaAdquisicion: optionalDate,
   serieTanque: optionalText(100),
   capacidadTanque: optionalText(50),
   marcaTanque: optionalText(100),
   anioFabricacionTanque: optionalText(20),
+  fechaFabricacionTanque: optionalDate,
   numeroSerieTanque: optionalText(100),
   numeroUltimoUltrasonido: optionalText(100),
   ultimoUltrasonido: optionalDate,
@@ -191,6 +205,24 @@ const technicalSheetSchema = z.object({
   numeroUltimaInspeccionVisual: optionalText(100),
   ultimaInspeccionVisual: optionalDate,
   fechaProximaInspeccionVisual: optionalDate,
+  numeroUltimaPruebaHermeticidad: optionalText(100),
+  ultimaPruebaHermeticidad: optionalDate,
+  fechaProximaPruebaHermeticidad: optionalDate,
+  numeroUltimaInspeccionVisualInterna: optionalText(100),
+  ultimaInspeccionVisualInterna: optionalDate,
+  fechaProximaInspeccionVisualInterna: optionalDate,
+  numeroUltimaPruebaHidrostatica: optionalText(100),
+  ultimaPruebaHidrostatica: optionalDate,
+  fechaProximaPruebaHidrostatica: optionalDate,
+  fechaInstalacionExtintor: optionalDate,
+  fechaVencimientoExtintor: optionalDate,
+  calidadExtintor: z.preprocess((value) => {
+    const text = String(value ?? "").trim();
+    return text.length > 0 ? text : null;
+  }, calidadExtintorSchema.nullable()),
+  // No editable desde el formulario: se recalcula más abajo a partir de la
+  // transición de calidadExtintor (ver fechaCalidadMalaTransition).
+  fechaCalidadMalaExtintor: optionalDate,
 });
 
 export async function upsertTechnicalSheet(
@@ -202,19 +234,23 @@ export async function upsertTechnicalSheet(
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },
-    include: { section: { include: { city: true } } },
+    include: { section: { include: { city: true } }, technicalSheet: true },
   });
   if (!vehicle) {
     return { error: "El registro no existe." };
   }
 
-  // Auto-Tanques debe programar el próximo ultrasonido antes de poder
-  // guardar la ficha técnica; los demás tipos de unidad lo dejan opcional.
+  // Auto-Tanques debe programar el próximo ultrasonido, inspección visual
+  // externa y prueba de hermeticidad antes de poder guardar la ficha
+  // técnica; los demás tipos de unidad lo dejan opcional. La inspección
+  // visual interna y la prueba hidrostática NO se piden aquí porque se
+  // calculan solas a partir de fechaFabricacionTanque (ver más abajo).
   const schema =
     vehicle.section.slug === "auto-tanques"
       ? technicalSheetSchema.extend({
           fechaProximoUltrasonido: requiredProximoUltrasonidoDate,
           fechaProximaInspeccionVisual: requiredProximaInspeccionVisualDate,
+          fechaProximaPruebaHermeticidad: requiredProximaPruebaHermeticidadDate,
         })
       : technicalSheetSchema;
 
@@ -224,17 +260,18 @@ export async function upsertTechnicalSheet(
     linea: formData.get("linea"),
     modelo: formData.get("modelo"),
     peso: formData.get("peso"),
+    pesoBrutoVacio: formData.get("pesoBrutoVacio"),
+    pesoBrutoMaximo: formData.get("pesoBrutoMaximo"),
     serie: formData.get("serie"),
     combustible: formData.get("combustible"),
     caracteristicas: formData.get("caracteristicas"),
-    ubicacion: formData.get("ubicacion"),
-    potencia: formData.get("potencia"),
     horasUsoDiario: formData.get("horasUsoDiario"),
     fechaAdquisicion: formData.get("fechaAdquisicion"),
     serieTanque: formData.get("serieTanque"),
     capacidadTanque: formData.get("capacidadTanque"),
     marcaTanque: formData.get("marcaTanque"),
     anioFabricacionTanque: formData.get("anioFabricacionTanque"),
+    fechaFabricacionTanque: formData.get("fechaFabricacionTanque"),
     numeroSerieTanque: formData.get("numeroSerieTanque"),
     numeroUltimoUltrasonido: formData.get("numeroUltimoUltrasonido"),
     ultimoUltrasonido: formData.get("ultimoUltrasonido"),
@@ -242,16 +279,71 @@ export async function upsertTechnicalSheet(
     numeroUltimaInspeccionVisual: formData.get("numeroUltimaInspeccionVisual"),
     ultimaInspeccionVisual: formData.get("ultimaInspeccionVisual"),
     fechaProximaInspeccionVisual: formData.get("fechaProximaInspeccionVisual"),
+    numeroUltimaPruebaHermeticidad: formData.get("numeroUltimaPruebaHermeticidad"),
+    ultimaPruebaHermeticidad: formData.get("ultimaPruebaHermeticidad"),
+    fechaProximaPruebaHermeticidad: formData.get("fechaProximaPruebaHermeticidad"),
+    numeroUltimaInspeccionVisualInterna: formData.get("numeroUltimaInspeccionVisualInterna"),
+    ultimaInspeccionVisualInterna: formData.get("ultimaInspeccionVisualInterna"),
+    fechaProximaInspeccionVisualInterna: formData.get("fechaProximaInspeccionVisualInterna"),
+    numeroUltimaPruebaHidrostatica: formData.get("numeroUltimaPruebaHidrostatica"),
+    ultimaPruebaHidrostatica: formData.get("ultimaPruebaHidrostatica"),
+    fechaProximaPruebaHidrostatica: formData.get("fechaProximaPruebaHidrostatica"),
+    fechaInstalacionExtintor: formData.get("fechaInstalacionExtintor"),
+    fechaVencimientoExtintor: formData.get("fechaVencimientoExtintor"),
+    calidadExtintor: formData.get("calidadExtintor"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
+  // Inspección visual interna y prueba hidrostática: si hay fecha de
+  // fabricación y el campo de fecha próxima quedó vacío, se calcula sola
+  // como fabricación + 10 años (primer ciclo antes de cualquier registro).
+  const data = { ...parsed.data };
+  if (data.fechaFabricacionTanque && !data.fechaProximaInspeccionVisualInterna) {
+    data.fechaProximaInspeccionVisualInterna = addTenYears(data.fechaFabricacionTanque);
+  }
+  if (data.fechaFabricacionTanque && !data.fechaProximaPruebaHidrostatica) {
+    data.fechaProximaPruebaHidrostatica = addTenYears(data.fechaFabricacionTanque);
+  }
+
+  // Extintor: fechaCalidadMalaExtintor marca la primera vez que se detectó
+  // "MALA" (ancla la alerta amarilla/roja). Si ya estaba en MALA se conserva
+  // la fecha original; si deja de estar en MALA se limpia.
+  data.fechaCalidadMalaExtintor =
+    data.calidadExtintor === "MALA"
+      ? vehicle.technicalSheet?.calidadExtintor === "MALA"
+        ? vehicle.technicalSheet.fechaCalidadMalaExtintor
+        : new Date()
+      : null;
+
+  // La Serie del vehículo y el Número de serie del tanque identifican una
+  // unidad física de forma única: no pueden repetirse entre dos números
+  // económicos distintos.
+  if (data.serie) {
+    const duplicate = await prisma.vehicleTechnicalSheet.findFirst({
+      where: { serie: data.serie, vehicleRecordId: { not: vehicleId } },
+    });
+    if (duplicate) {
+      return { error: `Ya existe otra unidad registrada con la Serie "${data.serie}".` };
+    }
+  }
+  if (data.numeroSerieTanque) {
+    const duplicate = await prisma.vehicleTechnicalSheet.findFirst({
+      where: { numeroSerieTanque: data.numeroSerieTanque, vehicleRecordId: { not: vehicleId } },
+    });
+    if (duplicate) {
+      return {
+        error: `Ya existe otra unidad registrada con el Número de serie de tanque "${data.numeroSerieTanque}".`,
+      };
+    }
+  }
+
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
-    update: parsed.data,
-    create: { vehicleRecordId: vehicleId, ...parsed.data },
+    update: data,
+    create: { vehicleRecordId: vehicleId, ...data },
   });
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);

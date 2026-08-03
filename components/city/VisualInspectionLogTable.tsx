@@ -11,7 +11,7 @@ export function VisualInspectionLogTable({
   isAdmin: boolean;
 }) {
   if (logs.length === 0) {
-    return <p className="text-sm text-ink">Sin inspecciones visuales registradas todavía.</p>;
+    return <p className="text-sm text-ink">Sin inspecciones visuales externas registradas todavía.</p>;
   }
 
   return (

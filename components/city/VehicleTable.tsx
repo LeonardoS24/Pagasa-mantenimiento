@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import type { VehicleRecord, VehicleTechnicalSheet } from "@prisma/client";
 import {
@@ -11,6 +12,26 @@ import {
   visualInspectionAlertBadgeStyles,
   visualInspectionAlertLabel,
 } from "@/lib/visual-inspection-alerts";
+import {
+  getTightnessTestAlertLevel,
+  tightnessTestAlertBadgeStyles,
+  tightnessTestAlertLabel,
+} from "@/lib/tightness-test-alerts";
+import {
+  getInternalVisualInspectionAlertLevel,
+  internalVisualInspectionAlertBadgeStyles,
+  internalVisualInspectionAlertLabel,
+} from "@/lib/internal-visual-inspection-alerts";
+import {
+  getHydrostaticTestAlertLevel,
+  hydrostaticTestAlertBadgeStyles,
+  hydrostaticTestAlertLabel,
+} from "@/lib/hydrostatic-test-alerts";
+import {
+  getExtinguisherAlertLevel,
+  extinguisherAlertBadgeStyles,
+  extinguisherAlertLabel,
+} from "@/lib/extinguisher-alerts";
 
 function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
   if (levels.includes("red")) return ultrasoundAlertRowStyles.red;
@@ -54,7 +75,8 @@ export function VehicleTable({
           </tr>
         </thead>
         <tbody>
-          {records.map((record) => {
+          {records.map((record, index) => {
+            const isFirstInactive = !record.activo && (index === 0 || records[index - 1].activo);
             const anterior = formatAnterior(record);
             const alertLevel = record.activo
               ? getUltrasoundAlertLevel(record.technicalSheet?.fechaProximoUltrasonido)
@@ -62,10 +84,47 @@ export function VehicleTable({
             const visualAlertLevel = record.activo
               ? getVisualInspectionAlertLevel(record.technicalSheet?.fechaProximaInspeccionVisual)
               : "none";
+            const tightnessAlertLevel = record.activo
+              ? getTightnessTestAlertLevel(record.technicalSheet?.fechaProximaPruebaHermeticidad)
+              : "none";
+            const internalVisualAlertLevel = record.activo
+              ? getInternalVisualInspectionAlertLevel(
+                  record.technicalSheet?.fechaProximaInspeccionVisualInterna
+                )
+              : "none";
+            const hydrostaticAlertLevel = record.activo
+              ? getHydrostaticTestAlertLevel(record.technicalSheet?.fechaProximaPruebaHidrostatica)
+              : "none";
+            const extinguisherAlertLevel = record.activo
+              ? getExtinguisherAlertLevel(
+                  record.technicalSheet?.calidadExtintor,
+                  record.technicalSheet?.fechaCalidadMalaExtintor
+                )
+              : "none";
             return (
-              <tr
-                key={record.id}
-                className={`border-t border-gray-100 hover:bg-gray-50 ${!record.activo ? "bg-orange-50" : worstRowStyle(alertLevel, visualAlertLevel)}`}
+              <Fragment key={record.id}>
+                {isFirstInactive && (
+                  <tr aria-hidden="true">
+                    <td colSpan={4} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Dadas de baja
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                <tr
+                className={`border-t border-gray-100 hover:bg-gray-50 ${
+                  !record.activo
+                    ? "bg-orange-50"
+                    : worstRowStyle(
+                        alertLevel,
+                        visualAlertLevel,
+                        tightnessAlertLevel,
+                        internalVisualAlertLevel,
+                        hydrostaticAlertLevel,
+                        extinguisherAlertLevel
+                      )
+                }`}
               >
                 <td className="whitespace-nowrap px-4 py-2 font-medium text-primary">
                   <Link href={`/ciudades/${citySlug}/vehiculo/${record.id}`} className="hover:underline">
@@ -94,11 +153,55 @@ export function VehicleTable({
                       )}
                     </span>
                   )}
+                  {tightnessAlertLevel !== "none" &&
+                    record.technicalSheet?.fechaProximaPruebaHermeticidad && (
+                      <span
+                        className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${tightnessTestAlertBadgeStyles[tightnessAlertLevel]}`}
+                      >
+                        {tightnessTestAlertLabel(
+                          tightnessAlertLevel,
+                          record.technicalSheet.fechaProximaPruebaHermeticidad
+                        )}
+                      </span>
+                    )}
+                  {internalVisualAlertLevel !== "none" &&
+                    record.technicalSheet?.fechaProximaInspeccionVisualInterna && (
+                      <span
+                        className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${internalVisualInspectionAlertBadgeStyles[internalVisualAlertLevel]}`}
+                      >
+                        {internalVisualInspectionAlertLabel(
+                          internalVisualAlertLevel,
+                          record.technicalSheet.fechaProximaInspeccionVisualInterna
+                        )}
+                      </span>
+                    )}
+                  {hydrostaticAlertLevel !== "none" &&
+                    record.technicalSheet?.fechaProximaPruebaHidrostatica && (
+                      <span
+                        className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${hydrostaticTestAlertBadgeStyles[hydrostaticAlertLevel]}`}
+                      >
+                        {hydrostaticTestAlertLabel(
+                          hydrostaticAlertLevel,
+                          record.technicalSheet.fechaProximaPruebaHidrostatica
+                        )}
+                      </span>
+                    )}
+                  {extinguisherAlertLevel !== "none" && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${extinguisherAlertBadgeStyles[extinguisherAlertLevel]}`}
+                    >
+                      {extinguisherAlertLabel(
+                        extinguisherAlertLevel,
+                        record.technicalSheet?.fechaCalidadMalaExtintor
+                      )}
+                    </span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
-              </tr>
+                </tr>
+              </Fragment>
             );
           })}
         </tbody>

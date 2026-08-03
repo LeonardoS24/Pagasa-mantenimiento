@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const combustibleSchema = z.enum(["GAS_LP", "GASOLINA", "DIESEL", "ELECTRICA"]);
+export const combustibleSchema = z.enum([
+  "GAS_LP",
+  "GASOLINA",
+  "DIESEL",
+  "ELECTRICA",
+  "GAS_LP_GASOLINA",
+]);
 export type Combustible = z.infer<typeof combustibleSchema>;
 
 export const combustibleLabels: Record<Combustible, string> = {
@@ -8,6 +14,7 @@ export const combustibleLabels: Record<Combustible, string> = {
   GASOLINA: "Gasolina",
   DIESEL: "Diesel",
   ELECTRICA: "Energía eléctrica",
+  GAS_LP_GASOLINA: "Gas LP/Gasolina",
 };
 
 export const maintenanceStatusSchema = z.enum([
@@ -30,4 +37,13 @@ export const maintenanceStatusStyles: Record<MaintenanceStatus, string> = {
   EN_PROCESO: "bg-accent-light/20 text-accent",
   TERMINADO: "bg-green-100 text-green-700",
   CANCELADO: "bg-blue-100 text-blue-700",
+};
+
+export const calidadExtintorSchema = z.enum(["EXCELENTE", "BUENA", "MALA"]);
+export type CalidadExtintor = z.infer<typeof calidadExtintorSchema>;
+
+export const calidadExtintorLabels: Record<CalidadExtintor, string> = {
+  EXCELENTE: "Excelente",
+  BUENA: "Buena",
+  MALA: "Mala",
 };

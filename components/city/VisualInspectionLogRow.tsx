@@ -52,7 +52,7 @@ export function VisualInspectionLogRow({
             <Field label="Número de inspección" value={log.numeroInspeccion} />
             <Field label="Responsable" value={log.responsable} />
             <Field
-              label="Última fecha de inspección visual"
+              label="Última fecha de inspección visual externa"
               value={log.fechaUltimaInspeccion ? formatDate(log.fechaUltimaInspeccion) : null}
             />
             <Field label="Fecha de realización" value={formatDate(log.fechaRealizacion)} />
@@ -71,7 +71,7 @@ export function VisualInspectionLogRow({
           {isAdmin && (
             <form action={deleteVisualInspectionLog.bind(null, log.id)}>
               <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar este registro de inspección visual (${formatDate(log.fechaRealizacion)})? También se eliminarán sus documentos.`}
+                confirmMessage={`¿Eliminar este registro de inspección visual externa (${formatDate(log.fechaRealizacion)})? También se eliminarán sus documentos.`}
                 className="text-sm text-accent hover:underline"
               >
                 Eliminar registro
