@@ -21,6 +21,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Todas estas relaciones usan onDelete: SetNull, nunca Cascade: eliminar a
+  // un empleado no debe borrar el historial de mantenimiento de la flota. El
+  // registro se conserva y solo pierde el nombre de quien lo capturó.
   cityAccess      UserCityAccess[]
   documents       Document[]
   maintenanceLogs               MaintenanceLog[]
@@ -265,8 +268,8 @@ model MaintenanceLog {
   // "SIN_ATENCION" | "EN_PROCESO" | "TERMINADO" | "CANCELADO"
   estatus String @default("SIN_ATENCION")
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -299,8 +302,8 @@ model UltrasoundLog {
   // "ultimoUltrasonido" de la ficha técnica al aceptar el registro).
   fechaRealizacion DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -331,8 +334,8 @@ model VisualInspectionLog {
   // "ultimaInspeccionVisual" de la ficha técnica al aceptar el registro).
   fechaRealizacion DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -358,8 +361,8 @@ model TightnessTestLog {
   fechaUltimaPrueba DateTime?
   fechaRealizacion  DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -386,8 +389,8 @@ model InternalVisualInspectionLog {
   fechaUltimaInspeccion DateTime?
   fechaRealizacion      DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -413,8 +416,8 @@ model HydrostaticTestLog {
   fechaUltimaPrueba DateTime?
   fechaRealizacion  DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -441,8 +444,8 @@ model ExtinguisherChangeLog {
   calidad          String // "EXCELENTE" | "BUENA" | "MALA"
   fechaRealizacion DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -473,8 +476,8 @@ model ValveChangeLog {
   fechaFabricacionValvulaMaximoLlenado DateTime
   fechaFabricacionValvulaAlivio        DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -500,8 +503,8 @@ model ValveCorrectiveMaintenanceLog {
   responsable String?
   fecha       DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -529,8 +532,8 @@ model HoseChangeLog {
   fechaInstalacion         DateTime
   fechaFabricacionManguera DateTime
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -569,8 +572,8 @@ model PieceOrder {
   // genera uno solo con el total.
   inventoryItems InventoryItem[]
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -612,8 +615,8 @@ model InventoryItem {
   fechaPorUtilizarDesde DateTime?
   fechaUtilizada        DateTime?
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -669,8 +672,8 @@ model Document {
   mimeType   String
   size       Int
 
-  uploadedById String
-  uploadedBy   User   @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  uploadedById String?
+  uploadedBy   User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 

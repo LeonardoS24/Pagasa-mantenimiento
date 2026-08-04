@@ -26,6 +26,17 @@ export async function GET(
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
+  // La cuenta pudo eliminarse con la sesión abierta. Aquí se responde 401 en
+  // lugar de redirigir: quien pide esto espera un PDF, no una página de login.
+  // El rol se toma de la base, no de la cookie.
+  const usuario = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, role: true },
+  });
+  if (!usuario) {
+    return NextResponse.json({ error: "Sesión no válida" }, { status: 401 });
+  }
+
   const document = await prisma.document.findUnique({
     where: { id: params.documentId },
     include: { section: { include: { city: true } } },
@@ -34,9 +45,9 @@ export async function GET(
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
 
-  if (session.role !== "ADMIN") {
+  if (usuario.role !== "ADMIN") {
     const access = await prisma.userCityAccess.findUnique({
-      where: { userId_cityId: { userId: session.userId, cityId: document.section.city.id } },
+      where: { userId_cityId: { userId: usuario.id, cityId: document.section.city.id } },
     });
     if (!access) {
       return NextResponse.json({ error: "No encontrado" }, { status: 404 });

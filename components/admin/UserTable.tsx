@@ -28,7 +28,7 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
                 {user.id !== currentUserId && (
                   <form action={deleteUser.bind(null, user.id)}>
                     <ConfirmSubmitButton
-                      confirmMessage={`¿Eliminar al usuario "${user.username}"? Esta acción no se puede deshacer.`}
+                      confirmMessage={`¿Eliminar al usuario “${user.username}”? Perderá el acceso de inmediato, aunque tenga la sesión abierta. Las bitácoras y documentos que registró se conservan. Esta acción no se puede deshacer.`}
                       className="text-sm text-accent hover:underline"
                     >
                       Eliminar

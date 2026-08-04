@@ -3,11 +3,17 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { LoginForm } from "@/components/login/LoginForm";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: { motivo?: string };
+}) {
   const session = await getSession();
   if (session.userId) {
     redirect("/dashboard");
   }
+
+  const cuentaEliminada = searchParams?.motivo === "cuenta-eliminada";
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-primary via-primary-dark to-accent px-4">
@@ -38,6 +44,12 @@ export default async function LoginPage() {
           <h1 className="text-xl font-semibold text-primary">Grupo Pagasa</h1>
           <p className="text-sm text-ink">Sistema Integral de Mantenimiento</p>
         </div>
+        {cuentaEliminada && (
+          <p className="mb-4 rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+            Tu sesión se cerró porque la cuenta ya no existe en el sistema.
+            Pide a un administrador que la vuelva a crear.
+          </p>
+        )}
         <LoginForm />
       </div>
     </div>

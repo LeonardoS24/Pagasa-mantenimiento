@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getAccessibleCities } from "@/lib/access";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -9,12 +8,9 @@ export default async function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSession();
-  if (!session.userId) {
-    redirect("/login");
-  }
-
-  const user = { userId: session.userId, username: session.username, role: session.role };
+  // requireUser revalida la cuenta contra la base en cada request: si fue
+  // eliminada, aquí se corta el acceso a todo el árbol protegido.
+  const user = await requireUser();
   const cities = await getAccessibleCities(user);
 
   return (

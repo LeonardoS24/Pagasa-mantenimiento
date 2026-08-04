@@ -57,7 +57,7 @@ export default async function UserDetailPage({
         </h3>
         <form action={deleteUser.bind(null, user.id)}>
           <ConfirmSubmitButton
-            confirmMessage={`¿Eliminar al usuario "${user.username}"? Esta acción no se puede deshacer.`}
+            confirmMessage={`¿Eliminar al usuario “${user.username}”? Perderá el acceso de inmediato, aunque tenga la sesión abierta. Las bitácoras y documentos que registró se conservan. Esta acción no se puede deshacer.`}
             className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent hover:text-white"
           >
             Eliminar usuario

@@ -61,7 +61,8 @@ async function createInventoryItemsForAcceptedOrder(order: {
   nombre: string;
   unidad: string;
   cantidad: number;
-  createdById: string;
+  // null si quien registró la orden ya no existe como usuario.
+  createdById: string | null;
 }) {
   const existing = await prisma.inventoryItem.count({ where: { pieceOrderId: order.id } });
   if (existing > 0) return;
