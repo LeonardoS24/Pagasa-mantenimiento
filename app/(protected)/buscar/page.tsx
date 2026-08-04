@@ -153,7 +153,7 @@ export default async function BuscarPage({
 
       {q && records.length === 0 && (
         <p className="text-sm text-gray-500">
-          No se encontraron resultados para <span className="font-medium text-ink">"{q}"</span>.
+          No se encontraron resultados para <span className="font-medium text-ink">“{q}”</span>.
         </p>
       )}
 

@@ -24,6 +24,7 @@ yarn-error.log*
 # database
 prisma/dev.db
 prisma/dev.db-journal
+prisma/dev.db.backup-*
 
 # archivos subidos (PDFs por apartado)
 /uploads

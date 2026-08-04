@@ -112,7 +112,7 @@ export function CreateUltrasoundLogForm({
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente su "último ultrasonido" con
+          Al aceptar, la ficha técnica actualizará automáticamente su “último ultrasonido” con
           esta fecha.
         </p>
 

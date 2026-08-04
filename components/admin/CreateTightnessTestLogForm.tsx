@@ -109,8 +109,8 @@ export function CreateTightnessTestLogForm({
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente su "última prueba de
-          hermeticidad" con esta fecha.
+          Al aceptar, la ficha técnica actualizará automáticamente su “última prueba de
+          hermeticidad” con esta fecha.
         </p>
 
         <FormMessage state={state} />

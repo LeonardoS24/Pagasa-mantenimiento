@@ -324,7 +324,7 @@ export function TechnicalSheetForm({
           </div>
         </div>
         <p className="mt-2 text-xs text-ink">
-          Cuando la calidad se marca como "Mala" se genera una alerta para reemplazar el
+          Cuando la calidad se marca como “Mala” se genera una alerta para reemplazar el
           extintor: amarilla los primeros 2 días, roja a partir del día 2.
         </p>
       </div>

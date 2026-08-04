@@ -109,7 +109,7 @@ export function CreateHydrostaticTestLogForm({
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente su "última prueba hidrostática"
+          Al aceptar, la ficha técnica actualizará automáticamente su “última prueba hidrostática”
           y la fecha próxima se recorrerá 10 años a partir de esta fecha.
         </p>
 

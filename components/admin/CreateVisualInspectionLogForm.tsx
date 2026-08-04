@@ -112,7 +112,7 @@ export function CreateVisualInspectionLogForm({
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente su "última inspección visual externa"
+          Al aceptar, la ficha técnica actualizará automáticamente su “última inspección visual externa”
           con esta fecha.
         </p>
 
