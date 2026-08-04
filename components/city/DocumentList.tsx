@@ -26,7 +26,7 @@ export function DocumentList({
             href={`/api/documents/${document.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="min-w-0 flex-1 truncate text-sm font-medium text-primary hover:underline"
+            className="min-w-0 flex-1 truncate text-sm font-medium text-primary hover:underline print:overflow-visible print:whitespace-normal print:break-all"
           >
             {document.fileName}
           </a>

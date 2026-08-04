@@ -37,6 +37,7 @@ import {
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 
 // Mismo acento de color por subsección que TechnicalSheetForm, para que la
 // vista de solo lectura (LECTOR/USUARIO) se distinga igual de fácil.
@@ -45,6 +46,7 @@ const SECTION_STYLES = {
   extintor: "border-l-4 border-l-red-400 bg-red-50/60",
   mantenimiento: "border-l-4 border-l-emerald-400 bg-emerald-50/60",
   tanque: "border-l-4 border-l-sky-400 bg-sky-50/60",
+  mangueras: "border-l-4 border-l-amber-400 bg-amber-50/60",
   valvulas: "border-l-4 border-l-indigo-400 bg-indigo-50/60",
   ultrasonido: "border-l-4 border-l-cyan-400 bg-cyan-50/60",
   visualExterna: "border-l-4 border-l-purple-400 bg-purple-50/60",
@@ -67,7 +69,9 @@ export function TechnicalSheetView({
   sheet,
   useDeliveryFormat = false,
   showValveSection = false,
+  showHoseSection = false,
   showTankSection = true,
+  showMaintenancePreventiveSection = true,
 }: {
   sheet: VehicleTechnicalSheet | null;
   // Formato para Vehículo de reparto y Vehículo con tanque de carburación:
@@ -76,8 +80,12 @@ export function TechnicalSheetView({
   useDeliveryFormat?: boolean;
   // Solo Vehículo con tanque de carburación (no Vehículo de reparto).
   showValveSection?: boolean;
+  // Solo Vehículo con tanque de carburación.
+  showHoseSection?: boolean;
   // false solo para Vehículo de reparto: no tiene tanque.
   showTankSection?: boolean;
+  // false solo para Auto-Tanques.
+  showMaintenancePreventiveSection?: boolean;
 }) {
   if (!sheet) {
     return <p className="text-sm text-ink">Sin ficha técnica registrada.</p>;
@@ -103,6 +111,8 @@ export function TechnicalSheetView({
   };
   const valveAlertLevel = getValveAlertLevel(valveDates);
   const valveVencimiento = getValveVencimiento(valveDates);
+  const hoseAlertLevel = getHoseAlertLevel(sheet.fechaFabricacionManguera);
+  const hoseVencimiento = getHoseVencimiento(sheet.fechaFabricacionManguera);
 
   return (
     <div className="space-y-6">
@@ -141,6 +151,68 @@ export function TechnicalSheetView({
         )}
       </div>
 
+      {showTankSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
+          </h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Item label="Número de serie" value={sheet.numeroSerieTanque} />
+            <Item label="Capacidad (Lts)" value={sheet.capacidadTanque} />
+            <Item label="Marca de tanque" value={sheet.marcaTanque} />
+            <Item label="Año de fabricación" value={sheet.anioFabricacionTanque} />
+            <Item label="Fecha de fabricación" value={formatDate(sheet.fechaFabricacionTanque) || null} />
+          </dl>
+        </div>
+      )}
+
+      {showMaintenancePreventiveSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Mantenimiento preventivo
+            </h3>
+            {maintenanceAlertLevel !== "none" && sheet.fechaProximoMantenimiento && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${maintenanceAlertBadgeStyles[maintenanceAlertLevel]}`}
+              >
+                {maintenanceAlertLabel(
+                  maintenanceAlertLevel,
+                  sheet.fechaProximoMantenimiento,
+                  sheet.kilometrajeProximoMantenimiento
+                )}
+              </span>
+            )}
+          </div>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Item
+              label="Kilometraje del último mantenimiento"
+              value={
+                sheet.kilometrajeUltimoMantenimiento != null
+                  ? `${sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km`
+                  : null
+              }
+            />
+            <Item
+              label="Fecha del último mantenimiento"
+              value={formatDate(sheet.fechaUltimoMantenimiento) || null}
+            />
+            <Item
+              label="Próximo mantenimiento preventivo"
+              value={
+                sheet.fechaProximoMantenimiento
+                  ? `${formatDate(sheet.fechaProximoMantenimiento)}${
+                      sheet.kilometrajeProximoMantenimiento != null
+                        ? ` o a los ${sheet.kilometrajeProximoMantenimiento.toLocaleString("es-MX")} km`
+                        : ""
+                    }`
+                  : null
+              }
+            />
+          </dl>
+        </div>
+      )}
+
       <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Extintor</h3>
@@ -172,63 +244,29 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Mantenimiento preventivo
-          </h3>
-          {maintenanceAlertLevel !== "none" && sheet.fechaProximoMantenimiento && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${maintenanceAlertBadgeStyles[maintenanceAlertLevel]}`}
-            >
-              {maintenanceAlertLabel(
-                maintenanceAlertLevel,
-                sheet.fechaProximoMantenimiento,
-                sheet.kilometrajeProximoMantenimiento
-              )}
-            </span>
-          )}
-        </div>
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Item
-            label="Kilometraje del último mantenimiento"
-            value={
-              sheet.kilometrajeUltimoMantenimiento != null
-                ? `${sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km`
-                : null
-            }
-          />
-          <Item
-            label="Fecha del último mantenimiento"
-            value={formatDate(sheet.fechaUltimoMantenimiento) || null}
-          />
-          <Item
-            label="Próximo mantenimiento preventivo"
-            value={
-              sheet.fechaProximoMantenimiento
-                ? `${formatDate(sheet.fechaProximoMantenimiento)}${
-                    sheet.kilometrajeProximoMantenimiento != null
-                      ? ` o a los ${sheet.kilometrajeProximoMantenimiento.toLocaleString("es-MX")} km`
-                      : ""
-                  }`
-                : null
-            }
-          />
-        </dl>
-      </div>
-
-      {showTankSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
-          </h3>
+      {showHoseSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.mangueras}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Cambio de mangueras
+            </h3>
+            {hoseAlertLevel !== "none" && hoseVencimiento && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${hoseAlertBadgeStyles[hoseAlertLevel]}`}
+              >
+                {hoseAlertLabel(hoseAlertLevel, hoseVencimiento)}
+              </span>
+            )}
+          </div>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Item label="Serie de tanque" value={sheet.serieTanque} />
-            <Item label="Capacidad" value={sheet.capacidadTanque} />
-            <Item label="Marca de tanque" value={sheet.marcaTanque} />
-            <Item label="Año de fabricación" value={sheet.anioFabricacionTanque} />
-            <Item label="Fecha de fabricación" value={formatDate(sheet.fechaFabricacionTanque) || null} />
-            <Item label="Número de serie" value={sheet.numeroSerieTanque} />
+            <Item
+              label="Fecha de instalación"
+              value={formatDate(sheet.fechaInstalacionMangueras) || null}
+            />
+            <Item
+              label="Fecha de fabricación de la manguera"
+              value={formatDate(sheet.fechaFabricacionManguera) || null}
+            />
           </dl>
         </div>
       )}
@@ -271,32 +309,6 @@ export function TechnicalSheetView({
           </dl>
         </div>
       )}
-
-      <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Ultrasonido
-          </h3>
-          {alertLevel !== "none" && sheet.fechaProximoUltrasonido && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${ultrasoundAlertBadgeStyles[alertLevel]}`}
-            >
-              {ultrasoundAlertLabel(alertLevel, sheet.fechaProximoUltrasonido)}
-            </span>
-          )}
-        </div>
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Item label="Número de último ultrasonido" value={sheet.numeroUltimoUltrasonido} />
-          <Item
-            label="Fecha en que se realizó el último ultrasonido"
-            value={formatDate(sheet.ultimoUltrasonido) || null}
-          />
-          <Item
-            label="Fecha próxima de ultrasonido"
-            value={formatDate(sheet.fechaProximoUltrasonido) || null}
-          />
-        </dl>
-      </div>
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -378,6 +390,32 @@ export function TechnicalSheetView({
           <Item
             label="Fecha próxima de inspección visual interna"
             value={formatDate(sheet.fechaProximaInspeccionVisualInterna) || null}
+          />
+        </dl>
+      </div>
+
+      <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Ultrasonido
+          </h3>
+          {alertLevel !== "none" && sheet.fechaProximoUltrasonido && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${ultrasoundAlertBadgeStyles[alertLevel]}`}
+            >
+              {ultrasoundAlertLabel(alertLevel, sheet.fechaProximoUltrasonido)}
+            </span>
+          )}
+        </div>
+        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Item label="Número de último ultrasonido" value={sheet.numeroUltimoUltrasonido} />
+          <Item
+            label="Fecha en que se realizó el último ultrasonido"
+            value={formatDate(sheet.ultimoUltrasonido) || null}
+          />
+          <Item
+            label="Fecha próxima de ultrasonido"
+            value={formatDate(sheet.fechaProximoUltrasonido) || null}
           />
         </dl>
       </div>

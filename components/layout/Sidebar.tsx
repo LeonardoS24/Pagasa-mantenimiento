@@ -12,7 +12,7 @@ export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean 
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white">
+    <aside className="w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white print:hidden">
       <nav className="flex flex-col py-4">
         <Link
           href="/dashboard"

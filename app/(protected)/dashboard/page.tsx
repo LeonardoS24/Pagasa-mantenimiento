@@ -18,6 +18,8 @@ import { getExtinguisherAlertLevel } from "@/lib/extinguisher-alerts";
 import { getMaintenanceAlertLevel } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, oldestValve } from "@/lib/valve-alerts";
 import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
+import { getHoseAlertLevel, getHoseVencimiento } from "@/lib/hose-alerts";
+import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
           { fechaFabricacionValvulaServicio: { not: null } },
           { fechaFabricacionValvulaMaximoLlenado: { not: null } },
           { fechaFabricacionValvulaAlivio: { not: null } },
+          { fechaFabricacionManguera: { not: null } },
         ],
       },
     },
@@ -214,6 +217,24 @@ export default async function DashboardPage() {
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
 
+  const hoseAlertVehicles = upcomingRecords
+    .map((record) => {
+      const level = getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera);
+      if (level === "none") return null;
+      const vencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);
+      if (!vencimiento) return null;
+      return {
+        id: record.id,
+        numeroEconomico: record.numeroEconomico,
+        citySlug: record.section.city.slug,
+        cityName: record.section.city.name,
+        vencimiento,
+        level,
+      };
+    })
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
+
   return (
     <div>
       <UltrasoundAlertsPanel vehicles={alertVehicles} />
@@ -224,6 +245,17 @@ export default async function DashboardPage() {
       <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
       <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
       <ValveAlertsPanel vehicles={valveAlertVehicles} />
+      <HoseAlertsPanel vehicles={hoseAlertVehicles} />
+
+      <form action="/buscar" method="GET" className="mb-8">
+        <input
+          type="search"
+          name="q"
+          placeholder="Buscar número económico, placas, sucursal..."
+          className="w-full rounded-lg border border-gray-300 bg-white px-5 py-4 text-lg text-ink shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </form>
+
       <h1 className="mb-1 text-2xl font-semibold text-primary">Ciudades</h1>
       <p className="mb-6 text-sm text-ink">
         {cities.length > 0

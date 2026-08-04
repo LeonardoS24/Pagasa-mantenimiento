@@ -38,6 +38,7 @@ import {
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 
 function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
   if (levels.includes("red")) return ultrasoundAlertRowStyles.red;
@@ -119,6 +120,10 @@ export function VehicleTable({
             };
             const valveAlertLevel = record.activo ? getValveAlertLevel(valveDates) : "none";
             const valveVencimiento = getValveVencimiento(valveDates);
+            const hoseAlertLevel = record.activo
+              ? getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera)
+              : "none";
+            const hoseVencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);
             return (
               <Fragment key={record.id}>
                 {isFirstInactive && (
@@ -142,7 +147,8 @@ export function VehicleTable({
                         hydrostaticAlertLevel,
                         extinguisherAlertLevel,
                         maintenanceAlertLevel,
-                        valveAlertLevel
+                        valveAlertLevel,
+                        hoseAlertLevel
                       )
                 }`}
               >
@@ -232,6 +238,13 @@ export function VehicleTable({
                       className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
                     >
                       {valveAlertLabel(valveAlertLevel, valveVencimiento)}
+                    </span>
+                  )}
+                  {hoseAlertLevel !== "none" && hoseVencimiento && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${hoseAlertBadgeStyles[hoseAlertLevel]}`}
+                    >
+                      {hoseAlertLabel(hoseAlertLevel, hoseVencimiento)}
                     </span>
                   )}
                 </td>

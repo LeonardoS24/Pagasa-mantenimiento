@@ -76,6 +76,10 @@ export function valveCorrectiveMaintenanceLogOwnerKey(valveCorrectiveMaintenance
   return path.posix.join("valve-corrective-maintenance-logs", valveCorrectiveMaintenanceLogId);
 }
 
+export function hoseChangeLogOwnerKey(hoseChangeLogId: string): string {
+  return path.posix.join("hose-change-logs", hoseChangeLogId);
+}
+
 // Lee cero o más PDFs adjuntos en el mismo envío de un formulario (p. ej. al
 // registrar un mantenimiento o un ultrasonido, sin tener que subirlos después
 // por separado). A diferencia de un solo archivo requerido, aquí no adjuntar

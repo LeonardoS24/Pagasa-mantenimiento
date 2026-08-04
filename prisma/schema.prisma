@@ -32,6 +32,7 @@ model User {
   extinguisherChangeLogs        ExtinguisherChangeLog[]
   valveChangeLogs               ValveChangeLog[]
   valveCorrectiveMaintenanceLogs ValveCorrectiveMaintenanceLog[]
+  hoseChangeLogs                 HoseChangeLog[]
   pieceOrders                   PieceOrder[]
   inventoryItems                InventoryItem[]
 
@@ -111,6 +112,7 @@ model VehicleRecord {
   extinguisherChangeLogs       ExtinguisherChangeLog[]
   valveChangeLogs              ValveChangeLog[]
   valveCorrectiveMaintenanceLogs ValveCorrectiveMaintenanceLog[]
+  hoseChangeLogs                HoseChangeLog[]
   // Piezas de inventario (de cualquier ciudad) que se marcaron "Utilizada" en
   // esta unidad (ver actions/inventory-actions.ts). No es lo mismo que
   // "documents"/"maintenanceLogs": es solo trazabilidad de dónde se colocó
@@ -151,7 +153,6 @@ model VehicleTechnicalSheet {
   fechaAdquisicion  DateTime?
 
   // Tanque
-  serieTanque           String?
   capacidadTanque       String?
   marcaTanque           String?
   anioFabricacionTanque String?
@@ -220,6 +221,14 @@ model VehicleTechnicalSheet {
   fechaFabricacionValvulaServicio      DateTime?
   fechaFabricacionValvulaMaximoLlenado DateTime?
   fechaFabricacionValvulaAlivio        DateTime?
+
+  // Cambio de mangueras: solo para Vehículo con tanque de carburación. La
+  // alerta vence a los 2 años (mismo esquema que las válvulas, pero con
+  // ciclo más corto) y se calcula sobre fechaFabricacionManguera;
+  // fechaInstalacionMangueras es la fecha general en que se instaló la
+  // manguera (ver lib/hose-alerts.ts).
+  fechaInstalacionMangueras DateTime?
+  fechaFabricacionManguera  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -502,6 +511,35 @@ model ValveCorrectiveMaintenanceLog {
   @@map("valve_corrective_maintenance_logs")
 }
 
+// Registro de cada cambio de manguera de tanque de carburación. Solo aplica
+// a Vehículo con tanque de carburación. fechaFabricacionManguera ancla la
+// alerta de 2 años (mismo esquema que ValveChangeLog pero con ciclo más
+// corto y una sola fecha); fechaInstalacion es la fecha general en que se
+// instaló. Al
+// aceptarse, actualiza automáticamente los 2 campos correspondientes en la
+// ficha técnica (ver actions/hose-actions.ts).
+model HoseChangeLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  responsable String?
+
+  fechaInstalacion         DateTime
+  fechaFabricacionManguera DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("hose_change_logs")
+}
+
 // Orden de una pieza común solicitada para una ciudad, en el apartado "Orden
 // de Pieza". Al marcarse como ACEPTADA se crea automáticamente un
 // InventoryItem correspondiente en el apartado de Inventarios de la misma
@@ -622,6 +660,9 @@ model Document {
 
   valveCorrectiveMaintenanceLogId String?
   valveCorrectiveMaintenanceLog   ValveCorrectiveMaintenanceLog? @relation(fields: [valveCorrectiveMaintenanceLogId], references: [id], onDelete: Cascade)
+
+  hoseChangeLogId String?
+  hoseChangeLog   HoseChangeLog? @relation(fields: [hoseChangeLogId], references: [id], onDelete: Cascade)
 
   fileName   String
   storedName String

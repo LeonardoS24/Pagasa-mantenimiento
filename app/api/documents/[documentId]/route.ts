@@ -14,6 +14,7 @@ import {
   extinguisherChangeLogOwnerKey,
   valveChangeLogOwnerKey,
   valveCorrectiveMaintenanceLogOwnerKey,
+  hoseChangeLogOwnerKey,
 } from "@/lib/documents";
 
 export async function GET(
@@ -60,9 +61,11 @@ export async function GET(
                   ? valveChangeLogOwnerKey(document.valveChangeLogId)
                   : document.valveCorrectiveMaintenanceLogId
                     ? valveCorrectiveMaintenanceLogOwnerKey(document.valveCorrectiveMaintenanceLogId)
-                    : document.vehicleRecordId
-                      ? vehicleOwnerKey(document.vehicleRecordId)
-                      : document.sectionId;
+                    : document.hoseChangeLogId
+                      ? hoseChangeLogOwnerKey(document.hoseChangeLogId)
+                      : document.vehicleRecordId
+                        ? vehicleOwnerKey(document.vehicleRecordId)
+                        : document.sectionId;
 
   try {
     const buffer = await fs.readFile(storagePathFor(ownerKey, document.storedName));

@@ -29,6 +29,8 @@ import { CreateValveChangeLogForm } from "@/components/admin/CreateValveChangeLo
 import { ValveChangeLogTable } from "@/components/city/ValveChangeLogTable";
 import { CreateValveCorrectiveMaintenanceLogForm } from "@/components/admin/CreateValveCorrectiveMaintenanceLogForm";
 import { ValveCorrectiveMaintenanceLogTable } from "@/components/city/ValveCorrectiveMaintenanceLogTable";
+import { CreateHoseChangeLogForm } from "@/components/admin/CreateHoseChangeLogForm";
+import { HoseChangeLogTable } from "@/components/city/HoseChangeLogTable";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { updateVehicleRecord, deleteVehicleRecord, setVehicleActive } from "@/actions/vehicle-actions";
 import { formatDate, toDateInputValue } from "@/lib/dates";
@@ -68,6 +70,7 @@ import {
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 
 export default async function VehicleDetailPage({
   params,
@@ -121,6 +124,10 @@ export default async function VehicleDetailPage({
         orderBy: { fecha: "desc" },
         include: { documents: { orderBy: { createdAt: "desc" } } },
       },
+      hoseChangeLogs: {
+        orderBy: { fechaInstalacion: "desc" },
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
     },
   });
   if (!vehicle || vehicle.section.city.slug !== params.citySlug) notFound();
@@ -135,6 +142,22 @@ export default async function VehicleDetailPage({
     vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const isTanqueCarburacion = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const showTankSection = vehicle.section.slug !== "vehiculo-de-reparto";
+  const showMaintenancePreventiveSection = !isAutoTanques;
+  // Algunas unidades de Auto-Tanques repiten el mismo número económico en
+  // Vehículo con tanque de carburación (mismo camión, pero su motor también
+  // usa el sistema dual de combustible). Cuando eso pasa, el combustible se
+  // fija en Gas LP/Gasolina en ambos registros, no solo en el de tanque de
+  // carburación (ver también actions/vehicle-actions.ts).
+  const hasTanqueCarburacionMatch =
+    isAutoTanques &&
+    (await prisma.vehicleRecord.count({
+      where: {
+        numeroEconomico: vehicle.numeroEconomico,
+        id: { not: vehicle.id },
+        section: { cityId: vehicle.section.cityId, slug: "vehiculo-con-tanque-de-carburacion" },
+      },
+    })) > 0;
+  const lockCombustibleGasLpGasolina = isTanqueCarburacion || hasTanqueCarburacionMatch;
   const alertLevel = vehicle.activo
     ? getUltrasoundAlertLevel(vehicle.technicalSheet?.fechaProximoUltrasonido)
     : "none";
@@ -167,6 +190,10 @@ export default async function VehicleDetailPage({
   };
   const valveAlertLevel = vehicle.activo ? getValveAlertLevel(valveDates) : "none";
   const valveVencimiento = getValveVencimiento(valveDates);
+  const hoseAlertLevel = vehicle.activo
+    ? getHoseAlertLevel(vehicle.technicalSheet?.fechaFabricacionManguera)
+    : "none";
+  const hoseVencimiento = getHoseVencimiento(vehicle.technicalSheet?.fechaFabricacionManguera);
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Inicio", href: "/dashboard" },
@@ -185,8 +212,9 @@ export default async function VehicleDetailPage({
     <div>
       <Breadcrumb items={breadcrumbItems} />
 
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-primary">{vehicle.numeroEconomico}</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold text-primary">{vehicle.numeroEconomico}</h1>
         {!vehicle.activo && (
           <span className="rounded-full border border-orange-400 bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800">
             Dado de baja{vehicle.fechaBaja ? ` · ${formatDate(vehicle.fechaBaja)}` : ""}
@@ -265,6 +293,20 @@ export default async function VehicleDetailPage({
             {valveAlertLabel(valveAlertLevel, valveVencimiento)}
           </span>
         )}
+        {hoseAlertLevel !== "none" && hoseVencimiento && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${hoseAlertBadgeStyles[hoseAlertLevel]}`}
+          >
+            {hoseAlertLabel(hoseAlertLevel, hoseVencimiento)}
+          </span>
+        )}
+        </div>
+        <Link
+          href={`/ciudades/${params.citySlug}/vehiculo/${vehicle.id}/imprimir`}
+          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-gray-50"
+        >
+          Imprimir hoja completa
+        </Link>
       </div>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
@@ -310,7 +352,7 @@ export default async function VehicleDetailPage({
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Ficha técnica
         </h2>
-        {isEditor ? (
+        {isAdmin ? (
           <TechnicalSheetForm
             vehicleId={vehicle.id}
             sheet={vehicle.technicalSheet}
@@ -319,26 +361,30 @@ export default async function VehicleDetailPage({
             requireProximaPruebaHermeticidad={isAutoTanques}
             useDeliveryFormat={useDeliveryFormat}
             showValveSection={isTanqueCarburacion}
+            showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
-            lockCombustibleGasLpGasolina={isTanqueCarburacion}
+            showMaintenancePreventiveSection={showMaintenancePreventiveSection}
+            lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
           />
         ) : (
           <TechnicalSheetView
             sheet={vehicle.technicalSheet}
             useDeliveryFormat={useDeliveryFormat}
             showValveSection={isTanqueCarburacion}
+            showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
+            showMaintenancePreventiveSection={showMaintenancePreventiveSection}
           />
         )}
       </div>
 
       {/*
-        Los apartados de registro se ordenan por qué tan seguido deben
-        realizarse: mantenimiento primero (el más frecuente, sin intervalo
-        fijo), extintor después (chequeo rutinario), luego los de tanque de
-        Auto-Tanques de menor a mayor intervalo (ultrasonido/visual
-        externa/hermeticidad ~1 año, válvulas 5 años, interna/hidrostática 10
-        años). Ver tarea de reordenamiento.
+        Orden de los apartados de registro (mismo orden que la ficha
+        técnica): Bitácora de mantenimiento, Cambio de extintor, Cambio de
+        mangueras/Cambio de válvulas/Mantenimiento correctivo (solo Vehículo
+        con tanque de carburación), Inspección Visual Externa, Prueba de
+        Hermeticidad, Inspección Visual Interna, Ultrasonido y Prueba
+        Hidrostática (solo Auto-Tanques).
       */}
       <div id="mantenimiento" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
@@ -364,19 +410,42 @@ export default async function VehicleDetailPage({
         </div>
       </div>
 
-      {isAutoTanques && (
+      {isTanqueCarburacion && (
         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Registro de ultrasonido
+            Cambio de mangueras
           </h2>
           <div className="space-y-3">
-            {isEditor && (
-              <CreateUltrasoundLogForm
-                vehicleId={vehicle.id}
-                ultimoUltrasonido={toDateInputValue(vehicle.technicalSheet?.ultimoUltrasonido)}
-              />
-            )}
-            <UltrasoundLogTable logs={vehicle.ultrasoundLogs} canEdit={isEditor} isAdmin={isAdmin} />
+            {isEditor && <CreateHoseChangeLogForm vehicleId={vehicle.id} />}
+            <HoseChangeLogTable logs={vehicle.hoseChangeLogs} canEdit={isEditor} isAdmin={isAdmin} />
+          </div>
+        </div>
+      )}
+
+      {isTanqueCarburacion && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Cambio de válvulas
+          </h2>
+          <div className="space-y-3">
+            {isEditor && <CreateValveChangeLogForm vehicleId={vehicle.id} />}
+            <ValveChangeLogTable logs={vehicle.valveChangeLogs} canEdit={isEditor} isAdmin={isAdmin} />
+          </div>
+        </div>
+      )}
+
+      {isTanqueCarburacion && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Mantenimiento correctivo de válvulas
+          </h2>
+          <div className="space-y-3">
+            {isEditor && <CreateValveCorrectiveMaintenanceLogForm vehicleId={vehicle.id} />}
+            <ValveCorrectiveMaintenanceLogTable
+              logs={vehicle.valveCorrectiveMaintenanceLogs}
+              canEdit={isEditor}
+              isAdmin={isAdmin}
+            />
           </div>
         </div>
       )}
@@ -427,34 +496,6 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {isTanqueCarburacion && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Cambio de válvulas
-          </h2>
-          <div className="space-y-3">
-            {isEditor && <CreateValveChangeLogForm vehicleId={vehicle.id} />}
-            <ValveChangeLogTable logs={vehicle.valveChangeLogs} canEdit={isEditor} isAdmin={isAdmin} />
-          </div>
-        </div>
-      )}
-
-      {isTanqueCarburacion && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Mantenimiento correctivo de válvulas
-          </h2>
-          <div className="space-y-3">
-            {isEditor && <CreateValveCorrectiveMaintenanceLogForm vehicleId={vehicle.id} />}
-            <ValveCorrectiveMaintenanceLogTable
-              logs={vehicle.valveCorrectiveMaintenanceLogs}
-              canEdit={isEditor}
-              isAdmin={isAdmin}
-            />
-          </div>
-        </div>
-      )}
-
       {isAutoTanques && (
         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
@@ -474,6 +515,23 @@ export default async function VehicleDetailPage({
               canEdit={isEditor}
               isAdmin={isAdmin}
             />
+          </div>
+        </div>
+      )}
+
+      {isAutoTanques && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Registro de ultrasonido
+          </h2>
+          <div className="space-y-3">
+            {isEditor && (
+              <CreateUltrasoundLogForm
+                vehicleId={vehicle.id}
+                ultimoUltrasonido={toDateInputValue(vehicle.technicalSheet?.ultimoUltrasonido)}
+              />
+            )}
+            <UltrasoundLogTable logs={vehicle.ultrasoundLogs} canEdit={isEditor} isAdmin={isAdmin} />
           </div>
         </div>
       )}

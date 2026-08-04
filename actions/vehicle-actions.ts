@@ -193,7 +193,6 @@ const technicalSheetSchema = z.object({
   caracteristicas: optionalText(1000),
   horasUsoDiario: optionalText(50),
   fechaAdquisicion: optionalDate,
-  serieTanque: optionalText(100),
   capacidadTanque: optionalText(50),
   marcaTanque: optionalText(100),
   anioFabricacionTanque: optionalText(20),
@@ -228,6 +227,8 @@ const technicalSheetSchema = z.object({
   fechaFabricacionValvulaServicio: optionalDate,
   fechaFabricacionValvulaMaximoLlenado: optionalDate,
   fechaFabricacionValvulaAlivio: optionalDate,
+  fechaInstalacionMangueras: optionalDate,
+  fechaFabricacionManguera: optionalDate,
 });
 
 export async function upsertTechnicalSheet(
@@ -235,7 +236,10 @@ export async function upsertTechnicalSheet(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireEditor();
+  // Solo ADMIN puede editar la ficha técnica: USUARIO puede registrar
+  // bitácoras/cambios y descargar/subir documentos, pero no modificar los
+  // valores de la ficha técnica directamente.
+  await requireAdmin();
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },
@@ -272,7 +276,6 @@ export async function upsertTechnicalSheet(
     caracteristicas: formData.get("caracteristicas"),
     horasUsoDiario: formData.get("horasUsoDiario"),
     fechaAdquisicion: formData.get("fechaAdquisicion"),
-    serieTanque: formData.get("serieTanque"),
     capacidadTanque: formData.get("capacidadTanque"),
     marcaTanque: formData.get("marcaTanque"),
     anioFabricacionTanque: formData.get("anioFabricacionTanque"),
@@ -301,6 +304,8 @@ export async function upsertTechnicalSheet(
     fechaFabricacionValvulaServicio: formData.get("fechaFabricacionValvulaServicio"),
     fechaFabricacionValvulaMaximoLlenado: formData.get("fechaFabricacionValvulaMaximoLlenado"),
     fechaFabricacionValvulaAlivio: formData.get("fechaFabricacionValvulaAlivio"),
+    fechaInstalacionMangueras: formData.get("fechaInstalacionMangueras"),
+    fechaFabricacionManguera: formData.get("fechaFabricacionManguera"),
   });
 
   if (!parsed.success) {
@@ -330,8 +335,22 @@ export async function upsertTechnicalSheet(
 
   // Vehículo con tanque de carburación siempre usa gas LP y gasolina: se
   // fija en el servidor sin importar lo que llegue del formulario (el campo
-  // se muestra bloqueado en la UI, pero esto es la garantía real).
-  if (vehicle.section.slug === "vehiculo-con-tanque-de-carburacion") {
+  // se muestra bloqueado en la UI, pero esto es la garantía real). Lo mismo
+  // aplica a Auto-Tanques cuando el mismo número económico se repite como
+  // registro en Vehículo con tanque de carburación dentro de la misma
+  // ciudad (mismo camión, motor con sistema dual de combustible).
+  let lockCombustible = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
+  if (!lockCombustible && vehicle.section.slug === "auto-tanques") {
+    const match = await prisma.vehicleRecord.count({
+      where: {
+        numeroEconomico: vehicle.numeroEconomico,
+        id: { not: vehicle.id },
+        section: { cityId: vehicle.section.cityId, slug: "vehiculo-con-tanque-de-carburacion" },
+      },
+    });
+    lockCombustible = match > 0;
+  }
+  if (lockCombustible) {
     data.combustible = "GAS_LP_GASOLINA";
   }
 

@@ -13,6 +13,7 @@ import {
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -25,6 +26,7 @@ const SECTION_STYLES = {
   extintor: "border-l-4 border-l-red-400 bg-red-50/60",
   mantenimiento: "border-l-4 border-l-emerald-400 bg-emerald-50/60",
   tanque: "border-l-4 border-l-sky-400 bg-sky-50/60",
+  mangueras: "border-l-4 border-l-amber-400 bg-amber-50/60",
   valvulas: "border-l-4 border-l-indigo-400 bg-indigo-50/60",
   ultrasonido: "border-l-4 border-l-cyan-400 bg-cyan-50/60",
   visualExterna: "border-l-4 border-l-purple-400 bg-purple-50/60",
@@ -85,7 +87,9 @@ export function TechnicalSheetForm({
   requireProximaPruebaHermeticidad = false,
   useDeliveryFormat = false,
   showValveSection = false,
+  showHoseSection = false,
   showTankSection = true,
+  showMaintenancePreventiveSection = true,
   lockCombustibleGasLpGasolina = false,
 }: {
   vehicleId: string;
@@ -100,12 +104,18 @@ export function TechnicalSheetForm({
   // Solo Vehículo con tanque de carburación (no Vehículo de reparto, aunque
   // comparta useDeliveryFormat).
   showValveSection?: boolean;
+  // Solo Vehículo con tanque de carburación.
+  showHoseSection?: boolean;
   // false solo para Vehículo de reparto: no tiene tanque, así que no aplica
   // ninguna ficha técnica de tanque.
   showTankSection?: boolean;
-  // Vehículo con tanque de carburación siempre usa Gas LP/Gasolina: el
-  // select queda visible pero el valor se fuerza en el servidor (ver
-  // actions/vehicle-actions.ts) sin importar lo que se elija aquí.
+  // false solo para Auto-Tanques.
+  showMaintenancePreventiveSection?: boolean;
+  // Vehículo con tanque de carburación, y Auto-Tanques cuyo número
+  // económico se repite en Vehículo con tanque de carburación (misma
+  // ciudad), siempre usan Gas LP/Gasolina: el select queda visible pero el
+  // valor se fuerza en el servidor (ver actions/vehicle-actions.ts) sin
+  // importar lo que se elija aquí.
   lockCombustibleGasLpGasolina?: boolean;
 }) {
   const action = upsertTechnicalSheet.bind(null, vehicleId);
@@ -127,6 +137,8 @@ export function TechnicalSheetForm({
     fechaFabricacionValvulaMaximoLlenado: sheet?.fechaFabricacionValvulaMaximoLlenado,
     fechaFabricacionValvulaAlivio: sheet?.fechaFabricacionValvulaAlivio,
   });
+  const hoseAlertLevel = getHoseAlertLevel(sheet?.fechaFabricacionManguera);
+  const hoseVencimiento = getHoseVencimiento(sheet?.fechaFabricacionManguera);
 
   return (
     <form action={formAction} className="space-y-6">
@@ -175,7 +187,8 @@ export function TechnicalSheetForm({
             </select>
             {lockCombustibleGasLpGasolina && (
               <p className="mt-1 text-xs text-gray-500">
-                Fijo en Gas LP/Gasolina para Vehículo con tanque de carburación.
+                Fijo en Gas LP/Gasolina (Vehículo con tanque de carburación o mismo número
+                económico repetido ahí).
               </p>
             )}
           </div>
@@ -200,6 +213,72 @@ export function TechnicalSheetForm({
           />
         </div>
       </div>
+
+      {showTankSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Field
+              id="numeroSerieTanque"
+              label="Número de serie"
+              defaultValue={sheet?.numeroSerieTanque}
+            />
+            <Field id="capacidadTanque" label="Capacidad (Lts)" defaultValue={sheet?.capacidadTanque} />
+            <Field id="marcaTanque" label="Marca de tanque" defaultValue={sheet?.marcaTanque} />
+            <Field
+              id="anioFabricacionTanque"
+              label="Año de fabricación"
+              defaultValue={sheet?.anioFabricacionTanque}
+            />
+            <Field
+              id="fechaFabricacionTanque"
+              label="Fecha de fabricación"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionTanque)}
+            />
+          </div>
+        </div>
+      )}
+
+      {showMaintenancePreventiveSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Mantenimiento preventivo
+            </h3>
+            {maintenanceAlertLevel !== "none" && sheet?.fechaProximoMantenimiento && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${maintenanceAlertBadgeStyles[maintenanceAlertLevel]}`}
+              >
+                {maintenanceAlertLabel(
+                  maintenanceAlertLevel,
+                  sheet.fechaProximoMantenimiento,
+                  sheet.kilometrajeProximoMantenimiento
+                )}
+              </span>
+            )}
+          </div>
+          {sheet?.fechaUltimoMantenimiento ? (
+            <p className="text-sm text-ink">
+              Último mantenimiento con kilometraje: {formatDate(sheet.fechaUltimoMantenimiento)}
+              {sheet.kilometrajeUltimoMantenimiento != null &&
+                ` a los ${sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km`}
+              . Próximo preventivo:{" "}
+              {sheet.fechaProximoMantenimiento && formatDate(sheet.fechaProximoMantenimiento)}
+              {sheet.kilometrajeProximoMantenimiento != null &&
+                ` o a los ${sheet.kilometrajeProximoMantenimiento.toLocaleString("es-MX")} km`}
+              , lo que se cumpla primero.
+            </p>
+          ) : (
+            <p className="text-sm text-ink">
+              Sin kilometraje registrado todavía. Se calcula solo al capturar el kilometraje en un
+              mantenimiento (ver Bitácora de mantenimiento).
+            </p>
+          )}
+        </div>
+      )}
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -250,68 +329,37 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Mantenimiento preventivo
-          </h3>
-          {maintenanceAlertLevel !== "none" && sheet?.fechaProximoMantenimiento && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${maintenanceAlertBadgeStyles[maintenanceAlertLevel]}`}
-            >
-              {maintenanceAlertLabel(
-                maintenanceAlertLevel,
-                sheet.fechaProximoMantenimiento,
-                sheet.kilometrajeProximoMantenimiento
-              )}
-            </span>
-          )}
-        </div>
-        {sheet?.fechaUltimoMantenimiento ? (
-          <p className="text-sm text-ink">
-            Último mantenimiento con kilometraje: {formatDate(sheet.fechaUltimoMantenimiento)}
-            {sheet.kilometrajeUltimoMantenimiento != null &&
-              ` a los ${sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km`}
-            . Próximo preventivo:{" "}
-            {sheet.fechaProximoMantenimiento && formatDate(sheet.fechaProximoMantenimiento)}
-            {sheet.kilometrajeProximoMantenimiento != null &&
-              ` o a los ${sheet.kilometrajeProximoMantenimiento.toLocaleString("es-MX")} km`}
-            , lo que se cumpla primero.
-          </p>
-        ) : (
-          <p className="text-sm text-ink">
-            Sin kilometraje registrado todavía. Se calcula solo al capturar el kilometraje en un
-            mantenimiento (ver Bitácora de mantenimiento).
-          </p>
-        )}
-      </div>
-
-      {showTankSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
-          </h3>
+      {showHoseSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.mangueras}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Cambio de mangueras
+            </h3>
+            {hoseAlertLevel !== "none" && hoseVencimiento && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${hoseAlertBadgeStyles[hoseAlertLevel]}`}
+              >
+                {hoseAlertLabel(hoseAlertLevel, hoseVencimiento)}
+              </span>
+            )}
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Field id="serieTanque" label="Serie de tanque" defaultValue={sheet?.serieTanque} />
-            <Field id="capacidadTanque" label="Capacidad" defaultValue={sheet?.capacidadTanque} />
-            <Field id="marcaTanque" label="Marca de tanque" defaultValue={sheet?.marcaTanque} />
             <Field
-              id="anioFabricacionTanque"
-              label="Año de fabricación"
-              defaultValue={sheet?.anioFabricacionTanque}
-            />
-            <Field
-              id="fechaFabricacionTanque"
-              label="Fecha de fabricación"
+              id="fechaInstalacionMangueras"
+              label="Fecha de instalación"
               type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionTanque)}
+              defaultValue={toDateInputValue(sheet?.fechaInstalacionMangueras)}
             />
             <Field
-              id="numeroSerieTanque"
-              label="Número de serie"
-              defaultValue={sheet?.numeroSerieTanque}
+              id="fechaFabricacionManguera"
+              label="Fecha de fabricación de la manguera"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionManguera)}
             />
           </div>
+          <p className="mt-2 text-xs text-ink">
+            El cambio de mangueras debe hacerse cada 2 años a partir de la fecha de fabricación.
+          </p>
         </div>
       )}
 
@@ -367,43 +415,6 @@ export function TechnicalSheetForm({
           </p>
         </div>
       )}
-
-      <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Ultrasonido
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Field
-            id="numeroUltimoUltrasonido"
-            label="Número de último ultrasonido"
-            defaultValue={sheet?.numeroUltimoUltrasonido}
-          />
-          <Field
-            id="ultimoUltrasonido"
-            label="Fecha en que se realizó el último ultrasonido"
-            type="date"
-            defaultValue={toDateInputValue(sheet?.ultimoUltrasonido)}
-          />
-          <Field
-            id="fechaProximoUltrasonido"
-            label="Fecha próxima de ultrasonido"
-            type="date"
-            required={requireProximoUltrasonido}
-            defaultValue={toDateInputValue(sheet?.fechaProximoUltrasonido)}
-          />
-        </div>
-        <p className="mt-2 text-xs text-ink">
-          Cuando falte un mes para la fecha próxima de ultrasonido, la unidad se marcará en
-          amarillo; cuando falte una semana, se marcará en rojo con advertencias en el panel de
-          alertas del inicio.
-          {requireProximoUltrasonido && (
-            <span className="block font-medium text-accent">
-              Este campo es obligatorio para Auto-Tanques: no se puede guardar la ficha técnica
-              sin la fecha próxima de ultrasonido.
-            </span>
-          )}
-        </p>
-      </div>
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
@@ -507,6 +518,43 @@ export function TechnicalSheetForm({
           calcula sola al guardar; cada vez que se acepte un registro nuevo se recorre otros 10
           años. Marca en amarillo/rojo con advertencias en el panel de alertas del inicio, igual
           que las demás pruebas.
+        </p>
+      </div>
+
+      <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Ultrasonido
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Field
+            id="numeroUltimoUltrasonido"
+            label="Número de último ultrasonido"
+            defaultValue={sheet?.numeroUltimoUltrasonido}
+          />
+          <Field
+            id="ultimoUltrasonido"
+            label="Fecha en que se realizó el último ultrasonido"
+            type="date"
+            defaultValue={toDateInputValue(sheet?.ultimoUltrasonido)}
+          />
+          <Field
+            id="fechaProximoUltrasonido"
+            label="Fecha próxima de ultrasonido"
+            type="date"
+            required={requireProximoUltrasonido}
+            defaultValue={toDateInputValue(sheet?.fechaProximoUltrasonido)}
+          />
+        </div>
+        <p className="mt-2 text-xs text-ink">
+          Cuando falte un mes para la fecha próxima de ultrasonido, la unidad se marcará en
+          amarillo; cuando falte una semana, se marcará en rojo con advertencias en el panel de
+          alertas del inicio.
+          {requireProximoUltrasonido && (
+            <span className="block font-medium text-accent">
+              Este campo es obligatorio para Auto-Tanques: no se puede guardar la ficha técnica
+              sin la fecha próxima de ultrasonido.
+            </span>
+          )}
         </p>
       </div>
 

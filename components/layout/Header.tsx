@@ -1,10 +1,19 @@
+"use client";
+
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import type { SessionData } from "@/lib/session";
 import { roleLabels } from "@/lib/roles";
 
 export function Header({ user }: { user: SessionData }) {
+  const pathname = usePathname();
+  // El buscador grande vive en el inicio (dashboard), justo encima de
+  // Ciudades; el de la barra superior solo aparece en el resto de las
+  // páginas (dentro de un apartado) para no duplicarlo.
+  const showHeaderSearch = pathname !== "/dashboard";
+
   return (
-    <header className="flex h-16 items-center justify-between bg-primary px-6 text-white">
+    <header className="flex h-16 items-center justify-between bg-primary px-6 text-white print:hidden">
       <div className="flex items-center gap-3">
         <div className="rounded-md bg-white px-2.5 py-1.5 shadow-sm">
           <Image
@@ -20,14 +29,16 @@ export function Header({ user }: { user: SessionData }) {
           Sistema Integral de Mantenimiento
         </p>
       </div>
-      <form action="/buscar" method="GET" className="hidden flex-1 max-w-xs md:block">
-        <input
-          type="search"
-          name="q"
-          placeholder="Buscar número económico, placas..."
-          className="w-full rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-blue-100 focus:bg-white focus:text-ink focus:outline-none focus:ring-2 focus:ring-white/60"
-        />
-      </form>
+      {showHeaderSearch && (
+        <form action="/buscar" method="GET" className="hidden flex-1 max-w-xs md:block">
+          <input
+            type="search"
+            name="q"
+            placeholder="Buscar número económico, placas..."
+            className="w-full rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-blue-100 focus:bg-white focus:text-ink focus:outline-none focus:ring-2 focus:ring-white/60"
+          />
+        </form>
+      )}
       <div className="flex items-center gap-4 text-sm">
         <span>
           {user.username} <span className="text-blue-200">({roleLabels[user.role]})</span>
