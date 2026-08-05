@@ -12,6 +12,7 @@ import {
 } from "@/lib/vehicle-enums";
 import { formatDate } from "@/lib/dates";
 import { DocumentList } from "./DocumentList";
+import { MaintenancePhotos } from "./MaintenancePhotos";
 import { UploadMaintenanceLogDocumentForm } from "@/components/admin/UploadMaintenanceLogDocumentForm";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 
@@ -45,7 +46,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</dt>
+      <dt className="text-xs font-semibold uppercase text-gray-500">{label}</dt>
       <dd className="text-ink">{value}</dd>
     </div>
   );
@@ -151,13 +152,18 @@ export function MaintenanceLogRow({
 
           {canEdit && <EditStatusForm log={log} />}
 
+          <MaintenancePhotos documents={log.documents} isAdmin={isAdmin} />
+
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
               Documentos (PDF)
             </p>
             <div className="space-y-2">
               {canEdit && <UploadMaintenanceLogDocumentForm maintenanceLogId={log.id} />}
-              <DocumentList documents={log.documents} isAdmin={isAdmin} />
+              <DocumentList
+                documents={log.documents.filter((d) => d.kind === "ADJUNTO")}
+                isAdmin={isAdmin}
+              />
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import { assertCityAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { TechnicalSheetView } from "@/components/city/TechnicalSheetView";
 import { DocumentList } from "@/components/city/DocumentList";
+import { MaintenancePhotos } from "@/components/city/MaintenancePhotos";
 import { PrintButton } from "@/components/city/PrintButton";
 import { formatDate } from "@/lib/dates";
 import { maintenanceStatusLabels, calidadExtintorLabels, type MaintenanceStatus, type CalidadExtintor } from "@/lib/vehicle-enums";
@@ -21,7 +22,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</dt>
+      <dt className="text-xs font-semibold uppercase text-gray-500">{label}</dt>
       <dd className="text-ink">{value}</dd>
     </div>
   );
@@ -30,7 +31,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-6 break-inside-avoid rounded-lg border border-gray-200 bg-white p-5 print:border-gray-300">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">{title}</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">{title}</h2>
       {children}
     </section>
   );
@@ -55,12 +56,18 @@ function LogList({
               <Field key={field.label} label={field.label} value={field.value} />
             ))}
           </dl>
-          {entry.documents.length > 0 && (
+          <div className="mt-3">
+            <MaintenancePhotos documents={entry.documents} isAdmin={false} />
+          </div>
+          {entry.documents.filter((d) => d.kind === "ADJUNTO").length > 0 && (
             <div className="mt-3">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
                 Documentos (PDF)
               </p>
-              <DocumentList documents={entry.documents} isAdmin={false} />
+              <DocumentList
+                documents={entry.documents.filter((d) => d.kind === "ADJUNTO")}
+                isAdmin={false}
+              />
             </div>
           )}
         </div>

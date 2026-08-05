@@ -144,3 +144,21 @@ export function readOptionalPdfFiles(formData: FormData, fieldName = "files"): F
   }
   return files;
 }
+
+const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+
+// Lee un solo campo de imagen opcional (foto de antes/después de un
+// mantenimiento). No adjuntar nada es válido; solo se valida lo que sí venga.
+export function readOptionalImageFile(formData: FormData, fieldName: string): File | null | { error: string } {
+  const file = formData.get(fieldName);
+  if (!(file instanceof File) || file.size === 0) {
+    return null;
+  }
+  if (!IMAGE_MIME_TYPES.includes(file.type)) {
+    return { error: `"${file.name}" no es una imagen válida (JPG, PNG o WEBP).` };
+  }
+  if (file.size > MAX_DOCUMENT_SIZE) {
+    return { error: `"${file.name}" supera el tamaño máximo permitido (20 MB).` };
+  }
+  return file;
+}

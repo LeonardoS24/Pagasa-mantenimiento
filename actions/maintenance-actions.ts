@@ -5,8 +5,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
-import { maintenanceStatusSchema } from "@/lib/vehicle-enums";
-import { saveDocumentFile, maintenanceLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
+import { maintenanceStatusSchema, maintenanceTypeSchema } from "@/lib/vehicle-enums";
+import {
+  saveDocumentFile,
+  maintenanceLogOwnerKey,
+  readOptionalPdfFiles,
+  readOptionalImageFile,
+} from "@/lib/documents";
 import { vincularPiezaARegistro } from "./inventory-actions";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
@@ -28,7 +33,7 @@ const optionalInt = z.preprocess((value) => {
 }, z.number().int().min(0).nullable());
 
 const createLogSchema = z.object({
-  tipoMantenimiento: requiredText("El tipo de mantenimiento", 100),
+  tipoMantenimiento: maintenanceTypeSchema,
   tipoServicio: requiredText("El tipo de servicio", 100),
   pieza: optionalText(100),
   cantidad: optionalText(50),
@@ -107,6 +112,14 @@ export async function createMaintenanceLog(
   const files = readOptionalPdfFiles(formData);
   if (!Array.isArray(files)) return files;
 
+  // Foto de cómo estaba la unidad antes del mantenimiento y cómo quedó
+  // después. Cada una es un solo archivo, a diferencia de los PDF que
+  // aceptan varios.
+  const fotoAntes = readOptionalImageFile(formData, "fotoAntes");
+  if (fotoAntes && !(fotoAntes instanceof File)) return fotoAntes;
+  const fotoDespues = readOptionalImageFile(formData, "fotoDespues");
+  if (fotoDespues && !(fotoDespues instanceof File)) return fotoDespues;
+
   const vehicle = await prisma.vehicleRecord.findUnique({ where: { id: vehicleId } });
   if (!vehicle) {
     return { error: "El registro no existe." };
@@ -138,6 +151,26 @@ export async function createMaintenanceLog(
         mimeType: file.type,
         size: file.size,
         uploadedById: editor.userId,
+      },
+    });
+  }
+
+  for (const [kind, file] of [
+    ["ANTES", fotoAntes],
+    ["DESPUES", fotoDespues],
+  ] as const) {
+    if (!file) continue;
+    const { storedName } = await saveDocumentFile(maintenanceLogOwnerKey(log.id), file);
+    await prisma.document.create({
+      data: {
+        sectionId: vehicle.sectionId,
+        maintenanceLogId: log.id,
+        fileName: file.name,
+        storedName,
+        mimeType: file.type,
+        size: file.size,
+        uploadedById: editor.userId,
+        kind,
       },
     });
   }

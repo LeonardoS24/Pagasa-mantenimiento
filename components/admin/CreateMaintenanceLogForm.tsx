@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { createMaintenanceLog } from "@/actions/maintenance-actions";
 import type { ActionState } from "@/actions/user-actions";
-import { maintenanceStatusLabels } from "@/lib/vehicle-enums";
+import { maintenanceStatusLabels, maintenanceTypeOptions } from "@/lib/vehicle-enums";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -16,7 +16,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
+      className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
     >
       {pending ? "Guardando..." : "Registrar mantenimiento"}
     </button>
@@ -71,7 +71,22 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-tipoMantenimiento">
               Tipo de mantenimiento
             </label>
-            <input id="mnt-tipoMantenimiento" name="tipoMantenimiento" required className={inputClass} />
+            <select
+              id="mnt-tipoMantenimiento"
+              name="tipoMantenimiento"
+              required
+              defaultValue=""
+              className={inputClass}
+            >
+              <option value="" disabled>
+                Selecciona...
+              </option>
+              {maintenanceTypeOptions.map((tipo) => (
+                <option key={tipo} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-tipoServicio">
@@ -193,6 +208,33 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
             multiple
             className="w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
           />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-fotoAntes">
+              Foto de antes (opcional)
+            </label>
+            <input
+              id="mnt-fotoAntes"
+              name="fotoAntes"
+              type="file"
+              accept="image/*"
+              className="w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-fotoDespues">
+              Foto de después (opcional)
+            </label>
+            <input
+              id="mnt-fotoDespues"
+              name="fotoDespues"
+              type="file"
+              accept="image/*"
+              className="w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
+            />
+          </div>
         </div>
 
         <FormMessage state={state} />

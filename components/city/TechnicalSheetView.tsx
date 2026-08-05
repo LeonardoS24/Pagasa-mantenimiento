@@ -38,28 +38,13 @@ import {
 } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
-
-// Mismo acento de color por subsección que TechnicalSheetForm, para que la
-// vista de solo lectura (LECTOR/USUARIO) se distinga igual de fácil.
-const SECTION_STYLES = {
-  automovil: "border-l-4 border-l-slate-400 bg-slate-50/60",
-  extintor: "border-l-4 border-l-red-400 bg-red-50/60",
-  mantenimiento: "border-l-4 border-l-emerald-400 bg-emerald-50/60",
-  tanque: "border-l-4 border-l-sky-400 bg-sky-50/60",
-  mangueras: "border-l-4 border-l-amber-400 bg-amber-50/60",
-  valvulas: "border-l-4 border-l-indigo-400 bg-indigo-50/60",
-  ultrasonido: "border-l-4 border-l-cyan-400 bg-cyan-50/60",
-  visualExterna: "border-l-4 border-l-purple-400 bg-purple-50/60",
-  hermeticidad: "border-l-4 border-l-fuchsia-400 bg-fuchsia-50/60",
-  visualInterna: "border-l-4 border-l-violet-400 bg-violet-50/60",
-  hidrostatica: "border-l-4 border-l-blue-400 bg-blue-50/60",
-} as const;
+import { SECTION_STYLES } from "@/lib/section-colors";
 
 function Item({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</dt>
+      <dt className="text-xs font-semibold uppercase text-gray-500">{label}</dt>
       <dd className="text-ink">{value}</dd>
     </div>
   );
@@ -117,7 +102,7 @@ export function TechnicalSheetView({
   return (
     <div className="space-y-6">
       <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Automóvil
         </h3>
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -143,7 +128,7 @@ export function TechnicalSheetView({
         </dl>
         {sheet.caracteristicas && (
           <div className="mt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <p className="text-xs font-semibold uppercase text-gray-500">
               Características especiales o técnicas
             </p>
             <p className="text-ink">{sheet.caracteristicas}</p>
@@ -153,7 +138,7 @@ export function TechnicalSheetView({
 
       {showTankSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
           </h3>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -169,7 +154,7 @@ export function TechnicalSheetView({
       {showMaintenancePreventiveSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Mantenimiento preventivo
             </h3>
             {maintenanceAlertLevel !== "none" && sheet.fechaProximoMantenimiento && (
@@ -215,7 +200,7 @@ export function TechnicalSheetView({
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Extintor</h3>
+          <h3 className="text-sm font-semibold uppercase text-primary-bright">Extintor</h3>
           {extinguisherAlertLevel !== "none" && (
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${extinguisherAlertBadgeStyles[extinguisherAlertLevel]}`}
@@ -247,7 +232,7 @@ export function TechnicalSheetView({
       {showHoseSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.mangueras}`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Cambio de mangueras
             </h3>
             {hoseAlertLevel !== "none" && hoseVencimiento && (
@@ -274,7 +259,7 @@ export function TechnicalSheetView({
       {showValveSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Cambio de válvulas
             </h3>
             {valveAlertLevel !== "none" && valveVencimiento && (
@@ -312,7 +297,7 @@ export function TechnicalSheetView({
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Externa
           </h3>
           {visualAlertLevel !== "none" && sheet.fechaProximaInspeccionVisual && (
@@ -338,7 +323,7 @@ export function TechnicalSheetView({
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Prueba de Hermeticidad
           </h3>
           {tightnessAlertLevel !== "none" && sheet.fechaProximaPruebaHermeticidad && (
@@ -364,7 +349,7 @@ export function TechnicalSheetView({
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Interna
           </h3>
           {internalVisualAlertLevel !== "none" && sheet.fechaProximaInspeccionVisualInterna && (
@@ -396,7 +381,7 @@ export function TechnicalSheetView({
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Ultrasonido
           </h3>
           {alertLevel !== "none" && sheet.fechaProximoUltrasonido && (
@@ -422,7 +407,7 @@ export function TechnicalSheetView({
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Prueba Hidrostática
           </h3>
           {hydrostaticAlertLevel !== "none" && sheet.fechaProximaPruebaHidrostatica && (

@@ -15,25 +15,9 @@ import {
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { FormMessage } from "./FormMessage";
+import { SECTION_STYLES } from "@/lib/section-colors";
 
 const initialState: ActionState = {};
-
-// Cada subsección de la ficha técnica lleva un acento de color distinto para
-// que se distingan a simple vista (antes todas se veían igual: solo un
-// encabezado gris y espacio en blanco).
-const SECTION_STYLES = {
-  automovil: "border-l-4 border-l-slate-400 bg-slate-50/60",
-  extintor: "border-l-4 border-l-red-400 bg-red-50/60",
-  mantenimiento: "border-l-4 border-l-emerald-400 bg-emerald-50/60",
-  tanque: "border-l-4 border-l-sky-400 bg-sky-50/60",
-  mangueras: "border-l-4 border-l-amber-400 bg-amber-50/60",
-  valvulas: "border-l-4 border-l-indigo-400 bg-indigo-50/60",
-  ultrasonido: "border-l-4 border-l-cyan-400 bg-cyan-50/60",
-  visualExterna: "border-l-4 border-l-purple-400 bg-purple-50/60",
-  hermeticidad: "border-l-4 border-l-fuchsia-400 bg-fuchsia-50/60",
-  visualInterna: "border-l-4 border-l-violet-400 bg-violet-50/60",
-  hidrostatica: "border-l-4 border-l-blue-400 bg-blue-50/60",
-} as const;
 
 function Field({
   id,
@@ -72,7 +56,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
+      className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
     >
       {pending ? "Guardando..." : "Guardar ficha técnica"}
     </button>
@@ -143,7 +127,7 @@ export function TechnicalSheetForm({
   return (
     <form action={formAction} className="space-y-6">
       <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Automóvil
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -216,7 +200,7 @@ export function TechnicalSheetForm({
 
       {showTankSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
           </h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -245,7 +229,7 @@ export function TechnicalSheetForm({
       {showMaintenancePreventiveSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Mantenimiento preventivo
             </h3>
             {maintenanceAlertLevel !== "none" && sheet?.fechaProximoMantenimiento && (
@@ -282,7 +266,7 @@ export function TechnicalSheetForm({
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Extintor</h3>
+          <h3 className="text-sm font-semibold uppercase text-primary-bright">Extintor</h3>
           {extinguisherAlertLevel !== "none" && (
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${extinguisherAlertBadgeStyles[extinguisherAlertLevel]}`}
@@ -332,7 +316,7 @@ export function TechnicalSheetForm({
       {showHoseSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.mangueras}`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Cambio de mangueras
             </h3>
             {hoseAlertLevel !== "none" && hoseVencimiento && (
@@ -366,7 +350,7 @@ export function TechnicalSheetForm({
       {showValveSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Cambio de válvulas
             </h3>
             {valveAlertLevel !== "none" && valveVencimiento && (
@@ -417,7 +401,7 @@ export function TechnicalSheetForm({
       )}
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Inspección Visual Externa
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -454,7 +438,7 @@ export function TechnicalSheetForm({
       </div>
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Prueba de Hermeticidad
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -491,7 +475,7 @@ export function TechnicalSheetForm({
       </div>
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Inspección Visual Interna
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -522,7 +506,7 @@ export function TechnicalSheetForm({
       </div>
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Ultrasonido
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -559,7 +543,7 @@ export function TechnicalSheetForm({
       </div>
 
       <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Prueba Hidrostática
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -8,7 +8,7 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
       <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
           <tr>
             <th className="px-4 py-2">Usuario</th>
             <th className="px-4 py-2">Rol</th>

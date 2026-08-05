@@ -17,6 +17,13 @@ export const combustibleLabels: Record<Combustible, string> = {
   GAS_LP_GASOLINA: "Gas LP/Gasolina",
 };
 
+// El valor almacenado es el mismo texto que se muestra (igual que
+// tipoServicio, que es texto libre): así no hace falta un mapa de etiquetas
+// en cada lugar donde ya se imprime tipoMantenimiento tal cual.
+export const maintenanceTypeSchema = z.enum(["Preventivo", "Correctivo", "Predictivo"]);
+export type MaintenanceType = z.infer<typeof maintenanceTypeSchema>;
+export const maintenanceTypeOptions = maintenanceTypeSchema.options;
+
 export const maintenanceStatusSchema = z.enum([
   "SIN_ATENCION",
   "EN_PROCESO",

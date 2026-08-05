@@ -40,6 +40,7 @@ import {
   previewVehicleDeleteImpact,
 } from "@/actions/vehicle-actions";
 import { formatDate, toDateInputValue } from "@/lib/dates";
+import { SECTION_STYLES } from "@/lib/section-colors";
 import {
   getUltrasoundAlertLevel,
   ultrasoundAlertBadgeStyles,
@@ -325,24 +326,24 @@ export default async function VehicleDetailPage({
         ) : (
           <dl className="grid gap-4 sm:grid-cols-2">
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <dt className="text-xs font-semibold uppercase text-gray-500">
                 Sucursal
               </dt>
               <dd className="text-ink">{vehicle.sucursal}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Año</dt>
+              <dt className="text-xs font-semibold uppercase text-gray-500">Año</dt>
               <dd className="text-ink">{vehicle.anio}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <dt className="text-xs font-semibold uppercase text-gray-500">
                 Placas
               </dt>
               <dd className="text-ink">{vehicle.placas}</dd>
             </div>
             {(vehicle.numeroAnterior || vehicle.localidadAnterior) && (
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <dt className="text-xs font-semibold uppercase text-gray-500">
                   Anterior
                 </dt>
                 <dd className="text-ink">
@@ -355,7 +356,7 @@ export default async function VehicleDetailPage({
       </div>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Ficha técnica
         </h2>
         {isAdmin ? (
@@ -392,8 +393,8 @@ export default async function VehicleDetailPage({
         Hermeticidad, Inspección Visual Interna, Ultrasonido y Prueba
         Hidrostática (solo Auto-Tanques).
       */}
-      <div id="mantenimiento" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <div id="mantenimiento" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.mantenimiento}`}>
+        <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Bitácora de mantenimiento
         </h2>
         <div className="space-y-3">
@@ -402,8 +403,8 @@ export default async function VehicleDetailPage({
         </div>
       </div>
 
-      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.extintor}`}>
+        <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Cambio de extintor
         </h2>
         <div className="space-y-3">
@@ -417,8 +418,8 @@ export default async function VehicleDetailPage({
       </div>
 
       {isTanqueCarburacion && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.mangueras}`}>
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Cambio de mangueras
           </h2>
           <div className="space-y-3">
@@ -429,8 +430,8 @@ export default async function VehicleDetailPage({
       )}
 
       {isTanqueCarburacion && (
-        <div id="valvulas" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div id="valvulas" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Cambio de válvulas
           </h2>
           <div className="space-y-3">
@@ -441,8 +442,8 @@ export default async function VehicleDetailPage({
       )}
 
       {isTanqueCarburacion && (
-        <div id="valvulas-correctivo" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div id="valvulas-correctivo" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Mantenimiento correctivo de válvulas
           </h2>
           <div className="space-y-3">
@@ -457,8 +458,8 @@ export default async function VehicleDetailPage({
       )}
 
       {isAutoTanques && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualExterna}`}>
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Externa
           </h2>
           <div className="space-y-3">
@@ -480,8 +481,8 @@ export default async function VehicleDetailPage({
       )}
 
       {isAutoTanques && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hermeticidad}`}>
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba de Hermeticidad
           </h2>
           <div className="space-y-3">
@@ -503,8 +504,8 @@ export default async function VehicleDetailPage({
       )}
 
       {isAutoTanques && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualInterna}`}>
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Interna
           </h2>
           <div className="space-y-3">
@@ -526,8 +527,8 @@ export default async function VehicleDetailPage({
       )}
 
       {isAutoTanques && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.ultrasonido}`}>
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Registro de ultrasonido
           </h2>
           <div className="space-y-3">
@@ -543,8 +544,8 @@ export default async function VehicleDetailPage({
       )}
 
       {isAutoTanques && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hidrostatica}`}>
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba Hidrostática
           </h2>
           <div className="space-y-3">
@@ -566,7 +567,7 @@ export default async function VehicleDetailPage({
       )}
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Documentos (PDF)
         </h2>
         <div className="space-y-3">
@@ -577,7 +578,7 @@ export default async function VehicleDetailPage({
 
       {isAdmin && (
         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             Estatus de la unidad
           </h2>
           {vehicle.activo ? (
@@ -595,7 +596,7 @@ export default async function VehicleDetailPage({
             <form action={setVehicleActive.bind(null, vehicle.id, true)}>
               <button
                 type="submit"
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark"
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark"
               >
                 Reactivar unidad
               </button>

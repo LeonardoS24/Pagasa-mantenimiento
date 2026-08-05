@@ -37,21 +37,21 @@ export default async function UserDetailPage({
       </div>
 
       <section className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Rol
         </h3>
         <ChangeRoleForm userId={user.id} currentRole={user.role as Role} esMiCuenta={esMiCuenta} />
       </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Cambiar contraseña
         </h3>
         <ChangePasswordForm userId={user.id} />
       </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Ciudades asignadas
         </h3>
         {user.role === "ADMIN" ? (

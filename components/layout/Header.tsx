@@ -13,7 +13,9 @@ export function Header({ user }: { user: SessionData }) {
   const showHeaderSearch = pathname !== "/dashboard";
 
   return (
-    <header className="flex h-16 items-center justify-between bg-primary px-6 text-white print:hidden">
+    // Barra azul sólida sin bordes redondeados, como la navegación de
+    // grupopagasa.com.mx; la línea inferior naranja es el acento de marca.
+    <header className="flex h-16 items-center justify-between border-b-[3px] border-accent bg-primary px-6 text-white shadow-sm print:hidden">
       <div className="flex items-center gap-3">
         <div className="rounded-md bg-white px-2.5 py-1.5 shadow-sm">
           <Image

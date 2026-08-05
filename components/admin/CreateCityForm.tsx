@@ -13,7 +13,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
+      className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
     >
       {pending ? "Creando..." : "Crear ciudad"}
     </button>
@@ -28,7 +28,7 @@ export function CreateCityForm() {
       action={formAction}
       className="space-y-3 rounded-lg border border-gray-200 bg-white p-5"
     >
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <h2 className="text-sm font-semibold uppercase text-primary-bright">
         Agregar ciudad
       </h2>
 

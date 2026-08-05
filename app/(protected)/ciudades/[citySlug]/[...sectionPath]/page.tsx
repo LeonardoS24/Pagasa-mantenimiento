@@ -172,7 +172,7 @@ export default async function SectionPage({
 
       {!isVehicleSection && (
         <div className="mt-8">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             Documentos (PDF)
           </h2>
           <div className="space-y-3">

@@ -15,7 +15,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
+      className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
     >
       {pending ? "Guardando..." : "Aceptar"}
     </button>
@@ -81,7 +81,7 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
           </div>
         </div>
 
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <p className="text-xs font-semibold uppercase text-gray-500">
           Fecha de fabricación de cada válvula
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -70,7 +70,7 @@ export function InventoryItemTable({
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
       <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
           <tr>
             <th className="whitespace-nowrap px-4 py-2">Nombre</th>
             <th className="whitespace-nowrap px-4 py-2">Orden</th>

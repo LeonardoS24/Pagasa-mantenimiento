@@ -694,6 +694,11 @@ model Document {
   mimeType   String
   size       Int
 
+  // "ADJUNTO" (PDF genérico) | "ANTES" | "DESPUES" (fotos del mantenimiento).
+  // Solo MaintenanceLog usa ANTES/DESPUES por ahora; el resto siempre queda
+  // en el valor por defecto.
+  kind String @default("ADJUNTO")
+
   uploadedById String?
   uploadedBy   User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 

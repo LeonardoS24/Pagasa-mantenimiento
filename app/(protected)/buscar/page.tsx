@@ -223,7 +223,7 @@ export default async function BuscarPage({
       {records.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
               <tr>
                 <th className="whitespace-nowrap px-4 py-2">Número económico</th>
                 <th className="whitespace-nowrap px-4 py-2">Placas</th>
@@ -253,7 +253,7 @@ export default async function BuscarPage({
                     {isFirstPushedDown && (
                       <tr aria-hidden="true">
                         <td colSpan={5} className="border-t-4 border-gray-200 bg-gray-100 px-4 py-3">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          <span className="text-xs font-semibold uppercase text-gray-500">
                             Dadas de baja
                           </span>
                         </td>
