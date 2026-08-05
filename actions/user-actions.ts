@@ -67,6 +67,65 @@ export async function deleteUser(userId: string) {
   redirect("/admin/usuarios");
 }
 
+// Cambiar el rol de una cuenta existente. Antes solo se definía al crearla, y
+// para corregirlo había que borrar el usuario y volver a crearlo: se perdía la
+// asignación de ciudades y había que rehacerla a mano. requireUser relee el rol
+// de la base en cada request, así que el cambio surte efecto de inmediato, sin
+// que la persona tenga que volver a entrar.
+export async function changeUserRole(
+  userId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const parsed = roleSchema.safeParse(formData.get("role"));
+  if (!parsed.success) {
+    return { error: "Rol inválido." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    return { error: "El usuario ya no existe." };
+  }
+  if (user.role === parsed.data) {
+    return { success: `${user.username} ya tenía ese rol.` };
+  }
+
+  // Quitarse a uno mismo el rol de administrador equivale a cerrarse la puerta
+  // del panel desde dentro, sin forma de volver a entrar.
+  if (admin.userId === userId && parsed.data !== "ADMIN") {
+    return { error: "No puedes quitarte a ti mismo el rol de administrador." };
+  }
+
+  // Y el sistema no puede quedarse sin ningún administrador: nadie podría
+  // crear usuarios, ciudades ni recuperar el acceso.
+  if (user.role === "ADMIN" && parsed.data !== "ADMIN") {
+    const otrosAdmins = await prisma.user.count({
+      where: { role: "ADMIN", id: { not: userId } },
+    });
+    if (otrosAdmins === 0) {
+      return { error: "Es el único administrador. Nombra otro antes de cambiarle el rol." };
+    }
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { role: parsed.data } });
+
+  // Un ADMIN ve todas las ciudades sin necesidad de asignaciones; al dejar de
+  // serlo se queda sin ninguna, así que conviene avisarlo.
+  const sinCiudades =
+    parsed.data !== "ADMIN" &&
+    (await prisma.userCityAccess.count({ where: { userId } })) === 0;
+
+  revalidatePath("/admin/usuarios");
+  revalidatePath(`/admin/usuarios/${userId}`);
+  return {
+    success: sinCiudades
+      ? `Rol actualizado. Asígnale las ciudades a las que tendrá acceso.`
+      : "Rol actualizado.",
+  };
+}
+
 const changePasswordSchema = z.object({
   password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
 });

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 import { deleteUser } from "@/actions/user-actions";
 import { ChangePasswordForm } from "@/components/admin/ChangePasswordForm";
+import { ChangeRoleForm } from "@/components/admin/ChangeRoleForm";
 import { CityAccessCheckboxes } from "@/components/admin/CityAccessCheckboxes";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { roleLabels, type Role } from "@/lib/roles";
@@ -21,6 +23,9 @@ export default async function UserDetailPage({
   const cities = await prisma.city.findMany({ orderBy: { order: "asc" } });
   const assignedCityIds = new Set(user.cityAccess.map((access) => access.cityId));
 
+  const admin = await requireAdmin();
+  const esMiCuenta = admin.userId === user.id;
+
   return (
     <div className="space-y-8">
       <div>
@@ -30,6 +35,13 @@ export default async function UserDetailPage({
         <h2 className="mt-2 text-xl font-semibold text-primary">{user.username}</h2>
         <p className="text-sm text-ink">{roleLabels[user.role as Role]}</p>
       </div>
+
+      <section className="rounded-lg border border-gray-200 bg-white p-5">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Rol
+        </h3>
+        <ChangeRoleForm userId={user.id} currentRole={user.role as Role} esMiCuenta={esMiCuenta} />
+      </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-5">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
