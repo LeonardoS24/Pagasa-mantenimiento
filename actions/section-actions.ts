@@ -5,6 +5,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { slugify } from "@/lib/slugify";
+import { verifySessionPassword } from "@/lib/reauth";
+import { getSectionDeleteImpact, getSectionSubtreeIds, impactTotal } from "@/lib/delete-impact";
+import { deleteSectionDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
 
 const createSectionSchema = z.object({
@@ -92,11 +95,40 @@ export async function updateSection(
   return { success: "Apartado actualizado." };
 }
 
-export async function deleteSection(sectionId: string) {
+// Solo para pintar la confirmación: no borra nada.
+export async function previewSectionDeleteImpact(sectionId: string) {
   await requireAdmin();
-  const section = await prisma.section.findUnique({ where: { id: sectionId } });
-  if (!section) return;
+  const impacto = await getSectionDeleteImpact(sectionId);
+  return { impacto, pideContrasena: impactTotal(impacto) > 0 };
+}
 
+// Un apartado con contenido arrastra unidades, bitácoras y documentos, así que
+// pide la contraseña de quien está en sesión. Uno vacío (recién creado, o mal
+// escrito) se borra con la confirmación de siempre: exigir contraseña ahí solo
+// estorbaría al ordenar la estructura.
+export async function deleteSection(
+  sectionId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const section = await prisma.section.findUnique({ where: { id: sectionId } });
+  if (!section) {
+    return { error: "El apartado ya no existe." };
+  }
+
+  const impacto = await getSectionDeleteImpact(sectionId);
+  if (impactTotal(impacto) > 0) {
+    const passwordError = await verifySessionPassword(admin, formData.get("password"));
+    if (passwordError) {
+      return { error: passwordError };
+    }
+  }
+
+  await deleteSectionDocumentFiles(await getSectionSubtreeIds(sectionId));
   await prisma.section.delete({ where: { id: sectionId } });
+
   revalidatePath(`/admin/ciudades/${section.cityId}`);
+  return { success: `Apartado “${section.name}” eliminado.` };
 }

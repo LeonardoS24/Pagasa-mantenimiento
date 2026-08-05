@@ -7,6 +7,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { combustibleSchema, calidadExtintorSchema } from "@/lib/vehicle-enums";
+import { collapseSpaces } from "@/lib/text-normalize";
+import { verifySessionPassword } from "@/lib/reauth";
+import { deleteVehicleDocumentFiles } from "@/lib/document-cleanup";
+import { getVehicleDeleteImpact } from "@/lib/delete-impact";
 import type { ActionState } from "./user-actions";
 
 const vehicleSchema = z.object({
@@ -19,8 +23,10 @@ const vehicleSchema = z.object({
 });
 
 function parseVehicleForm(formData: FormData) {
+  // collapseSpaces y no solo trim: un doble espacio en medio del número
+  // económico ("KG  138") lo vuelve inencontrable en el buscador.
   const clean = (value: FormDataEntryValue | null) => {
-    const text = String(value ?? "").trim();
+    const text = collapseSpaces(String(value ?? ""));
     return text.length > 0 ? text : undefined;
   };
 
@@ -100,15 +106,37 @@ export async function updateVehicleRecord(
   return { success: "Registro actualizado." };
 }
 
-export async function deleteVehicleRecord(vehicleId: string) {
+// Solo para pintar la confirmación: no borra nada.
+export async function previewVehicleDeleteImpact(vehicleId: string) {
   await requireAdmin();
+  return { impacto: await getVehicleDeleteImpact(vehicleId), pideContrasena: true };
+}
+
+// Borrar una unidad se lleva su ficha técnica, sus 10 tipos de bitácora y sus
+// documentos. Pide la contraseña de quien está en sesión, igual que borrar una
+// ciudad, y limpia los PDF del disco antes de que la cascada borre los
+// registros que los apuntaban.
+export async function deleteVehicleRecord(
+  vehicleId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },
     include: { section: { include: { city: true } } },
   });
-  if (!vehicle) return;
+  if (!vehicle) {
+    return { error: "La unidad ya no existe." };
+  }
 
+  await deleteVehicleDocumentFiles(vehicleId);
   await prisma.vehicleRecord.delete({ where: { id: vehicleId } });
 
   const chain = await getSectionChain(vehicle.sectionId);

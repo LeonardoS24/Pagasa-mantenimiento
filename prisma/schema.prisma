@@ -273,6 +273,9 @@ model MaintenanceLog {
 
   documents Document[]
 
+  // Piezas de inventario que se colocaron en este mantenimiento.
+  piezasUtilizadas InventoryItem[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -481,6 +484,9 @@ model ValveChangeLog {
 
   documents Document[]
 
+  // Piezas de inventario que se colocaron en este cambio de válvulas.
+  piezasUtilizadas InventoryItem[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -507,6 +513,9 @@ model ValveCorrectiveMaintenanceLog {
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
+
+  // Piezas de inventario que se colocaron en este mantenimiento correctivo.
+  piezasUtilizadas InventoryItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -610,6 +619,19 @@ model InventoryItem {
   // perder el historial del inventario si la unidad se elimina después.
   usedOnVehicleId String?
   usedOnVehicle   VehicleRecord? @relation(fields: [usedOnVehicleId], references: [id], onDelete: SetNull)
+
+  // En qué trabajo concreto se colocó la pieza. Solo uno de los tres tiene
+  // valor: saber la unidad no basta para rastrear una refacción, hay que
+  // poder llegar al mantenimiento donde se usó. SetNull para que borrar la
+  // bitácora no borre el rastro de la pieza en el inventario.
+  usedOnMaintenanceLogId String?
+  usedOnMaintenanceLog   MaintenanceLog? @relation(fields: [usedOnMaintenanceLogId], references: [id], onDelete: SetNull)
+
+  usedOnValveChangeLogId String?
+  usedOnValveChangeLog   ValveChangeLog? @relation(fields: [usedOnValveChangeLogId], references: [id], onDelete: SetNull)
+
+  usedOnValveCorrectiveMaintenanceLogId String?
+  usedOnValveCorrectiveMaintenanceLog   ValveCorrectiveMaintenanceLog? @relation(fields: [usedOnValveCorrectiveMaintenanceLogId], references: [id], onDelete: SetNull)
 
   fechaIngreso          DateTime  @default(now())
   fechaPorUtilizarDesde DateTime?

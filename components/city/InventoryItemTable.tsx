@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { InventoryItem } from "@prisma/client";
 import { formatDate } from "@/lib/dates";
 import {
@@ -14,8 +15,26 @@ import { deleteInventoryItem } from "@/actions/inventory-actions";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 
 type InventoryItemWithVehicle = InventoryItem & {
-  usedOnVehicle: { numeroEconomico: string } | null;
+  usedOnVehicle: { id: string; numeroEconomico: string } | null;
+  usedOnMaintenanceLog: { fecha: Date; tipoMantenimiento: string } | null;
+  usedOnValveChangeLog: { fechaInstalacion: Date } | null;
+  usedOnValveCorrectiveMaintenanceLog: { fecha: Date; descripcion: string } | null;
 };
+
+// Segunda línea de "Colocado en": el trabajo concreto donde se usó la pieza.
+// Sin esto solo se sabía la unidad, que no alcanza para rastrear una refacción.
+function describeTrabajo(item: InventoryItemWithVehicle): string | null {
+  if (item.usedOnMaintenanceLog) {
+    return `Mantenimiento · ${formatDate(item.usedOnMaintenanceLog.fecha)} · ${item.usedOnMaintenanceLog.tipoMantenimiento}`;
+  }
+  if (item.usedOnValveChangeLog) {
+    return `Cambio de válvulas · ${formatDate(item.usedOnValveChangeLog.fechaInstalacion)}`;
+  }
+  if (item.usedOnValveCorrectiveMaintenanceLog) {
+    return `Correctivo de válvulas · ${formatDate(item.usedOnValveCorrectiveMaintenanceLog.fecha)} · ${item.usedOnValveCorrectiveMaintenanceLog.descripcion}`;
+  }
+  return null;
+}
 
 export function InventoryItemTable({
   items,
@@ -95,8 +114,22 @@ export function InventoryItemTable({
                     </span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 text-ink">
-                  {item.usedOnVehicle?.numeroEconomico ?? "—"}
+                <td className="px-4 py-2 text-ink">
+                  {item.usedOnVehicle ? (
+                    <>
+                      <Link
+                        href={`/ciudades/${citySlug}/vehiculo/${item.usedOnVehicle.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {item.usedOnVehicle.numeroEconomico}
+                      </Link>
+                      {describeTrabajo(item) && (
+                        <span className="block text-xs text-gray-500">{describeTrabajo(item)}</span>
+                      )}
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 {isAdmin && (
                   <td className="whitespace-nowrap px-4 py-2">

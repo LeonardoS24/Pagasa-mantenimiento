@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { saveDocumentFile, tightnessTestLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
+import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
 
 const optionalText = (max: number) =>
@@ -113,6 +114,9 @@ export async function deleteTightnessTestLog(logId: string) {
   });
   if (!log) return;
 
+  // Los PDF de la bitácora se van con ella en la base, pero el archivo en
+  // disco hay que borrarlo aparte y antes, mientras el registro existe.
+  await deleteLogDocumentFiles("tightnessTestLogId", logId);
   await prisma.tightnessTestLog.delete({ where: { id: logId } });
 
   revalidatePath(

@@ -9,6 +9,7 @@ import {
   hydrostaticTestLogOwnerKey,
   readOptionalPdfFiles,
 } from "@/lib/documents";
+import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
 
 const optionalText = (max: number) =>
@@ -123,6 +124,9 @@ export async function deleteHydrostaticTestLog(logId: string) {
   });
   if (!log) return;
 
+  // Los PDF de la bitácora se van con ella en la base, pero el archivo en
+  // disco hay que borrarlo aparte y antes, mientras el registro existe.
+  await deleteLogDocumentFiles("hydrostaticTestLogId", logId);
   await prisma.hydrostaticTestLog.delete({ where: { id: logId } });
 
   revalidatePath(

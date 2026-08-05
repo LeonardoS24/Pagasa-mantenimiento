@@ -1,6 +1,6 @@
 import type { Section } from "@prisma/client";
-import { deleteSection } from "@/actions/section-actions";
-import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
+import { deleteSection, previewSectionDeleteImpact } from "@/actions/section-actions";
+import { ConfirmDeleteWithPassword } from "./ConfirmDeleteWithPassword";
 import { CreateSectionForm } from "./CreateSectionForm";
 import { RenameSectionForm } from "./RenameSectionForm";
 
@@ -36,14 +36,16 @@ function SectionNode({
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-white p-3">
         <RenameSectionForm sectionId={section.id} defaultName={section.name} />
 
-        <form action={deleteSection.bind(null, section.id)}>
-          <ConfirmSubmitButton
-            confirmMessage={`¿Eliminar el apartado "${section.name}"? Se eliminarán también sus sub-apartados.`}
-            className="rounded-md border border-accent px-3 py-1 text-xs font-medium text-accent hover:bg-accent hover:text-white"
-          >
-            Eliminar
-          </ConfirmSubmitButton>
-        </form>
+        <ConfirmDeleteWithPassword
+          key={section.id}
+          nombre={section.name}
+          tipo="apartado"
+          action={deleteSection.bind(null, section.id)}
+          cargarImpacto={previewSectionDeleteImpact.bind(null, section.id)}
+          className="rounded-md border border-accent px-3 py-1 text-xs font-medium text-accent hover:bg-accent hover:text-white"
+        >
+          Eliminar
+        </ConfirmDeleteWithPassword>
       </div>
 
       <div className="mt-2" style={{ marginLeft: 20 }}>

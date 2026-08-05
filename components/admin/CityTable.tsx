@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { City } from "@prisma/client";
-import { deleteCity } from "@/actions/city-actions";
-import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
+import { deleteCity, previewCityDeleteImpact } from "@/actions/city-actions";
+import { ConfirmDeleteWithPassword } from "./ConfirmDeleteWithPassword";
 
 export function CityTable({ cities }: { cities: City[] }) {
   return (
@@ -22,14 +22,18 @@ export function CityTable({ cities }: { cities: City[] }) {
                 </Link>
               </td>
               <td className="px-4 py-2 text-right">
-                <form action={deleteCity.bind(null, city.id)}>
-                  <ConfirmSubmitButton
-                    confirmMessage={`¿Eliminar la ciudad "${city.name}"? Se eliminarán todos sus apartados y accesos asignados.`}
+                <div className="flex justify-end">
+                  <ConfirmDeleteWithPassword
+                    key={city.id}
+                    nombre={city.name}
+                    tipo="ciudad"
+                    action={deleteCity.bind(null, city.id)}
+                    cargarImpacto={previewCityDeleteImpact.bind(null, city.id)}
                     className="text-sm text-accent hover:underline"
                   >
                     Eliminar
-                  </ConfirmSubmitButton>
-                </form>
+                  </ConfirmDeleteWithPassword>
+                </div>
               </td>
             </tr>
           ))}

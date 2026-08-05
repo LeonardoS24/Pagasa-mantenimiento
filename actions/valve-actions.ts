@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { saveDocumentFile, valveChangeLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
+import { vincularPiezaARegistro } from "./inventory-actions";
+import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
 
 const optionalText = (max: number) =>
@@ -76,6 +78,13 @@ export async function createValveChangeLog(
     },
   });
 
+  // Viene del flujo de Inventarios: la pieza ya quedó marcada "Utilizada" en
+  // esta unidad y solo faltaba el registro al que amarrarla.
+  const piezaId = String(formData.get("vincularPieza") ?? "").trim();
+  if (piezaId) {
+    await vincularPiezaARegistro(piezaId, "VALVULAS", log.id, vehicleId);
+  }
+
   for (const file of files) {
     const { storedName } = await saveDocumentFile(valveChangeLogOwnerKey(log.id), file);
     await prisma.document.create({
@@ -128,6 +137,9 @@ export async function deleteValveChangeLog(logId: string) {
   });
   if (!log) return;
 
+  // Los PDF de la bitácora se van con ella en la base, pero el archivo en
+  // disco hay que borrarlo aparte y antes, mientras el registro existe.
+  await deleteLogDocumentFiles("valveChangeLogId", logId);
   await prisma.valveChangeLog.delete({ where: { id: logId } });
 
   revalidatePath(`/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`);

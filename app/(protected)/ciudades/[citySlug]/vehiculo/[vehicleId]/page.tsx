@@ -32,7 +32,13 @@ import { ValveCorrectiveMaintenanceLogTable } from "@/components/city/ValveCorre
 import { CreateHoseChangeLogForm } from "@/components/admin/CreateHoseChangeLogForm";
 import { HoseChangeLogTable } from "@/components/city/HoseChangeLogTable";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
-import { updateVehicleRecord, deleteVehicleRecord, setVehicleActive } from "@/actions/vehicle-actions";
+import { ConfirmDeleteWithPassword } from "@/components/admin/ConfirmDeleteWithPassword";
+import {
+  updateVehicleRecord,
+  deleteVehicleRecord,
+  setVehicleActive,
+  previewVehicleDeleteImpact,
+} from "@/actions/vehicle-actions";
 import { formatDate, toDateInputValue } from "@/lib/dates";
 import {
   getUltrasoundAlertLevel,
@@ -423,7 +429,7 @@ export default async function VehicleDetailPage({
       )}
 
       {isTanqueCarburacion && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div id="valvulas" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
             Cambio de válvulas
           </h2>
@@ -435,7 +441,7 @@ export default async function VehicleDetailPage({
       )}
 
       {isTanqueCarburacion && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div id="valvulas-correctivo" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
             Mantenimiento correctivo de válvulas
           </h2>
@@ -603,14 +609,15 @@ export default async function VehicleDetailPage({
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
             Zona de peligro
           </h2>
-          <form action={deleteVehicleRecord.bind(null, vehicle.id)}>
-            <ConfirmSubmitButton
-              confirmMessage={`¿Eliminar el número económico "${vehicle.numeroEconomico}"? También se eliminarán sus documentos.`}
-              className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent hover:text-white"
-            >
-              Eliminar número económico
-            </ConfirmSubmitButton>
-          </form>
+          <ConfirmDeleteWithPassword
+            nombre={vehicle.numeroEconomico}
+            tipo="unidad"
+            action={deleteVehicleRecord.bind(null, vehicle.id)}
+            cargarImpacto={previewVehicleDeleteImpact.bind(null, vehicle.id)}
+            className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent hover:text-white"
+          >
+            Eliminar número económico
+          </ConfirmDeleteWithPassword>
         </div>
       )}
 

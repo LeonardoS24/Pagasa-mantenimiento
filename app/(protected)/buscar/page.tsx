@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { getAccessibleCities } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
+import { normalizeForSearch } from "@/lib/text-normalize";
 import type { VehicleRecord, VehicleTechnicalSheet } from "@prisma/client";
 
 type RecordWithSheet = VehicleRecord & {
@@ -42,22 +43,52 @@ function computeMatchedGroups(record: RecordWithSheet, q: string): string[] {
     { group: "Ficha técnica · Inspección Visual Interna", value: sheet?.numeroUltimaInspeccionVisualInterna },
     { group: "Ficha técnica · Prueba Hidrostática", value: sheet?.numeroUltimaPruebaHidrostatica },
   ];
-  // SQLite hace `contains` (LIKE) insensible a mayúsculas por defecto, así
-  // que la comparación aquí también debe serlo para reflejar exactamente lo
-  // que ya coincidió en la consulta de arriba.
-  const qLower = q.toLowerCase();
+  // Insensible a mayúsculas (como el LIKE de SQLite) y también a los espacios
+  // de más, para que una unidad guardada como "KG  138" marque su recuadro
+  // cuando se buscó "KG 138".
+  const qNorm = normalizeForSearch(q);
   const groups = new Set<string>();
   for (const matcher of matchers) {
-    if (matcher.value && matcher.value.toLowerCase().includes(qLower)) groups.add(matcher.group);
+    if (matcher.value && normalizeForSearch(matcher.value).includes(qNorm)) groups.add(matcher.group);
   }
   return Array.from(groups);
 }
 
-// Colapsa espacios repetidos: algunos números económicos importados desde
-// Excel traen doble espacio ("KG  138"), lo que haría que una búsqueda
-// exacta normal ("KG 138") nunca coincidiera exactamente.
-function normalizeForExactMatch(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+const normalizeForExactMatch = normalizeForSearch;
+
+// Todos los campos buscables de una unidad, ya normalizados. Sirve para una
+// segunda pasada que ignore los espacios de más: LIKE compara carácter por
+// carácter, así que "KG 138" nunca encontraría "KG  138" por consulta.
+function camposBuscables(record: RecordWithSheet): string[] {
+  const sheet = record.technicalSheet;
+  return [
+    record.numeroEconomico,
+    record.placas,
+    record.sucursal,
+    record.numeroAnterior,
+    record.localidadAnterior,
+    sheet?.fabricante,
+    sheet?.marca,
+    sheet?.linea,
+    sheet?.modelo,
+    sheet?.peso,
+    sheet?.pesoBrutoVacio,
+    sheet?.pesoBrutoMaximo,
+    sheet?.serie,
+    sheet?.caracteristicas,
+    sheet?.horasUsoDiario,
+    sheet?.capacidadTanque,
+    sheet?.marcaTanque,
+    sheet?.anioFabricacionTanque,
+    sheet?.numeroSerieTanque,
+    sheet?.numeroUltimoUltrasonido,
+    sheet?.numeroUltimaInspeccionVisual,
+    sheet?.numeroUltimaPruebaHermeticidad,
+    sheet?.numeroUltimaInspeccionVisualInterna,
+    sheet?.numeroUltimaPruebaHidrostatica,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeForSearch);
 }
 
 // Una unidad dada de baja solo se considera "coincidencia específica" (y por
@@ -120,11 +151,43 @@ export default async function BuscarPage({
       })
     : [];
 
+  // Segunda pasada para los espacios de más. LIKE compara carácter por
+  // carácter, así que buscar "KG 138" no encuentra una unidad capturada como
+  // "KG  138". Se acota por el token más largo de la búsqueda (ese sí coincide
+  // por LIKE) y se filtra ya normalizado.
+  const tokens = qNormalized.split(" ").filter(Boolean);
+  const tokenMasLargo = tokens.sort((a, b) => b.length - a.length)[0] ?? "";
+  const extraRecords =
+    tokens.length > 1 && tokenMasLargo
+      ? await prisma.vehicleRecord.findMany({
+          where: {
+            section: { cityId: { in: cities.map((city) => city.id) } },
+            id: { notIn: rawRecords.map((r) => r.id) },
+            OR: [
+              { numeroEconomico: { contains: tokenMasLargo } },
+              { placas: { contains: tokenMasLargo } },
+              { sucursal: { contains: tokenMasLargo } },
+              { numeroAnterior: { contains: tokenMasLargo } },
+              { localidadAnterior: { contains: tokenMasLargo } },
+            ],
+          },
+          include: { section: { include: { city: true, parent: true } }, technicalSheet: true },
+          take: 50,
+        })
+      : [];
+
+  const allRecords = [
+    ...rawRecords,
+    ...extraRecords.filter((record) =>
+      camposBuscables(record).some((campo) => campo.includes(qNormalized))
+    ),
+  ];
+
   // Las unidades dadas de baja se mandan hasta el final de los resultados,
   // a menos que la búsqueda coincida exactamente con su número económico o
   // placas (en ese caso es justo lo que se estaba buscando, así que se
   // queda en su posición normal).
-  const records = [...rawRecords].sort((a, b) => {
+  const records = [...allRecords].sort((a, b) => {
     const aPushed = !a.activo && !isSpecificMatch(a, qNormalized);
     const bPushed = !b.activo && !isSpecificMatch(b, qNormalized);
     if (aPushed !== bPushed) return aPushed ? 1 : -1;
@@ -197,18 +260,26 @@ export default async function BuscarPage({
                       </tr>
                     )}
                     <tr className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="whitespace-nowrap px-4 py-2 font-medium text-primary">
-                        <Link
-                          href={`/ciudades/${record.section.city.slug}/vehiculo/${record.id}`}
-                          className="hover:underline"
-                        >
-                          {record.numeroEconomico}
-                        </Link>
-                        {!record.activo && (
-                          <span className="ml-2 rounded-full border border-orange-400 bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">
-                            Dado de baja
-                          </span>
-                        )}
+                      <td className="px-4 py-2 font-medium text-primary">
+                        <div className="whitespace-nowrap">
+                          <Link
+                            href={`/ciudades/${record.section.city.slug}/vehiculo/${record.id}`}
+                            className="hover:underline"
+                          >
+                            {record.numeroEconomico}
+                          </Link>
+                          {!record.activo && (
+                            <span className="ml-2 rounded-full border border-orange-400 bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">
+                              Dado de baja
+                            </span>
+                          )}
+                        </div>
+                        {/* El mismo número económico existe a menudo en dos
+                            apartados (Auto-Tanques y carburación). Sin esto no
+                            se sabe a cuál de las dos fichas se va a entrar. */}
+                        <span className="mt-0.5 block whitespace-nowrap text-xs font-normal text-gray-500">
+                          {record.section.name}
+                        </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
                       <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>

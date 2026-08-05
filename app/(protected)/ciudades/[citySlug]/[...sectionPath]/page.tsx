@@ -84,7 +84,12 @@ export default async function SectionPage({
     ? await prisma.inventoryItem.findMany({
         where: { sectionId: current.id },
         orderBy: { fechaIngreso: "desc" },
-        include: { usedOnVehicle: { select: { numeroEconomico: true } } },
+        include: {
+          usedOnVehicle: { select: { id: true, numeroEconomico: true } },
+          usedOnMaintenanceLog: { select: { fecha: true, tipoMantenimiento: true } },
+          usedOnValveChangeLog: { select: { fechaInstalacion: true } },
+          usedOnValveCorrectiveMaintenanceLog: { select: { fecha: true, descripcion: true } },
+        },
       })
     : [];
 

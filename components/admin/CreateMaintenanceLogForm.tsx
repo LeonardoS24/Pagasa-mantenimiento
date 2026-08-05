@@ -39,6 +39,9 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
   const prefillPieza = searchParams.get("prefillPieza") ?? "";
   const prefillCantidad = searchParams.get("prefillCantidad") ?? "";
   const prefillUnidad = searchParams.get("prefillUnidad") ?? "";
+  // Id de la pieza de inventario que quedó esperando este registro para
+  // amarrarse a él (ver vincularPiezaARegistro).
+  const vincularPieza = searchParams.get("vincularPieza") ?? "";
   const hasPrefill = Boolean(prefillPieza || prefillCantidad || prefillUnidad);
 
   useEffect(() => {
@@ -61,6 +64,8 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
         }}
         className="mt-4 space-y-3"
       >
+        {vincularPieza && <input type="hidden" name="vincularPieza" value={vincularPieza} />}
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-tipoMantenimiento">

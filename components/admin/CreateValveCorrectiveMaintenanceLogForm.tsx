@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { createValveCorrectiveMaintenanceLog } from "@/actions/valve-corrective-maintenance-actions";
 import type { ActionState } from "@/actions/user-actions";
@@ -29,9 +30,21 @@ export function CreateValveCorrectiveMaintenanceLogForm({ vehicleId }: { vehicle
   const action = createValveCorrectiveMaintenanceLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const searchParams = useSearchParams();
+
+  // Id de la pieza de inventario que quedó esperando este registro para
+  // amarrarse a él (ver vincularPiezaARegistro).
+  const vincularPieza = searchParams.get("vincularPieza") ?? "";
+
+  useEffect(() => {
+    if (vincularPieza && detailsRef.current) {
+      detailsRef.current.open = true;
+    }
+  }, [vincularPieza]);
 
   return (
-    <details className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
+    <details ref={detailsRef} className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
       <summary className="cursor-pointer text-sm font-semibold text-primary">
         Registrar mantenimiento correctivo
       </summary>
@@ -44,6 +57,7 @@ export function CreateValveCorrectiveMaintenanceLogForm({ vehicleId }: { vehicle
         }}
         className="mt-4 space-y-3"
       >
+        {vincularPieza && <input type="hidden" name="vincularPieza" value={vincularPieza} />}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="valvcorr-valvula">

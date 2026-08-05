@@ -7,6 +7,8 @@ import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth"
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { maintenanceStatusSchema } from "@/lib/vehicle-enums";
 import { saveDocumentFile, maintenanceLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
+import { vincularPiezaARegistro } from "./inventory-actions";
+import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
 
 const requiredText = (label: string, max: number) =>
@@ -118,6 +120,13 @@ export async function createMaintenanceLog(
     },
   });
 
+  // Viene del flujo de Inventarios: la pieza ya quedó marcada "Utilizada" en
+  // esta unidad y solo faltaba el registro al que amarrarla.
+  const piezaId = String(formData.get("vincularPieza") ?? "").trim();
+  if (piezaId) {
+    await vincularPiezaARegistro(piezaId, "MANTENIMIENTO", log.id, vehicleId);
+  }
+
   for (const file of files) {
     const { storedName } = await saveDocumentFile(maintenanceLogOwnerKey(log.id), file);
     await prisma.document.create({
@@ -197,6 +206,9 @@ export async function deleteMaintenanceLog(logId: string) {
   const log = await prisma.maintenanceLog.findUnique({ where: { id: logId } });
   if (!log) return;
 
+  // Los PDF de la bitácora se van con ella en la base, pero el archivo en
+  // disco hay que borrarlo aparte y antes, mientras el registro existe.
+  await deleteLogDocumentFiles("maintenanceLogId", logId);
   await prisma.maintenanceLog.delete({ where: { id: logId } });
   await revalidateVehicleAndCityFeed(log.vehicleRecordId);
 }

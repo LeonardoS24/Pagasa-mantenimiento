@@ -2,10 +2,13 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { slugify } from "@/lib/slugify";
+import { verifySessionPassword } from "@/lib/reauth";
+import { getCityDeleteImpact } from "@/lib/delete-impact";
+import { deleteSectionDocumentFiles } from "@/lib/document-cleanup";
+import { crearApartadosEstandar } from "@/lib/city-template";
 import type { ActionState } from "./user-actions";
 
 const createCitySchema = z.object({
@@ -33,13 +36,18 @@ export async function createCity(
 
   const maxOrder = await prisma.city.aggregate({ _max: { order: true } });
 
-  await prisma.city.create({
+  const city = await prisma.city.create({
     data: { name, slug, order: (maxOrder._max.order ?? 0) + 1 },
   });
 
+  // La ciudad nace con la estructura completa. Crearla vacía obligaba a armar
+  // a mano los 10 apartados y los 4 sub-apartados de Unidad de distribución,
+  // y un nombre mal escrito dejaba el apartado sin sus funciones.
+  const creados = await crearApartadosEstandar(city.id);
+
   revalidatePath("/admin/ciudades");
   revalidatePath("/dashboard");
-  return { success: "Ciudad creada correctamente." };
+  return { success: `Ciudad creada con sus ${creados} apartados.` };
 }
 
 export async function updateCity(
@@ -72,10 +80,40 @@ export async function updateCity(
   return { success: "Ciudad actualizada." };
 }
 
-export async function deleteCity(cityId: string) {
+// Solo para pintar la confirmación: no borra nada. Una ciudad siempre pide
+// contraseña, incluso vacía: borrarla desarma la estructura de una sede
+// completa y no es algo que se haga al vuelo.
+export async function previewCityDeleteImpact(cityId: string) {
   await requireAdmin();
+  return { impacto: await getCityDeleteImpact(cityId), pideContrasena: true };
+}
+
+// Borrar una ciudad se lleva sus apartados, unidades, fichas técnicas,
+// bitácoras y documentos. Por eso pide la contraseña de quien está en sesión,
+// siempre, aunque la ciudad esté vacía.
+export async function deleteCity(
+  cityId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
+
+  const city = await prisma.city.findUnique({ where: { id: cityId } });
+  if (!city) {
+    return { error: "La ciudad ya no existe." };
+  }
+
+  const sections = await prisma.section.findMany({ where: { cityId }, select: { id: true } });
+  await deleteSectionDocumentFiles(sections.map((s) => s.id));
+
   await prisma.city.delete({ where: { id: cityId } });
+
   revalidatePath("/admin/ciudades");
   revalidatePath("/dashboard");
-  redirect("/admin/ciudades");
+  return { success: `Ciudad “${city.name}” eliminada.` };
 }

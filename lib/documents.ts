@@ -80,6 +80,54 @@ export function hoseChangeLogOwnerKey(hoseChangeLogId: string): string {
   return path.posix.join("hose-change-logs", hoseChangeLogId);
 }
 
+// Solo las llaves foráneas que determinan dónde vive el archivo de un
+// documento. Un documento pertenece a una bitácora, a una unidad o al
+// apartado, en ese orden de prioridad (igual que en deleteDocument).
+export type DocumentOwnerFields = {
+  sectionId: string;
+  vehicleRecordId: string | null;
+  maintenanceLogId: string | null;
+  ultrasoundLogId: string | null;
+  visualInspectionLogId: string | null;
+  tightnessTestLogId: string | null;
+  internalVisualInspectionLogId: string | null;
+  hydrostaticTestLogId: string | null;
+  extinguisherChangeLogId: string | null;
+  valveChangeLogId: string | null;
+  valveCorrectiveMaintenanceLogId: string | null;
+  hoseChangeLogId: string | null;
+};
+
+export function ownerKeyForDocument(document: DocumentOwnerFields): string {
+  if (document.maintenanceLogId) return maintenanceLogOwnerKey(document.maintenanceLogId);
+  if (document.ultrasoundLogId) return ultrasoundLogOwnerKey(document.ultrasoundLogId);
+  if (document.visualInspectionLogId) return visualInspectionLogOwnerKey(document.visualInspectionLogId);
+  if (document.tightnessTestLogId) return tightnessTestLogOwnerKey(document.tightnessTestLogId);
+  if (document.internalVisualInspectionLogId)
+    return internalVisualInspectionLogOwnerKey(document.internalVisualInspectionLogId);
+  if (document.hydrostaticTestLogId) return hydrostaticTestLogOwnerKey(document.hydrostaticTestLogId);
+  if (document.extinguisherChangeLogId)
+    return extinguisherChangeLogOwnerKey(document.extinguisherChangeLogId);
+  if (document.valveChangeLogId) return valveChangeLogOwnerKey(document.valveChangeLogId);
+  if (document.valveCorrectiveMaintenanceLogId)
+    return valveCorrectiveMaintenanceLogOwnerKey(document.valveCorrectiveMaintenanceLogId);
+  if (document.hoseChangeLogId) return hoseChangeLogOwnerKey(document.hoseChangeLogId);
+  if (document.vehicleRecordId) return vehicleOwnerKey(document.vehicleRecordId);
+  return document.sectionId;
+}
+
+// Borrar una unidad, una bitácora, un apartado o una ciudad se lleva sus
+// documentos en cascada, pero la cascada de la base no toca el disco: sin
+// esto los PDF quedaban ahí para siempre, sin nada que los apuntara. Hay que
+// llamarla ANTES de borrar el registro, mientras los documentos existen.
+export async function deleteDocumentFiles(
+  documents: (DocumentOwnerFields & { storedName: string })[]
+): Promise<void> {
+  for (const document of documents) {
+    await deleteDocumentFile(ownerKeyForDocument(document), document.storedName);
+  }
+}
+
 // Lee cero o más PDFs adjuntos en el mismo envío de un formulario (p. ej. al
 // registrar un mantenimiento o un ultrasonido, sin tener que subirlos después
 // por separado). A diferencia de un solo archivo requerido, aquí no adjuntar
