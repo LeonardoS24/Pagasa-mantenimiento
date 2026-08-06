@@ -20,6 +20,7 @@ import { getValveAlertLevel, getValveVencimiento, oldestValve } from "@/lib/valv
 import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
 import { getHoseAlertLevel, getHoseVencimiento } from "@/lib/hose-alerts";
 import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
+import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -53,6 +54,7 @@ export default async function DashboardPage() {
 
   const alertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("ultrasonido", record.section.slug)) return null;
       const fecha = record.technicalSheet?.fechaProximoUltrasonido;
       if (!fecha) return null;
       const level = getUltrasoundAlertLevel(fecha);
@@ -71,6 +73,7 @@ export default async function DashboardPage() {
 
   const visualAlertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("visualExterna", record.section.slug)) return null;
       const fecha = record.technicalSheet?.fechaProximaInspeccionVisual;
       if (!fecha) return null;
       const level = getVisualInspectionAlertLevel(fecha);
@@ -89,6 +92,7 @@ export default async function DashboardPage() {
 
   const tightnessAlertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("hermeticidad", record.section.slug)) return null;
       const fecha = record.technicalSheet?.fechaProximaPruebaHermeticidad;
       if (!fecha) return null;
       const level = getTightnessTestAlertLevel(fecha);
@@ -109,6 +113,7 @@ export default async function DashboardPage() {
 
   const internalVisualAlertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("visualInterna", record.section.slug)) return null;
       const fecha = record.technicalSheet?.fechaProximaInspeccionVisualInterna;
       if (!fecha) return null;
       const level = getInternalVisualInspectionAlertLevel(fecha);
@@ -131,6 +136,7 @@ export default async function DashboardPage() {
 
   const hydrostaticAlertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("hidrostatica", record.section.slug)) return null;
       const fecha = record.technicalSheet?.fechaProximaPruebaHidrostatica;
       if (!fecha) return null;
       const level = getHydrostaticTestAlertLevel(fecha);
@@ -151,6 +157,7 @@ export default async function DashboardPage() {
 
   const extinguisherAlertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("extintor", record.section.slug)) return null;
       const level = getExtinguisherAlertLevel(
         record.technicalSheet?.calidadExtintor,
         record.technicalSheet?.fechaCalidadMalaExtintor
@@ -174,6 +181,7 @@ export default async function DashboardPage() {
 
   const maintenanceAlertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("mantenimiento", record.section.slug)) return null;
       const fecha = record.technicalSheet?.fechaProximoMantenimiento;
       if (!fecha) return null;
       const level = getMaintenanceAlertLevel(fecha);
@@ -193,6 +201,7 @@ export default async function DashboardPage() {
 
   const valveAlertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("valvulas", record.section.slug)) return null;
       const dates = {
         fechaFabricacionValvulaLlenado: record.technicalSheet?.fechaFabricacionValvulaLlenado,
         fechaFabricacionValvulaServicio: record.technicalSheet?.fechaFabricacionValvulaServicio,
@@ -219,6 +228,7 @@ export default async function DashboardPage() {
 
   const hoseAlertVehicles = upcomingRecords
     .map((record) => {
+      if (!isAlertVisibleForSection("mangueras", record.section.slug)) return null;
       const level = getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera);
       if (level === "none") return null;
       const vencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);

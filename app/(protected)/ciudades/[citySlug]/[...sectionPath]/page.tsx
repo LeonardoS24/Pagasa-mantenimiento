@@ -11,10 +11,15 @@ import { DocumentList } from "@/components/city/DocumentList";
 import { UploadDocumentForm } from "@/components/admin/UploadDocumentForm";
 import { CreateVehicleForm } from "@/components/admin/CreateVehicleForm";
 import { CityMaintenanceFeed } from "@/components/city/CityMaintenanceFeed";
+import { getCityUnitLogFeed } from "@/lib/city-unit-log-feed";
 import { CreatePieceOrderForm } from "@/components/admin/CreatePieceOrderForm";
 import { PieceOrderTable } from "@/components/city/PieceOrderTable";
 import { InventoryItemTable } from "@/components/city/InventoryItemTable";
 import { sweepExpiredPorUtilizar } from "@/actions/inventory-actions";
+import { CreateEquipoForm } from "@/components/admin/CreateEquipoForm";
+import { EquipoTable } from "@/components/city/EquipoTable";
+import { getCityEquipmentLogFeed } from "@/lib/city-equipment-log-feed";
+import { CityEquipmentLogFeed } from "@/components/city/CityEquipmentLogFeed";
 
 export default async function SectionPage({
   params,
@@ -33,6 +38,8 @@ export default async function SectionPage({
   const isBitacoraFeed = chain.length === 1 && current.slug === "bitacoras-de-unidades";
   const isOrdenDePieza = chain.length === 1 && current.slug === "orden-de-pieza";
   const isInventarios = chain.length === 1 && current.slug === "inventarios";
+  const isEquiposSection = chain.length === 1 && current.slug === "equipos";
+  const isBitacoraEquiposFeed = chain.length === 1 && current.slug === "bitacora-de-equipos";
 
   // Cualquier apartado hoja directamente dentro de "Unidad de distribución"
   // (en cualquier ciudad) es un apartado de tipo unidades: muestra la tabla
@@ -61,19 +68,30 @@ export default async function SectionPage({
       })()
     : [];
 
-  const cityMaintenanceLogs = isBitacoraFeed
-    ? await prisma.maintenanceLog.findMany({
-        where: { vehicleRecord: { section: { cityId: city.id } } },
-        orderBy: { fecha: "desc" },
-        take: 100,
-        include: { vehicleRecord: true },
-      })
+  const cityMaintenanceLogs = isBitacoraFeed ? await getCityUnitLogFeed(city.id) : [];
+  const cityEquipmentLogs = isBitacoraEquiposFeed ? await getCityEquipmentLogFeed(city.id) : [];
+
+  // Los equipos dados de baja (reemplazados con un mantenimiento tipo
+  // "Cambio", ver actions/equipment-log-actions.ts) se listan aparte, igual
+  // que las unidades: siempre al final, ordenados por fecha de baja.
+  const equipos = isEquiposSection
+    ? await (async () => {
+        const [activos, inactivos] = await Promise.all([
+          prisma.equipo.findMany({ where: { sectionId: current.id, activo: true }, orderBy: { order: "asc" } }),
+          prisma.equipo.findMany({
+            where: { sectionId: current.id, activo: false },
+            orderBy: { fechaBaja: "desc" },
+          }),
+        ]);
+        return [...activos, ...inactivos];
+      })()
     : [];
 
   const pieceOrders = isOrdenDePieza
     ? await prisma.pieceOrder.findMany({
         where: { sectionId: current.id },
         orderBy: { fechaOrden: "desc" },
+        include: { vehicleRecord: { select: { id: true, numeroEconomico: true } } },
       })
     : [];
 
@@ -93,9 +111,11 @@ export default async function SectionPage({
       })
     : [];
 
-  // Unidades activas de la ciudad, para elegir dónde se colocó una pieza al
-  // marcarla "Utilizada" (ver InventoryItemStatusForm).
-  const cityVehicles = isInventarios
+  // Unidades activas de la ciudad: para elegir dónde se colocó una pieza al
+  // marcarla "Utilizada" (ver InventoryItemStatusForm) y para elegir la
+  // unidad destino al levantar una orden, si ya se sabe (ver
+  // CreatePieceOrderForm).
+  const cityVehicles = isInventarios || isOrdenDePieza
     ? await prisma.vehicleRecord.findMany({
         where: { activo: true, section: { cityId: city.id } },
         orderBy: [{ section: { order: "asc" } }, { numeroEconomico: "asc" }],
@@ -103,7 +123,7 @@ export default async function SectionPage({
       })
     : [];
 
-  const documents = isVehicleSection
+  const documents = isVehicleSection || isEquiposSection
     ? []
     : await prisma.document.findMany({
         where: { sectionId: current.id },
@@ -145,10 +165,17 @@ export default async function SectionPage({
         </div>
       ) : isBitacoraFeed ? (
         <CityMaintenanceFeed logs={cityMaintenanceLogs} citySlug={city.slug} />
+      ) : isBitacoraEquiposFeed ? (
+        <CityEquipmentLogFeed logs={cityEquipmentLogs} citySlug={city.slug} />
+      ) : isEquiposSection ? (
+        <div>
+          <EquipoTable equipos={equipos} citySlug={city.slug} />
+          {isEditor && <CreateEquipoForm sectionId={current.id} />}
+        </div>
       ) : isOrdenDePieza ? (
         <div className="space-y-3">
-          {isEditor && <CreatePieceOrderForm sectionId={current.id} />}
-          <PieceOrderTable orders={pieceOrders} canEdit={isEditor} isAdmin={isAdmin} />
+          {isEditor && <CreatePieceOrderForm sectionId={current.id} vehicles={cityVehicles} />}
+          <PieceOrderTable orders={pieceOrders} canEdit={isEditor} isAdmin={isAdmin} citySlug={city.slug} />
         </div>
       ) : isInventarios ? (
         <InventoryItemTable
@@ -160,7 +187,7 @@ export default async function SectionPage({
         />
       ) : isVehicleSection ? (
         <div>
-          <VehicleTable records={vehicleRecords} citySlug={city.slug} />
+          <VehicleTable records={vehicleRecords} citySlug={city.slug} sectionSlug={current.slug} />
           {isEditor && <CreateVehicleForm sectionId={current.id} />}
         </div>
       ) : (
@@ -170,10 +197,10 @@ export default async function SectionPage({
         </div>
       )}
 
-      {!isVehicleSection && (
+      {!isVehicleSection && !isEquiposSection && (
         <div className="mt-8">
           <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
-            Documentos (PDF)
+            Documentos (PDF o imagen)
           </h2>
           <div className="space-y-3">
             {isEditor && <UploadDocumentForm sectionId={current.id} />}

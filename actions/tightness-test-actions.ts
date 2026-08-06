@@ -24,12 +24,18 @@ const requiredDate = z.preprocess((value) => {
   return text.length > 0 ? new Date(text) : undefined;
 }, z.date({ required_error: "La fecha de realización es requerida", invalid_type_error: "Fecha inválida" }));
 
+const requiredProximaDate = z.preprocess((value) => {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? new Date(text) : undefined;
+}, z.date({ required_error: "La fecha de la próxima prueba es requerida", invalid_type_error: "Fecha inválida" }));
+
 const createTightnessTestLogSchema = z.object({
   compania: optionalText(150),
   numeroPrueba: optionalText(100),
   responsable: optionalText(150),
   fechaUltimaPrueba: optionalDate,
   fechaRealizacion: requiredDate,
+  fechaProximaPrueba: requiredProximaDate,
 });
 
 export async function createTightnessTestLog(
@@ -47,6 +53,7 @@ export async function createTightnessTestLog(
     responsable: formData.get("responsable"),
     fechaUltimaPrueba: formData.get("fechaUltimaPrueba"),
     fechaRealizacion: formData.get("fechaRealizacion"),
+    fechaProximaPrueba: formData.get("fechaProximaPrueba"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -87,16 +94,19 @@ export async function createTightnessTestLog(
   }
 
   // Al aceptar el registro, la ficha técnica refleja automáticamente la
-  // prueba recién realizada como la "última prueba de hermeticidad".
+  // prueba recién realizada como la "última prueba de hermeticidad" y la
+  // fecha capturada como la "próxima" (la que dispara la alerta).
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
     update: {
       ultimaPruebaHermeticidad: parsed.data.fechaRealizacion,
+      fechaProximaPruebaHermeticidad: parsed.data.fechaProximaPrueba,
       ...(parsed.data.numeroPrueba ? { numeroUltimaPruebaHermeticidad: parsed.data.numeroPrueba } : {}),
     },
     create: {
       vehicleRecordId: vehicleId,
       ultimaPruebaHermeticidad: parsed.data.fechaRealizacion,
+      fechaProximaPruebaHermeticidad: parsed.data.fechaProximaPrueba,
       numeroUltimaPruebaHermeticidad: parsed.data.numeroPrueba,
     },
   });

@@ -24,12 +24,18 @@ const requiredDate = z.preprocess((value) => {
   return text.length > 0 ? new Date(text) : undefined;
 }, z.date({ required_error: "La fecha de realización es requerida", invalid_type_error: "Fecha inválida" }));
 
+const requiredProximaDate = z.preprocess((value) => {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? new Date(text) : undefined;
+}, z.date({ required_error: "La fecha de la próxima inspección es requerida", invalid_type_error: "Fecha inválida" }));
+
 const createVisualInspectionLogSchema = z.object({
   compania: optionalText(150),
   numeroInspeccion: optionalText(100),
   responsable: optionalText(150),
   fechaUltimaInspeccion: optionalDate,
   fechaRealizacion: requiredDate,
+  fechaProximaInspeccion: requiredProximaDate,
 });
 
 export async function createVisualInspectionLog(
@@ -47,6 +53,7 @@ export async function createVisualInspectionLog(
     responsable: formData.get("responsable"),
     fechaUltimaInspeccion: formData.get("fechaUltimaInspeccion"),
     fechaRealizacion: formData.get("fechaRealizacion"),
+    fechaProximaInspeccion: formData.get("fechaProximaInspeccion"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -87,11 +94,14 @@ export async function createVisualInspectionLog(
   }
 
   // Al aceptar el registro, la ficha técnica refleja automáticamente la
-  // inspección visual externa recién realizada como la "última inspección visual externa".
+  // inspección visual externa recién realizada como la "última inspección
+  // visual externa" y la fecha capturada como la "próxima" (la que dispara
+  // la alerta).
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
     update: {
       ultimaInspeccionVisual: parsed.data.fechaRealizacion,
+      fechaProximaInspeccionVisual: parsed.data.fechaProximaInspeccion,
       ...(parsed.data.numeroInspeccion
         ? { numeroUltimaInspeccionVisual: parsed.data.numeroInspeccion }
         : {}),
@@ -99,6 +109,7 @@ export async function createVisualInspectionLog(
     create: {
       vehicleRecordId: vehicleId,
       ultimaInspeccionVisual: parsed.data.fechaRealizacion,
+      fechaProximaInspeccionVisual: parsed.data.fechaProximaInspeccion,
       numeroUltimaInspeccionVisual: parsed.data.numeroInspeccion,
     },
   });

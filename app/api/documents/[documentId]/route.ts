@@ -2,20 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  storagePathFor,
-  vehicleOwnerKey,
-  maintenanceLogOwnerKey,
-  ultrasoundLogOwnerKey,
-  visualInspectionLogOwnerKey,
-  tightnessTestLogOwnerKey,
-  internalVisualInspectionLogOwnerKey,
-  hydrostaticTestLogOwnerKey,
-  extinguisherChangeLogOwnerKey,
-  valveChangeLogOwnerKey,
-  valveCorrectiveMaintenanceLogOwnerKey,
-  hoseChangeLogOwnerKey,
-} from "@/lib/documents";
+import { storagePathFor, ownerKeyForDocument } from "@/lib/documents";
 
 export async function GET(
   _request: NextRequest,
@@ -54,29 +41,7 @@ export async function GET(
     }
   }
 
-  const ownerKey = document.maintenanceLogId
-    ? maintenanceLogOwnerKey(document.maintenanceLogId)
-    : document.ultrasoundLogId
-      ? ultrasoundLogOwnerKey(document.ultrasoundLogId)
-      : document.visualInspectionLogId
-        ? visualInspectionLogOwnerKey(document.visualInspectionLogId)
-        : document.tightnessTestLogId
-          ? tightnessTestLogOwnerKey(document.tightnessTestLogId)
-          : document.internalVisualInspectionLogId
-            ? internalVisualInspectionLogOwnerKey(document.internalVisualInspectionLogId)
-            : document.hydrostaticTestLogId
-              ? hydrostaticTestLogOwnerKey(document.hydrostaticTestLogId)
-              : document.extinguisherChangeLogId
-                ? extinguisherChangeLogOwnerKey(document.extinguisherChangeLogId)
-                : document.valveChangeLogId
-                  ? valveChangeLogOwnerKey(document.valveChangeLogId)
-                  : document.valveCorrectiveMaintenanceLogId
-                    ? valveCorrectiveMaintenanceLogOwnerKey(document.valveCorrectiveMaintenanceLogId)
-                    : document.hoseChangeLogId
-                      ? hoseChangeLogOwnerKey(document.hoseChangeLogId)
-                      : document.vehicleRecordId
-                        ? vehicleOwnerKey(document.vehicleRecordId)
-                        : document.sectionId;
+  const ownerKey = ownerKeyForDocument(document);
 
   try {
     const buffer = await fs.readFile(storagePathFor(ownerKey, document.storedName));

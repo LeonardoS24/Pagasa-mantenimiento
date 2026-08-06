@@ -62,7 +62,7 @@ function LogList({
           {entry.documents.filter((d) => d.kind === "ADJUNTO").length > 0 && (
             <div className="mt-3">
               <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
-                Documentos (PDF)
+                Documentos (PDF o imagen)
               </p>
               <DocumentList
                 documents={entry.documents.filter((d) => d.kind === "ADJUNTO")}
@@ -142,6 +142,7 @@ export default async function PrintVehiclePage({
     vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const isTanqueCarburacion = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const showTankSection = vehicle.section.slug !== "vehiculo-de-reparto";
+  const showInspeccionesSection = isAutoTanques || isTanqueCarburacion;
   const showMaintenancePreventiveSection = !isAutoTanques;
 
   return (
@@ -183,10 +184,12 @@ export default async function PrintVehiclePage({
       <Section title="Ficha técnica">
         <TechnicalSheetView
           sheet={vehicle.technicalSheet}
+          sectionSlug={vehicle.section.slug}
           useDeliveryFormat={useDeliveryFormat}
           showValveSection={isTanqueCarburacion}
           showHoseSection={isTanqueCarburacion}
           showTankSection={showTankSection}
+          showInspeccionesSection={showInspeccionesSection}
           showMaintenancePreventiveSection={showMaintenancePreventiveSection}
         />
       </Section>
@@ -291,7 +294,7 @@ export default async function PrintVehiclePage({
         </Section>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <Section title="Inspección Visual Externa">
           <LogList
             emptyLabel="Sin inspecciones visuales externas registradas."
@@ -310,7 +313,7 @@ export default async function PrintVehiclePage({
         </Section>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <Section title="Prueba de Hermeticidad">
           <LogList
             emptyLabel="Sin pruebas de hermeticidad registradas."
@@ -329,7 +332,7 @@ export default async function PrintVehiclePage({
         </Section>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <Section title="Inspección Visual Interna">
           <LogList
             emptyLabel="Sin inspecciones visuales internas registradas."
@@ -348,7 +351,7 @@ export default async function PrintVehiclePage({
         </Section>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <Section title="Registro de ultrasonido">
           <LogList
             emptyLabel="Sin ultrasonidos registrados."
@@ -367,7 +370,7 @@ export default async function PrintVehiclePage({
         </Section>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <Section title="Prueba Hidrostática">
           <LogList
             emptyLabel="Sin pruebas hidrostáticas registradas."
@@ -386,7 +389,7 @@ export default async function PrintVehiclePage({
         </Section>
       )}
 
-      <Section title="Documentos (PDF)">
+      <Section title="Documentos (PDF o imagen)">
         <DocumentList documents={vehicle.documents} isAdmin={false} />
       </Section>
     </div>

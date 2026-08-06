@@ -44,6 +44,12 @@ const createPieceOrderSchema = z.object({
   // Se puede registrar la orden ya aceptada/rechazada desde el mismo
   // formulario, sin tener que cambiarla después en la tabla.
   estado: pieceOrderStatusSchema.default("PENDIENTE"),
+  // Unidad destino, si ya se sabe desde que se levanta la orden (ver
+  // comentario en el schema sobre PieceOrder.vehicleRecordId).
+  vehicleRecordId: z.preprocess((value) => {
+    const text = String(value ?? "").trim();
+    return text.length > 0 ? text : undefined;
+  }, z.string().optional()),
 });
 
 // Da de alta los renglones en el apartado de Inventarios de la misma ciudad
@@ -63,6 +69,9 @@ async function createInventoryItemsForAcceptedOrder(order: {
   cantidad: number;
   // null si quien registró la orden ya no existe como usuario.
   createdById: string | null;
+  // Si ya se sabía la unidad destino al levantar la orden, el/los renglón(es)
+  // nacen ya amarrados a ella (ver comentario en el schema).
+  vehicleRecordId: string | null;
 }) {
   const existing = await prisma.inventoryItem.count({ where: { pieceOrderId: order.id } });
   if (existing > 0) return;
@@ -84,6 +93,7 @@ async function createInventoryItemsForAcceptedOrder(order: {
       unidad: order.unidad,
       cantidad,
       createdById: order.createdById,
+      usedOnVehicleId: order.vehicleRecordId,
     })),
   });
   revalidatePath(sectionBasePath(order.citySlug, [inventarios]));
@@ -105,6 +115,7 @@ export async function createPieceOrder(
     cantidad: formData.get("cantidad"),
     fechaOrden: formData.get("fechaOrden"),
     estado: formData.get("estado"),
+    vehicleRecordId: formData.get("vehicleRecordId"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -118,6 +129,18 @@ export async function createPieceOrder(
     return { error: "El apartado no existe." };
   }
 
+  let vehicleRecordId: string | null = null;
+  if (parsed.data.vehicleRecordId) {
+    const vehicle = await prisma.vehicleRecord.findUnique({
+      where: { id: parsed.data.vehicleRecordId },
+      include: { section: true },
+    });
+    if (!vehicle || !vehicle.activo || vehicle.section.cityId !== section.cityId) {
+      return { error: "La unidad destino seleccionada no es válida." };
+    }
+    vehicleRecordId = vehicle.id;
+  }
+
   const unidad = unidadParaTipo(parsed.data.tipo, parsed.data.unidadConsumible);
   const order = await prisma.pieceOrder.create({
     data: {
@@ -129,6 +152,7 @@ export async function createPieceOrder(
       cantidad: parsed.data.cantidad,
       fechaOrden: parsed.data.fechaOrden,
       estado: parsed.data.estado,
+      vehicleRecordId,
     },
   });
 
@@ -142,6 +166,7 @@ export async function createPieceOrder(
       unidad: order.unidad,
       cantidad: order.cantidad,
       createdById: order.createdById,
+      vehicleRecordId: order.vehicleRecordId,
     });
   }
 
@@ -181,6 +206,7 @@ export async function updatePieceOrderEstado(
       unidad: order.unidad,
       cantidad: order.cantidad,
       createdById: order.createdById,
+      vehicleRecordId: order.vehicleRecordId,
     });
   }
 

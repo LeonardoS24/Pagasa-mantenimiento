@@ -66,7 +66,7 @@ export function ValveCorrectiveMaintenanceLogRow({
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
-              Documentos (PDF)
+              Documentos (PDF o imagen)
             </p>
             <div className="space-y-2">
               {canEdit && (

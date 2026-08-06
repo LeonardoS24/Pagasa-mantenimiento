@@ -115,13 +115,13 @@ export function CreateExtinguisherChangeLogForm({ vehicleId }: { vehicleId: stri
 
         <div>
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="ext-files">
-            Documentos (PDF, opcional)
+            Documentos (PDF o imagen, opcional)
           </label>
           <input
             id="ext-files"
             name="files"
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,image/*"
             multiple
             className="w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
           />

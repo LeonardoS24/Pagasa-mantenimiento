@@ -16,6 +16,7 @@ import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAl
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { FormMessage } from "./FormMessage";
 import { SECTION_STYLES } from "@/lib/section-colors";
+import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 
 const initialState: ActionState = {};
 
@@ -66,6 +67,7 @@ function SubmitButton() {
 export function TechnicalSheetForm({
   vehicleId,
   sheet,
+  sectionSlug,
   requireProximoUltrasonido = false,
   requireProximaInspeccionVisual = false,
   requireProximaPruebaHermeticidad = false,
@@ -73,11 +75,16 @@ export function TechnicalSheetForm({
   showValveSection = false,
   showHoseSection = false,
   showTankSection = true,
+  showInspeccionesSection = true,
   showMaintenancePreventiveSection = true,
   lockCombustibleGasLpGasolina = false,
 }: {
   vehicleId: string;
   sheet: VehicleTechnicalSheet | null;
+  // Para no repetir la alerta de extintor/mantenimiento preventivo cuando la
+  // misma unidad vive también en Vehículo con tanque de carburación (ver
+  // lib/alert-visibility.ts).
+  sectionSlug: string;
   requireProximoUltrasonido?: boolean;
   requireProximaInspeccionVisual?: boolean;
   requireProximaPruebaHermeticidad?: boolean;
@@ -93,6 +100,10 @@ export function TechnicalSheetForm({
   // false solo para Vehículo de reparto: no tiene tanque, así que no aplica
   // ninguna ficha técnica de tanque.
   showTankSection?: boolean;
+  // false solo para Vehículo de reparto: sus 5 pruebas de tanque (Visual
+  // Externa, Hermeticidad, Visual Interna, Ultrasonido, Hidrostática) viven
+  // en Auto-Tanques y en Vehículo con tanque de carburación, no aquí.
+  showInspeccionesSection?: boolean;
   // false solo para Auto-Tanques.
   showMaintenancePreventiveSection?: boolean;
   // Vehículo con tanque de carburación, y Auto-Tanques cuyo número
@@ -232,7 +243,9 @@ export function TechnicalSheetForm({
             <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Mantenimiento preventivo
             </h3>
-            {maintenanceAlertLevel !== "none" && sheet?.fechaProximoMantenimiento && (
+            {maintenanceAlertLevel !== "none" &&
+              sheet?.fechaProximoMantenimiento &&
+              isAlertVisibleForSection("mantenimiento", sectionSlug) && (
               <span
                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${maintenanceAlertBadgeStyles[maintenanceAlertLevel]}`}
               >
@@ -267,7 +280,7 @@ export function TechnicalSheetForm({
       <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase text-primary-bright">Extintor</h3>
-          {extinguisherAlertLevel !== "none" && (
+          {extinguisherAlertLevel !== "none" && isAlertVisibleForSection("extintor", sectionSlug) && (
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${extinguisherAlertBadgeStyles[extinguisherAlertLevel]}`}
             >
@@ -400,6 +413,8 @@ export function TechnicalSheetForm({
         </div>
       )}
 
+      {showInspeccionesSection && (
+      <>
       <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Inspección Visual Externa
@@ -570,6 +585,8 @@ export function TechnicalSheetForm({
           automático que la inspección visual interna.
         </p>
       </div>
+      </>
+      )}
 
       <FormMessage state={state} />
 

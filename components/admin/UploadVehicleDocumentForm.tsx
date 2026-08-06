@@ -16,7 +16,7 @@ function SubmitButton() {
       disabled={pending}
       className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
     >
-      {pending ? "Subiendo..." : "Subir PDF"}
+      {pending ? "Subiendo..." : "Subir archivo"}
     </button>
   );
 }
@@ -38,7 +38,7 @@ export function UploadVehicleDocumentForm({ vehicleRecordId }: { vehicleRecordId
       <input
         type="file"
         name="file"
-        accept="application/pdf"
+        accept="application/pdf,image/*"
         required
         className="text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
       />

@@ -15,7 +15,7 @@ function SubmitButton() {
       disabled={pending}
       className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white transition hover:bg-primary-dark disabled:opacity-60"
     >
-      {pending ? "Subiendo..." : "Subir PDF"}
+      {pending ? "Subiendo..." : "Subir archivo"}
     </button>
   );
 }
@@ -42,7 +42,7 @@ export function UploadTightnessTestLogDocumentForm({
         <input
           type="file"
           name="file"
-          accept="application/pdf"
+          accept="application/pdf,image/*"
           required
           className="text-xs text-ink file:mr-2 file:rounded-md file:border-0 file:bg-gray-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-gray-200"
         />

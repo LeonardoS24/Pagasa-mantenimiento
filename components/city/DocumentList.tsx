@@ -20,15 +20,29 @@ export function DocumentList({
 
   return (
     <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
-      {documents.map((document) => (
+      {documents.map((document) => {
+        const esImagen = document.mimeType.startsWith("image/");
+        return (
         <li key={document.id} className="flex items-center justify-between gap-3 px-4 py-3">
           <a
             href={`/api/documents/${document.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="min-w-0 flex-1 truncate text-sm font-medium text-primary hover:underline print:overflow-visible print:whitespace-normal print:break-all"
+            className="flex min-w-0 flex-1 items-center gap-3"
           >
-            {document.fileName}
+            {esImagen && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/documents/${document.id}`}
+                alt=""
+                width={56}
+                height={64}
+                className="h-16 w-14 shrink-0 rounded-md border border-gray-200 object-cover print:hidden"
+              />
+            )}
+            <span className="min-w-0 truncate text-sm font-medium text-primary hover:underline print:overflow-visible print:whitespace-normal print:break-all">
+              {document.fileName}
+            </span>
           </a>
           <span className="shrink-0 text-xs text-gray-400">{formatSize(document.size)}</span>
           {isAdmin && (
@@ -42,7 +56,8 @@ export function DocumentList({
             </form>
           )}
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

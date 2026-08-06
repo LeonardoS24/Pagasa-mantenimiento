@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { PieceOrder } from "@prisma/client";
 import { formatDate } from "@/lib/dates";
 import {
@@ -13,14 +14,20 @@ import { PieceOrderStatusForm } from "@/components/admin/PieceOrderStatusForm";
 import { deletePieceOrder } from "@/actions/piece-order-actions";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 
+type PieceOrderWithVehicle = PieceOrder & {
+  vehicleRecord: { id: string; numeroEconomico: string } | null;
+};
+
 export function PieceOrderTable({
   orders,
   canEdit,
   isAdmin,
+  citySlug,
 }: {
-  orders: PieceOrder[];
+  orders: PieceOrderWithVehicle[];
   canEdit: boolean;
   isAdmin: boolean;
+  citySlug: string;
 }) {
   if (orders.length === 0) {
     return (
@@ -41,6 +48,7 @@ export function PieceOrderTable({
             <th className="whitespace-nowrap px-4 py-2">Orden</th>
             <th className="whitespace-nowrap px-4 py-2">Cantidad</th>
             <th className="whitespace-nowrap px-4 py-2">Fecha de la orden</th>
+            <th className="whitespace-nowrap px-4 py-2">Unidad destino</th>
             <th className="whitespace-nowrap px-4 py-2">Estado</th>
             {isAdmin && <th className="whitespace-nowrap px-4 py-2" />}
           </tr>
@@ -58,6 +66,18 @@ export function PieceOrderTable({
                   {formatCantidad(order.cantidad, order.unidad)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{formatDate(order.fechaOrden)}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-ink">
+                  {order.vehicleRecord ? (
+                    <Link
+                      href={`/ciudades/${citySlug}/vehiculo/${order.vehicleRecord.id}`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {order.vehicleRecord.numeroEconomico}
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-4 py-2">
                   {canEdit ? (
                     <PieceOrderStatusForm orderId={order.id} estado={order.estado} />

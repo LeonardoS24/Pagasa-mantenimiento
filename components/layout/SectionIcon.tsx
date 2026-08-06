@@ -39,15 +39,11 @@ const ICONS: Record<string, IconDef> = {
       </>
     ),
   },
-  "equipos-mecanicos": {
+  equipos: {
     badge: "bg-gray-100 text-gray-500",
     path: (
       <path d="M14.7 6.3a4 4 0 0 0-5.4 4.9L3 17.5l3 3 6.3-6.3a4 4 0 0 0 4.9-5.4l-2.6 2.6-2.1-.5-.5-2.1z" />
     ),
-  },
-  "equipos-electronicos": {
-    badge: "bg-amber-50 text-amber-600",
-    path: <path d="M12.5 2 4 13h6l-1 9 8.5-11h-6z" />,
   },
   "bitacoras-de-unidades": {
     badge: "bg-accent/10 text-accent/80",
@@ -59,18 +55,8 @@ const ICONS: Record<string, IconDef> = {
       </>
     ),
   },
-  "bitacoras-de-equipos-mecanicos": {
+  "bitacora-de-equipos": {
     badge: "bg-indigo-100 text-indigo-600",
-    path: (
-      <>
-        <rect x="4" y="3.5" width="16" height="18" rx="1.5" />
-        <path d="M8.5 2h7v3h-7z" />
-        <path d="M7.5 10.5h9M7.5 14h9M7.5 17.5h5.5" />
-      </>
-    ),
-  },
-  "bitacora-de-equipos-electronicos": {
-    badge: "bg-pink-100 text-pink-600",
     path: (
       <>
         <rect x="4" y="3.5" width="16" height="18" rx="1.5" />

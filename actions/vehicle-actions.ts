@@ -78,12 +78,17 @@ export async function createVehicleRecord(
   return { success: "Número económico agregado." };
 }
 
+// Editar los datos generales de una unidad ya existente (número económico,
+// sucursal, año, placas) es solo de ADMIN. USUARIO conserva permiso para
+// registrar unidades nuevas (createVehicleRecord) y para todo lo demás
+// (bitácoras, documentos); esto solo endurece la corrección de datos ya
+// capturados.
 export async function updateVehicleRecord(
   vehicleId: string,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireEditor();
+  await requireAdmin();
 
   const parsed = parseVehicleForm(formData);
   if (!parsed.success) {

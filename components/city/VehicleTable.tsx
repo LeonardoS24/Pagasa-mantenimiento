@@ -39,6 +39,7 @@ import {
 } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
+import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 
 function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
   if (levels.includes("red")) return ultrasoundAlertRowStyles.red;
@@ -58,9 +59,11 @@ function formatAnterior(record: VehicleRecord): string | null {
 export function VehicleTable({
   records,
   citySlug,
+  sectionSlug,
 }: {
   records: VehicleRecordWithSheet[];
   citySlug: string;
+  sectionSlug: string;
 }) {
   if (records.length === 0) {
     return (
@@ -85,30 +88,30 @@ export function VehicleTable({
           {records.map((record, index) => {
             const isFirstInactive = !record.activo && (index === 0 || records[index - 1].activo);
             const anterior = formatAnterior(record);
-            const alertLevel = record.activo
+            const alertLevel = record.activo && isAlertVisibleForSection("ultrasonido", sectionSlug)
               ? getUltrasoundAlertLevel(record.technicalSheet?.fechaProximoUltrasonido)
               : "none";
-            const visualAlertLevel = record.activo
+            const visualAlertLevel = record.activo && isAlertVisibleForSection("visualExterna", sectionSlug)
               ? getVisualInspectionAlertLevel(record.technicalSheet?.fechaProximaInspeccionVisual)
               : "none";
-            const tightnessAlertLevel = record.activo
+            const tightnessAlertLevel = record.activo && isAlertVisibleForSection("hermeticidad", sectionSlug)
               ? getTightnessTestAlertLevel(record.technicalSheet?.fechaProximaPruebaHermeticidad)
               : "none";
-            const internalVisualAlertLevel = record.activo
+            const internalVisualAlertLevel = record.activo && isAlertVisibleForSection("visualInterna", sectionSlug)
               ? getInternalVisualInspectionAlertLevel(
                   record.technicalSheet?.fechaProximaInspeccionVisualInterna
                 )
               : "none";
-            const hydrostaticAlertLevel = record.activo
+            const hydrostaticAlertLevel = record.activo && isAlertVisibleForSection("hidrostatica", sectionSlug)
               ? getHydrostaticTestAlertLevel(record.technicalSheet?.fechaProximaPruebaHidrostatica)
               : "none";
-            const extinguisherAlertLevel = record.activo
+            const extinguisherAlertLevel = record.activo && isAlertVisibleForSection("extintor", sectionSlug)
               ? getExtinguisherAlertLevel(
                   record.technicalSheet?.calidadExtintor,
                   record.technicalSheet?.fechaCalidadMalaExtintor
                 )
               : "none";
-            const maintenanceAlertLevel = record.activo
+            const maintenanceAlertLevel = record.activo && isAlertVisibleForSection("mantenimiento", sectionSlug)
               ? getMaintenanceAlertLevel(record.technicalSheet?.fechaProximoMantenimiento)
               : "none";
             const valveDates = {
@@ -118,9 +121,12 @@ export function VehicleTable({
                 record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
               fechaFabricacionValvulaAlivio: record.technicalSheet?.fechaFabricacionValvulaAlivio,
             };
-            const valveAlertLevel = record.activo ? getValveAlertLevel(valveDates) : "none";
+            const valveAlertLevel =
+              record.activo && isAlertVisibleForSection("valvulas", sectionSlug)
+                ? getValveAlertLevel(valveDates)
+                : "none";
             const valveVencimiento = getValveVencimiento(valveDates);
-            const hoseAlertLevel = record.activo
+            const hoseAlertLevel = record.activo && isAlertVisibleForSection("mangueras", sectionSlug)
               ? getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera)
               : "none";
             const hoseVencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);
@@ -136,7 +142,7 @@ export function VehicleTable({
                   </tr>
                 )}
                 <tr
-                className={`border-t border-gray-100 hover:bg-gray-50 ${
+                className={`relative border-t border-gray-100 hover:bg-gray-50 ${
                   !record.activo
                     ? "bg-orange-50"
                     : worstRowStyle(
@@ -153,7 +159,20 @@ export function VehicleTable({
                 }`}
               >
                 <td className="whitespace-nowrap px-4 py-2 font-medium text-primary">
-                  <Link href={`/ciudades/${citySlug}/vehiculo/${record.id}`} className="hover:underline">
+                  {/* Estira el link a toda la fila (no solo esta celda): "tr" es
+                      "relative" y este link "absolute inset-0" toma su tamaño
+                      completo. El link visible de abajo sigue ahí para que el
+                      texto se vea subrayado/enfocable como antes. */}
+                  <Link
+                    href={`/ciudades/${citySlug}/vehiculo/${record.id}`}
+                    className="absolute inset-0"
+                    aria-label={record.numeroEconomico}
+                  />
+                  <Link
+                    href={`/ciudades/${citySlug}/vehiculo/${record.id}`}
+                    className="relative hover:underline"
+                    tabIndex={-1}
+                  >
                     {record.numeroEconomico}
                   </Link>
                   {anterior && <span className="ml-1 font-normal text-gray-400">({anterior})</span>}

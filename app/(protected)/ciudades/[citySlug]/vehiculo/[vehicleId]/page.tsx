@@ -78,6 +78,7 @@ import {
 } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
+import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 
 export default async function VehicleDetailPage({
   params,
@@ -149,6 +150,11 @@ export default async function VehicleDetailPage({
     vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const isTanqueCarburacion = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const showTankSection = vehicle.section.slug !== "vehiculo-de-reparto";
+  // Las 5 pruebas de tanque (Visual Externa, Hermeticidad, Visual Interna,
+  // Ultrasonido, Hidrostática) viven en Auto-Tanques y en Vehículo con
+  // tanque de carburación; Vehículo de reparto no tiene tanque, así que
+  // tampoco le corresponden.
+  const showInspeccionesSection = isAutoTanques || isTanqueCarburacion;
   const showMaintenancePreventiveSection = !isAutoTanques;
   // Algunas unidades de Auto-Tanques repiten el mismo número económico en
   // Vehículo con tanque de carburación (mismo camión, pero su motor también
@@ -165,39 +171,46 @@ export default async function VehicleDetailPage({
       },
     })) > 0;
   const lockCombustibleGasLpGasolina = isTanqueCarburacion || hasTanqueCarburacionMatch;
-  const alertLevel = vehicle.activo
+  const alertLevel = vehicle.activo && isAlertVisibleForSection("ultrasonido", vehicle.section.slug)
     ? getUltrasoundAlertLevel(vehicle.technicalSheet?.fechaProximoUltrasonido)
     : "none";
-  const visualAlertLevel = vehicle.activo
+  const visualAlertLevel = vehicle.activo && isAlertVisibleForSection("visualExterna", vehicle.section.slug)
     ? getVisualInspectionAlertLevel(vehicle.technicalSheet?.fechaProximaInspeccionVisual)
     : "none";
-  const tightnessAlertLevel = vehicle.activo
+  const tightnessAlertLevel = vehicle.activo && isAlertVisibleForSection("hermeticidad", vehicle.section.slug)
     ? getTightnessTestAlertLevel(vehicle.technicalSheet?.fechaProximaPruebaHermeticidad)
     : "none";
-  const internalVisualAlertLevel = vehicle.activo
-    ? getInternalVisualInspectionAlertLevel(vehicle.technicalSheet?.fechaProximaInspeccionVisualInterna)
-    : "none";
-  const hydrostaticAlertLevel = vehicle.activo
-    ? getHydrostaticTestAlertLevel(vehicle.technicalSheet?.fechaProximaPruebaHidrostatica)
-    : "none";
-  const extinguisherAlertLevel = vehicle.activo
-    ? getExtinguisherAlertLevel(
-        vehicle.technicalSheet?.calidadExtintor,
-        vehicle.technicalSheet?.fechaCalidadMalaExtintor
-      )
-    : "none";
-  const maintenanceAlertLevel = vehicle.activo
-    ? getMaintenanceAlertLevel(vehicle.technicalSheet?.fechaProximoMantenimiento)
-    : "none";
+  const internalVisualAlertLevel =
+    vehicle.activo && isAlertVisibleForSection("visualInterna", vehicle.section.slug)
+      ? getInternalVisualInspectionAlertLevel(vehicle.technicalSheet?.fechaProximaInspeccionVisualInterna)
+      : "none";
+  const hydrostaticAlertLevel =
+    vehicle.activo && isAlertVisibleForSection("hidrostatica", vehicle.section.slug)
+      ? getHydrostaticTestAlertLevel(vehicle.technicalSheet?.fechaProximaPruebaHidrostatica)
+      : "none";
+  const extinguisherAlertLevel =
+    vehicle.activo && isAlertVisibleForSection("extintor", vehicle.section.slug)
+      ? getExtinguisherAlertLevel(
+          vehicle.technicalSheet?.calidadExtintor,
+          vehicle.technicalSheet?.fechaCalidadMalaExtintor
+        )
+      : "none";
+  const maintenanceAlertLevel =
+    vehicle.activo && isAlertVisibleForSection("mantenimiento", vehicle.section.slug)
+      ? getMaintenanceAlertLevel(vehicle.technicalSheet?.fechaProximoMantenimiento)
+      : "none";
   const valveDates = {
     fechaFabricacionValvulaLlenado: vehicle.technicalSheet?.fechaFabricacionValvulaLlenado,
     fechaFabricacionValvulaServicio: vehicle.technicalSheet?.fechaFabricacionValvulaServicio,
     fechaFabricacionValvulaMaximoLlenado: vehicle.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
     fechaFabricacionValvulaAlivio: vehicle.technicalSheet?.fechaFabricacionValvulaAlivio,
   };
-  const valveAlertLevel = vehicle.activo ? getValveAlertLevel(valveDates) : "none";
+  const valveAlertLevel =
+    vehicle.activo && isAlertVisibleForSection("valvulas", vehicle.section.slug)
+      ? getValveAlertLevel(valveDates)
+      : "none";
   const valveVencimiento = getValveVencimiento(valveDates);
-  const hoseAlertLevel = vehicle.activo
+  const hoseAlertLevel = vehicle.activo && isAlertVisibleForSection("mangueras", vehicle.section.slug)
     ? getHoseAlertLevel(vehicle.technicalSheet?.fechaFabricacionManguera)
     : "none";
   const hoseVencimiento = getHoseVencimiento(vehicle.technicalSheet?.fechaFabricacionManguera);
@@ -317,7 +330,11 @@ export default async function VehicleDetailPage({
       </div>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-        {isEditor ? (
+        {/* Datos generales (número económico, sucursal, año, placas) solo los
+            edita ADMIN. USUARIO conserva permiso de editar el resto (ficha
+            técnica ya era ADMIN-only; bitácoras y documentos siguen abiertos
+            a USUARIO vía isEditor más abajo). */}
+        {isAdmin ? (
           <VehicleForm
             action={updateVehicleRecord.bind(null, vehicle.id)}
             defaults={vehicle}
@@ -363,6 +380,7 @@ export default async function VehicleDetailPage({
           <TechnicalSheetForm
             vehicleId={vehicle.id}
             sheet={vehicle.technicalSheet}
+            sectionSlug={vehicle.section.slug}
             requireProximoUltrasonido={isAutoTanques}
             requireProximaInspeccionVisual={isAutoTanques}
             requireProximaPruebaHermeticidad={isAutoTanques}
@@ -370,16 +388,19 @@ export default async function VehicleDetailPage({
             showValveSection={isTanqueCarburacion}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
+            showInspeccionesSection={showInspeccionesSection}
             showMaintenancePreventiveSection={showMaintenancePreventiveSection}
             lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
           />
         ) : (
           <TechnicalSheetView
             sheet={vehicle.technicalSheet}
+            sectionSlug={vehicle.section.slug}
             useDeliveryFormat={useDeliveryFormat}
             showValveSection={isTanqueCarburacion}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
+            showInspeccionesSection={showInspeccionesSection}
             showMaintenancePreventiveSection={showMaintenancePreventiveSection}
           />
         )}
@@ -457,7 +478,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualExterna}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Externa
@@ -480,7 +501,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hermeticidad}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba de Hermeticidad
@@ -503,7 +524,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualInterna}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Interna
@@ -526,7 +547,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.ultrasonido}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Registro de ultrasonido
@@ -543,7 +564,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {isAutoTanques && (
+      {showInspeccionesSection && (
         <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hidrostatica}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba Hidrostática
@@ -568,7 +589,7 @@ export default async function VehicleDetailPage({
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
-          Documentos (PDF)
+          Documentos (PDF o imagen)
         </h2>
         <div className="space-y-3">
           {isEditor && <UploadVehicleDocumentForm vehicleRecordId={vehicle.id} />}
@@ -617,7 +638,7 @@ export default async function VehicleDetailPage({
             cargarImpacto={previewVehicleDeleteImpact.bind(null, vehicle.id)}
             className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent hover:text-white"
           >
-            Eliminar número económico
+            Eliminar unidad
           </ConfirmDeleteWithPassword>
         </div>
       )}

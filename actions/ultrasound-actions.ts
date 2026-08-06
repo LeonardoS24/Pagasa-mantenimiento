@@ -24,12 +24,18 @@ const requiredDate = z.preprocess((value) => {
   return text.length > 0 ? new Date(text) : undefined;
 }, z.date({ required_error: "La fecha de realización es requerida", invalid_type_error: "Fecha inválida" }));
 
+const requiredProximaDate = z.preprocess((value) => {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? new Date(text) : undefined;
+}, z.date({ required_error: "La fecha del próximo ultrasonido es requerida", invalid_type_error: "Fecha inválida" }));
+
 const createUltrasoundLogSchema = z.object({
   compania: optionalText(150),
   numeroUltrasonido: optionalText(100),
   responsable: optionalText(150),
   fechaUltimoUltrasonido: optionalDate,
   fechaRealizacion: requiredDate,
+  fechaProximoUltrasonido: requiredProximaDate,
 });
 
 export async function createUltrasoundLog(
@@ -47,6 +53,7 @@ export async function createUltrasoundLog(
     responsable: formData.get("responsable"),
     fechaUltimoUltrasonido: formData.get("fechaUltimoUltrasonido"),
     fechaRealizacion: formData.get("fechaRealizacion"),
+    fechaProximoUltrasonido: formData.get("fechaProximoUltrasonido"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -87,16 +94,20 @@ export async function createUltrasoundLog(
   }
 
   // Al aceptar el registro, la ficha técnica refleja automáticamente el
-  // ultrasonido recién realizado como el "último ultrasonido".
+  // ultrasonido recién realizado como el "último ultrasonido" y la fecha que
+  // se acaba de capturar como el "próximo ultrasonido" (la que dispara la
+  // alerta amarilla/roja en VehicleTable y el panel del dashboard).
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
     update: {
       ultimoUltrasonido: parsed.data.fechaRealizacion,
+      fechaProximoUltrasonido: parsed.data.fechaProximoUltrasonido,
       ...(parsed.data.numeroUltrasonido ? { numeroUltimoUltrasonido: parsed.data.numeroUltrasonido } : {}),
     },
     create: {
       vehicleRecordId: vehicleId,
       ultimoUltrasonido: parsed.data.fechaRealizacion,
+      fechaProximoUltrasonido: parsed.data.fechaProximoUltrasonido,
       numeroUltimoUltrasonido: parsed.data.numeroUltrasonido,
     },
   });

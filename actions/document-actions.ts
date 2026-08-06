@@ -17,18 +17,22 @@ import {
   valveChangeLogOwnerKey,
   valveCorrectiveMaintenanceLogOwnerKey,
   hoseChangeLogOwnerKey,
+  equipoOwnerKey,
+  equipmentLogOwnerKey,
   MAX_DOCUMENT_SIZE,
 } from "@/lib/documents";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import type { ActionState } from "./user-actions";
 
+const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+
 function readPdfFromForm(formData: FormData): File | { error: string } {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    return { error: "Selecciona un archivo PDF." };
+    return { error: "Selecciona un archivo." };
   }
-  if (file.type !== "application/pdf") {
-    return { error: "Solo se permiten archivos PDF." };
+  if (file.type !== "application/pdf" && !IMAGE_MIME_TYPES.includes(file.type)) {
+    return { error: "Solo se permiten archivos PDF o imágenes (JPG, PNG, WEBP)." };
   }
   if (file.size > MAX_DOCUMENT_SIZE) {
     return { error: "El archivo supera el tamaño máximo permitido (20 MB)." };
@@ -527,6 +531,82 @@ export async function uploadHoseChangeLogDocument(
   return { success: "PDF subido correctamente." };
 }
 
+export async function uploadEquipoDocument(
+  equipoId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const equipo = await prisma.equipo.findUnique({
+    where: { id: equipoId },
+    include: { section: { include: { city: true } } },
+  });
+  if (!equipo) {
+    return { error: "El equipo no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(equipoOwnerKey(equipoId), file);
+
+  await prisma.document.create({
+    data: {
+      sectionId: equipo.sectionId,
+      equipoId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(`/ciudades/${equipo.section.city.slug}/equipo/${equipoId}`);
+  return { success: "PDF subido correctamente." };
+}
+
+export async function uploadEquipmentLogDocument(
+  equipmentLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.equipmentLog.findUnique({
+    where: { id: equipmentLogId },
+    include: { equipo: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(equipmentLogOwnerKey(equipmentLogId), file);
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.equipo.sectionId,
+      equipmentLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(`/ciudades/${log.equipo.section.city.slug}/equipo/${log.equipoId}`);
+  return { success: "PDF subido correctamente." };
+}
+
 export async function deleteDocument(documentId: string) {
   await requireAdmin();
 
@@ -564,6 +644,8 @@ export async function deleteDocument(documentId: string) {
       hoseChangeLog: {
         include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
       },
+      equipo: { include: { section: { include: { city: true } } } },
+      equipmentLog: { include: { equipo: { include: { section: { include: { city: true } } } } } },
     },
   });
   if (!document) return;
@@ -588,9 +670,13 @@ export async function deleteDocument(documentId: string) {
                     ? valveCorrectiveMaintenanceLogOwnerKey(document.valveCorrectiveMaintenanceLogId)
                     : document.hoseChangeLogId
                       ? hoseChangeLogOwnerKey(document.hoseChangeLogId)
-                      : document.vehicleRecordId
-                        ? vehicleOwnerKey(document.vehicleRecordId)
-                        : document.sectionId;
+                      : document.equipmentLogId
+                        ? equipmentLogOwnerKey(document.equipmentLogId)
+                        : document.equipoId
+                          ? equipoOwnerKey(document.equipoId)
+                          : document.vehicleRecordId
+                            ? vehicleOwnerKey(document.vehicleRecordId)
+                            : document.sectionId;
   await deleteDocumentFile(ownerKey, document.storedName);
   await prisma.document.delete({ where: { id: documentId } });
 
@@ -624,6 +710,11 @@ export async function deleteDocument(documentId: string) {
   } else if (document.hoseChangeLog) {
     const vehicle = document.hoseChangeLog.vehicleRecord;
     revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
+  } else if (document.equipmentLog) {
+    const equipo = document.equipmentLog.equipo;
+    revalidatePath(`/ciudades/${equipo.section.city.slug}/equipo/${equipo.id}`);
+  } else if (document.equipo) {
+    revalidatePath(`/ciudades/${document.equipo.section.city.slug}/equipo/${document.equipo.id}`);
   } else if (document.vehicleRecordId) {
     revalidatePath(`/ciudades/${document.section.city.slug}/vehiculo/${document.vehicleRecordId}`);
   } else {

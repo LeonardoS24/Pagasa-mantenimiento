@@ -35,7 +35,15 @@ function SubmitButton() {
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
-export function CreatePieceOrderForm({ sectionId }: { sectionId: string }) {
+export type VehicleOption = { id: string; numeroEconomico: string; section: { name: string } };
+
+export function CreatePieceOrderForm({
+  sectionId,
+  vehicles,
+}: {
+  sectionId: string;
+  vehicles: VehicleOption[];
+}) {
   const action = createPieceOrder.bind(null, sectionId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -180,7 +188,38 @@ export function CreatePieceOrderForm({ sectionId }: { sectionId: string }) {
               ))}
             </select>
           </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-vehicleRecordId">
+              Unidad destino (opcional, si ya se sabe)
+            </label>
+            <select id="op-vehicleRecordId" name="vehicleRecordId" defaultValue="" className={inputClass}>
+              <option value="">— Se elige después, desde Inventarios —</option>
+              {Array.from(
+                vehicles.reduce((groups, vehicle) => {
+                  const list = groups.get(vehicle.section.name) ?? [];
+                  list.push(vehicle);
+                  groups.set(vehicle.section.name, list);
+                  return groups;
+                }, new Map<string, typeof vehicles>())
+              ).map(([sectionName, options]) => (
+                <optgroup key={sectionName} label={sectionName}>
+                  {options.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.numeroEconomico}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
         </div>
+
+        <p className="text-xs text-ink">
+          Si ya sabes para qué unidad es la pieza, selecciónala aquí: al aceptarse la orden, el
+          renglón de inventario ya queda amarrado a esa unidad y al marcarlo &quot;Utilizada&quot;
+          ya no habrá que elegirla de nuevo.
+        </p>
 
         {tipo && (
           <p className="text-xs text-ink">

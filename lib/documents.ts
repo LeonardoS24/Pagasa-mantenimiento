@@ -80,6 +80,14 @@ export function hoseChangeLogOwnerKey(hoseChangeLogId: string): string {
   return path.posix.join("hose-change-logs", hoseChangeLogId);
 }
 
+export function equipoOwnerKey(equipoId: string): string {
+  return path.posix.join("equipos", equipoId);
+}
+
+export function equipmentLogOwnerKey(equipmentLogId: string): string {
+  return path.posix.join("equipment-logs", equipmentLogId);
+}
+
 // Solo las llaves foráneas que determinan dónde vive el archivo de un
 // documento. Un documento pertenece a una bitácora, a una unidad o al
 // apartado, en ese orden de prioridad (igual que en deleteDocument).
@@ -96,6 +104,8 @@ export type DocumentOwnerFields = {
   valveChangeLogId: string | null;
   valveCorrectiveMaintenanceLogId: string | null;
   hoseChangeLogId: string | null;
+  equipoId: string | null;
+  equipmentLogId: string | null;
 };
 
 export function ownerKeyForDocument(document: DocumentOwnerFields): string {
@@ -112,6 +122,8 @@ export function ownerKeyForDocument(document: DocumentOwnerFields): string {
   if (document.valveCorrectiveMaintenanceLogId)
     return valveCorrectiveMaintenanceLogOwnerKey(document.valveCorrectiveMaintenanceLogId);
   if (document.hoseChangeLogId) return hoseChangeLogOwnerKey(document.hoseChangeLogId);
+  if (document.equipmentLogId) return equipmentLogOwnerKey(document.equipmentLogId);
+  if (document.equipoId) return equipoOwnerKey(document.equipoId);
   if (document.vehicleRecordId) return vehicleOwnerKey(document.vehicleRecordId);
   return document.sectionId;
 }
@@ -128,15 +140,17 @@ export async function deleteDocumentFiles(
   }
 }
 
-// Lee cero o más PDFs adjuntos en el mismo envío de un formulario (p. ej. al
-// registrar un mantenimiento o un ultrasonido, sin tener que subirlos después
-// por separado). A diferencia de un solo archivo requerido, aquí no adjuntar
-// nada es válido; solo se valida lo que sí venga.
+const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+
+// Lee cero o más PDFs o imágenes adjuntos en el mismo envío de un formulario
+// (p. ej. al registrar un mantenimiento o un ultrasonido, sin tener que
+// subirlos después por separado). A diferencia de un solo archivo requerido,
+// aquí no adjuntar nada es válido; solo se valida lo que sí venga.
 export function readOptionalPdfFiles(formData: FormData, fieldName = "files"): File[] | { error: string } {
   const files = formData.getAll(fieldName).filter((value): value is File => value instanceof File && value.size > 0);
   for (const file of files) {
-    if (file.type !== "application/pdf") {
-      return { error: `"${file.name}" no es un PDF.` };
+    if (file.type !== "application/pdf" && !IMAGE_MIME_TYPES.includes(file.type)) {
+      return { error: `"${file.name}" no es un PDF ni una imagen válida.` };
     }
     if (file.size > MAX_DOCUMENT_SIZE) {
       return { error: `"${file.name}" supera el tamaño máximo permitido (20 MB).` };
@@ -144,8 +158,6 @@ export function readOptionalPdfFiles(formData: FormData, fieldName = "files"): F
   }
   return files;
 }
-
-const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 // Lee un solo campo de imagen opcional (foto de antes/después de un
 // mantenimiento). No adjuntar nada es válido; solo se valida lo que sí venga.
@@ -161,4 +173,19 @@ export function readOptionalImageFile(formData: FormData, fieldName: string): Fi
     return { error: `"${file.name}" supera el tamaño máximo permitido (20 MB).` };
   }
   return file;
+}
+
+// Cero o más fotografías (Equipo tipo Auxiliar, ver actions/equipo-actions.ts).
+// A diferencia de fotoAntes/fotoDespues no hay un límite de una sola imagen.
+export function readOptionalImageFiles(formData: FormData, fieldName: string): File[] | { error: string } {
+  const files = formData.getAll(fieldName).filter((value): value is File => value instanceof File && value.size > 0);
+  for (const file of files) {
+    if (!IMAGE_MIME_TYPES.includes(file.type)) {
+      return { error: `"${file.name}" no es una imagen válida (JPG, PNG o WEBP).` };
+    }
+    if (file.size > MAX_DOCUMENT_SIZE) {
+      return { error: `"${file.name}" supera el tamaño máximo permitido (20 MB).` };
+    }
+  }
+  return files;
 }

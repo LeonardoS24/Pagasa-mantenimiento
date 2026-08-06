@@ -95,25 +95,41 @@ export function CreateVisualInspectionLogForm({
               className={inputClass}
             />
           </div>
+          <div>
+            <label
+              className="mb-1 block text-sm font-medium text-ink"
+              htmlFor="vi-fechaProximaInspeccion"
+            >
+              Fecha de la próxima inspección
+            </label>
+            <input
+              id="vi-fechaProximaInspeccion"
+              name="fechaProximaInspeccion"
+              type="date"
+              required
+              className={inputClass}
+            />
+          </div>
         </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="vi-files">
-            Documentos (PDF, opcional)
+            Documentos (PDF o imagen, opcional)
           </label>
           <input
             id="vi-files"
             name="files"
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,image/*"
             multiple
             className="w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
           />
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente su “última inspección visual externa”
-          con esta fecha.
+          Al aceptar, la ficha técnica actualizará automáticamente su “última inspección visual
+          externa” con la fecha de realización, y su “próxima” (la alerta) con la fecha de la
+          próxima inspección.
         </p>
 
         <FormMessage state={state} />

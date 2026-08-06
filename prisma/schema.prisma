@@ -38,6 +38,7 @@ model User {
   hoseChangeLogs                 HoseChangeLog[]
   pieceOrders                   PieceOrder[]
   inventoryItems                InventoryItem[]
+  equipmentLogs                  EquipmentLog[]
 
   @@map("users")
 }
@@ -73,6 +74,7 @@ model Section {
   documents      Document[]
   pieceOrders    PieceOrder[]
   inventoryItems InventoryItem[]
+  equipos        Equipo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -121,6 +123,9 @@ model VehicleRecord {
   // "documents"/"maintenanceLogs": es solo trazabilidad de dónde se colocó
   // cada pieza.
   inventoryItemsColocados       InventoryItem[]
+  // Órdenes de pieza que ya se levantaron sabiendo que eran para esta unidad
+  // (ver PieceOrder.vehicleRecordId).
+  pieceOrders                   PieceOrder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -304,6 +309,10 @@ model UltrasoundLog {
   // Fecha en que se realizó este nuevo ultrasonido (pasa a ser el
   // "ultimoUltrasonido" de la ficha técnica al aceptar el registro).
   fechaRealizacion DateTime
+  // Fecha del próximo ultrasonido (pasa a ser "fechaProximoUltrasonido" de la
+  // ficha técnica al aceptar el registro, que es lo que dispara la alerta
+  // amarilla/roja en VehicleTable y el panel del dashboard).
+  fechaProximoUltrasonido DateTime
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -336,6 +345,10 @@ model VisualInspectionLog {
   // Fecha en que se realizó esta nueva inspección visual (pasa a ser la
   // "ultimaInspeccionVisual" de la ficha técnica al aceptar el registro).
   fechaRealizacion DateTime
+  // Fecha de la próxima inspección visual externa (pasa a ser
+  // "fechaProximaInspeccionVisual" de la ficha técnica al aceptar el
+  // registro, que es lo que dispara la alerta).
+  fechaProximaInspeccion DateTime
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -363,6 +376,10 @@ model TightnessTestLog {
 
   fechaUltimaPrueba DateTime?
   fechaRealizacion  DateTime
+  // Fecha de la próxima prueba de hermeticidad (pasa a ser
+  // "fechaProximaPruebaHermeticidad" de la ficha técnica al aceptar el
+  // registro, que es lo que dispara la alerta).
+  fechaProximaPrueba DateTime
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -576,6 +593,15 @@ model PieceOrder {
   // "PENDIENTE" | "ACEPTADA" | "RECHAZADA"
   estado String @default("PENDIENTE")
 
+  // Unidad destino, cuando ya se sabe desde que se levanta la orden (no
+  // siempre se sabe). Al aceptarse la orden, el/los renglón(es) de inventario
+  // que genera nacen ya amarrados a esta unidad (ver
+  // createInventoryItemsForAcceptedOrder en actions/piece-order-actions.ts),
+  // así que marcarlos "Utilizada" después ya no pide elegir la unidad de
+  // nuevo. SetNull para no perder la orden si la unidad se elimina.
+  vehicleRecordId String?
+  vehicleRecord   VehicleRecord? @relation(fields: [vehicleRecordId], references: [id], onDelete: SetNull)
+
   // Una orden aceptada genera VARIOS renglones de inventario cuando el tipo
   // es contable (5 refacciones -> 5 renglones independientes); el consumible
   // genera uno solo con el total.
@@ -646,6 +672,106 @@ model InventoryItem {
   @@map("inventory_items")
 }
 
+// Equipo del apartado único "Equipos" (fusiona lo que antes eran Equipos
+// Mecánicos y Equipos electrónicos). tipoEquipo decide qué subconjunto de
+// campos aplica y de qué color se pinta en la lista y en la bitácora (ver
+// lib/equipo-enums.ts): MECANICO, ELECTRICO (cubre eléctrico y electrónico,
+// el usuario pidió un solo tipo para ambos) y AUXILIAR. La mayoría de los
+// campos son opcionales porque cada tipo solo llena su propio subconjunto.
+model Equipo {
+  id    String @id @default(cuid())
+  order Int    @default(0)
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  tipoEquipo String // "MECANICO" | "ELECTRICO" | "AUXILIAR"
+
+  // Se da de baja automáticamente cuando se registra un mantenimiento tipo
+  // "Cambio" en su bitácora (ver actions/equipment-log-actions.ts): el
+  // equipo se reemplaza por uno nuevo, y este se conserva como historial en
+  // vez de borrarse.
+  activo    Boolean   @default(true)
+  fechaBaja DateTime?
+
+  // Comunes a los 3 tipos
+  codigo                  String?
+  nombre                  String
+  categoria               String?
+  tipoEquipoDetalle       String? // "Tipo de equipo": Bomba/tanque/PLC/planta de emergencia/etc, según el tipo
+  marca                   String?
+  modelo                  String?
+  numeroSerie             String?
+  fabricante              String?
+  anioFabricacion         String?
+  fechaInstalacion        DateTime?
+  ubicacion               String?
+  responsable             String?
+  estado                  String? // "OPERATIVO" | "FUERA_DE_SERVICIO" | "MANTENIMIENTO"
+  criticidad              String? // "ALTA" | "MEDIA" | "BAJA"
+  frecuenciaMantenimiento String?
+  observaciones           String?
+
+  // Mecánico (y capacidad/potencia también se comparten con Auxiliar)
+  capacidad             String?
+  presionTrabajo        String?
+  temperaturaOperacion  String?
+  materialFabricacion   String?
+  fluidoTrabajo         String?
+  potencia              String?
+  rpm                   String?
+  lubricante            String?
+
+  // Eléctrico / electrónico
+  voltaje            String?
+  corriente          String?
+  frecuenciaElectrica String?
+  numeroFases        String?
+  proteccionIp       String?
+  claseAislamiento   String?
+  consumoElectrico   String?
+  comunicacion       String?
+
+  // Auxiliar
+  combustible     String?
+  horasOperacion  String?
+
+  documents     Document[]
+  equipmentLogs EquipmentLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("equipos")
+}
+
+// Bitácora única de un Equipo (fusiona lo que antes serían bitácoras
+// separadas de mecánicos y electrónicos). Se agrupa a nivel ciudad en
+// lib/city-equipment-log-feed.ts, coloreada según el tipoEquipo del equipo.
+model EquipmentLog {
+  id String @id @default(cuid())
+
+  equipoId String
+  equipo   Equipo @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+
+  // "Preventivo" | "Correctivo" | "Predictivo" (mismo enum que MaintenanceLog)
+  tipoMantenimiento String
+  descripcion       String
+  responsable       String?
+  fecha             DateTime
+  observacion       String?
+
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("equipment_logs")
+}
+
 // PDFs adjuntos a un apartado, o a una unidad (VehicleRecord) específica dentro
 // de un apartado de tipo "unidades" (vehicleRecordId presente). Solo un ADMIN
 // puede subir/eliminar (validado en el server action); cualquier usuario con
@@ -689,14 +815,20 @@ model Document {
   hoseChangeLogId String?
   hoseChangeLog   HoseChangeLog? @relation(fields: [hoseChangeLogId], references: [id], onDelete: Cascade)
 
+  equipoId String?
+  equipo   Equipo? @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+
+  equipmentLogId String?
+  equipmentLog   EquipmentLog? @relation(fields: [equipmentLogId], references: [id], onDelete: Cascade)
+
   fileName   String
   storedName String
   mimeType   String
   size       Int
 
-  // "ADJUNTO" (PDF genérico) | "ANTES" | "DESPUES" (fotos del mantenimiento).
-  // Solo MaintenanceLog usa ANTES/DESPUES por ahora; el resto siempre queda
-  // en el valor por defecto.
+  // "ADJUNTO" (PDF genérico) | "ANTES" | "DESPUES" (fotos de MaintenanceLog) |
+  // "FOTO" (fotografías de Equipo tipo Auxiliar). El resto siempre queda en
+  // el valor por defecto.
   kind String @default("ADJUNTO")
 
   uploadedById String?

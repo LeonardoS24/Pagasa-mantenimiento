@@ -105,6 +105,7 @@ export function InventoryItemTable({
                       itemId={item.id}
                       estado={item.estado}
                       vehicles={vehicles}
+                      preselectedVehicle={item.usedOnVehicle}
                     />
                   ) : (
                     <span

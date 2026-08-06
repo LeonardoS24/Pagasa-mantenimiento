@@ -4,6 +4,7 @@ import { prisma } from "./prisma";
 // usuario pide confirmar (no al pintar la lista), porque son varias consultas.
 export type DeleteImpact = {
   unidades: number;
+  equipos: number;
   bitacoras: number;
   documentos: number;
   apartados: number;
@@ -14,6 +15,7 @@ export type DeleteImpact = {
 export function impactTotal(impact: DeleteImpact): number {
   return (
     impact.unidades +
+    impact.equipos +
     impact.bitacoras +
     impact.documentos +
     impact.ordenes +
@@ -29,6 +31,7 @@ export function describeImpact(impact: DeleteImpact): string {
     if (n > 0) partes.push(`${n} ${n === 1 ? singular : plural}`);
   };
   agrega(impact.unidades, "unidad", "unidades");
+  agrega(impact.equipos, "equipo", "equipos");
   agrega(impact.bitacoras, "registro de bitácora", "registros de bitácora");
   agrega(impact.documentos, "documento PDF", "documentos PDF");
   agrega(impact.apartados, "apartado", "apartados");
@@ -64,16 +67,35 @@ async function impactoDeApartados(
   apartadosContados: number
 ): Promise<DeleteImpact> {
   if (sectionIds.length === 0) {
-    return { unidades: 0, bitacoras: 0, documentos: 0, apartados: apartadosContados, ordenes: 0, inventario: 0 };
+    return {
+      unidades: 0,
+      equipos: 0,
+      bitacoras: 0,
+      documentos: 0,
+      apartados: apartadosContados,
+      ordenes: 0,
+      inventario: 0,
+    };
   }
-  const [unidades, documentos, ordenes, inventario, bitacoras] = await Promise.all([
-    prisma.vehicleRecord.count({ where: { sectionId: { in: sectionIds } } }),
-    prisma.document.count({ where: { sectionId: { in: sectionIds } } }),
-    prisma.pieceOrder.count({ where: { sectionId: { in: sectionIds } } }),
-    prisma.inventoryItem.count({ where: { sectionId: { in: sectionIds } } }),
-    contarBitacoras(sectionIds),
-  ]);
-  return { unidades, bitacoras, documentos, apartados: apartadosContados, ordenes, inventario };
+  const [unidades, equipos, documentos, ordenes, inventario, bitacorasUnidades, bitacorasEquipos] =
+    await Promise.all([
+      prisma.vehicleRecord.count({ where: { sectionId: { in: sectionIds } } }),
+      prisma.equipo.count({ where: { sectionId: { in: sectionIds } } }),
+      prisma.document.count({ where: { sectionId: { in: sectionIds } } }),
+      prisma.pieceOrder.count({ where: { sectionId: { in: sectionIds } } }),
+      prisma.inventoryItem.count({ where: { sectionId: { in: sectionIds } } }),
+      contarBitacoras(sectionIds),
+      prisma.equipmentLog.count({ where: { equipo: { sectionId: { in: sectionIds } } } }),
+    ]);
+  return {
+    unidades,
+    equipos,
+    bitacoras: bitacorasUnidades + bitacorasEquipos,
+    documentos,
+    apartados: apartadosContados,
+    ordenes,
+    inventario,
+  };
 }
 
 // Lo que se lleva por delante borrar una sola unidad: su ficha técnica no se
@@ -112,7 +134,19 @@ export async function getVehicleDeleteImpact(vehicleId: string): Promise<DeleteI
     ]).then((c) => c.reduce((a, b) => a + b, 0)),
   ]);
 
-  return { unidades: 0, bitacoras, documentos, apartados: 0, ordenes: 0, inventario: 0 };
+  return { unidades: 0, equipos: 0, bitacoras, documentos, apartados: 0, ordenes: 0, inventario: 0 };
+}
+
+// Lo que se lleva por delante borrar un solo Equipo: su bitácora y documentos.
+export async function getEquipoDeleteImpact(equipoId: string): Promise<DeleteImpact> {
+  const [documentos, bitacoras] = await Promise.all([
+    prisma.document.count({
+      where: { OR: [{ equipoId }, { equipmentLog: { equipoId } }] },
+    }),
+    prisma.equipmentLog.count({ where: { equipoId } }),
+  ]);
+
+  return { unidades: 0, equipos: 0, bitacoras, documentos, apartados: 0, ordenes: 0, inventario: 0 };
 }
 
 export async function getCityDeleteImpact(cityId: string): Promise<DeleteImpact> {
@@ -144,7 +178,7 @@ export async function getSectionSubtreeIds(sectionId: string): Promise<string[]>
 export async function getSectionDeleteImpact(sectionId: string): Promise<DeleteImpact> {
   const ids = await getSectionSubtreeIds(sectionId);
   if (ids.length === 0) {
-    return { unidades: 0, bitacoras: 0, documentos: 0, apartados: 0, ordenes: 0, inventario: 0 };
+    return { unidades: 0, equipos: 0, bitacoras: 0, documentos: 0, apartados: 0, ordenes: 0, inventario: 0 };
   }
   // El propio apartado no cuenta como "sub-apartado eliminado".
   return impactoDeApartados(ids, ids.length - 1);

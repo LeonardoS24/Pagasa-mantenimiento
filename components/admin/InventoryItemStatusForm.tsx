@@ -25,10 +25,15 @@ export function InventoryItemStatusForm({
   itemId,
   estado,
   vehicles,
+  preselectedVehicle,
 }: {
   itemId: string;
   estado: string;
   vehicles: VehicleOption[];
+  // Si la orden que originó esta pieza ya traía la unidad destino (ver
+  // PieceOrder.vehicleRecordId), no tiene sentido volver a pedirla aquí: se
+  // salta directo a elegir en qué mantenimiento se colocó.
+  preselectedVehicle?: { id: string; numeroEconomico: string } | null;
 }) {
   const action = updateInventoryItemEstado.bind(null, itemId);
   const [state, formAction] = useFormState(action, initialState);
@@ -54,6 +59,13 @@ export function InventoryItemStatusForm({
     });
   }
 
+  function abrirEleccion() {
+    setEligiendoUnidad(true);
+    if (preselectedVehicle) {
+      elegirUnidad(preselectedVehicle.id);
+    }
+  }
+
   if (eligiendoUnidad) {
     const groups = new Map<string, VehicleOption[]>();
     for (const vehicle of vehicles) {
@@ -73,26 +85,35 @@ export function InventoryItemStatusForm({
       <form action={formAction} className="flex flex-col items-start gap-1">
         <input type="hidden" name="estado" value="UTILIZADA" />
 
-        <select
-          name="vehicleRecordId"
-          required
-          value={vehicleId}
-          onChange={(event) => elegirUnidad(event.target.value)}
-          className={selectClass}
-        >
-          <option value="" disabled>
-            Selecciona la unidad...
-          </option>
-          {Array.from(groups.entries()).map(([sectionName, options]) => (
-            <optgroup key={sectionName} label={sectionName}>
-              {options.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.numeroEconomico}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        {preselectedVehicle ? (
+          <>
+            <input type="hidden" name="vehicleRecordId" value={preselectedVehicle.id} />
+            <span className="text-xs text-ink">
+              Unidad (de la orden): <span className="font-medium text-primary">{preselectedVehicle.numeroEconomico}</span>
+            </span>
+          </>
+        ) : (
+          <select
+            name="vehicleRecordId"
+            required
+            value={vehicleId}
+            onChange={(event) => elegirUnidad(event.target.value)}
+            className={selectClass}
+          >
+            <option value="" disabled>
+              Selecciona la unidad...
+            </option>
+            {Array.from(groups.entries()).map(([sectionName, options]) => (
+              <optgroup key={sectionName} label={sectionName}>
+                {options.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.numeroEconomico}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
 
         {vehicleId && cargando && (
           <span className="text-xs text-ink">Buscando los mantenimientos de la unidad...</span>
@@ -157,7 +178,7 @@ export function InventoryItemStatusForm({
         defaultValue={estado}
         onChange={(event) => {
           if (event.target.value === "UTILIZADA") {
-            setEligiendoUnidad(true);
+            abrirEleccion();
           } else {
             event.currentTarget.form?.requestSubmit();
           }

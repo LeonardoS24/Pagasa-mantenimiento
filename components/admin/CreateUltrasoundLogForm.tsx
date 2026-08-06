@@ -95,25 +95,40 @@ export function CreateUltrasoundLogForm({
               className={inputClass}
             />
           </div>
+          <div>
+            <label
+              className="mb-1 block text-sm font-medium text-ink"
+              htmlFor="us-fechaProximoUltrasonido"
+            >
+              Fecha del próximo ultrasonido
+            </label>
+            <input
+              id="us-fechaProximoUltrasonido"
+              name="fechaProximoUltrasonido"
+              type="date"
+              required
+              className={inputClass}
+            />
+          </div>
         </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="us-files">
-            Documentos (PDF, opcional)
+            Documentos (PDF o imagen, opcional)
           </label>
           <input
             id="us-files"
             name="files"
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,image/*"
             multiple
             className="w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
           />
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente su “último ultrasonido” con
-          esta fecha.
+          Al aceptar, la ficha técnica actualizará automáticamente su “último ultrasonido” con la
+          fecha de realización, y su “próximo ultrasonido” (la alerta) con la fecha del próximo.
         </p>
 
         <FormMessage state={state} />

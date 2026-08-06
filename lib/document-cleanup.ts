@@ -16,6 +16,8 @@ const camposDeDueno = {
   valveChangeLogId: true,
   valveCorrectiveMaintenanceLogId: true,
   hoseChangeLogId: true,
+  equipoId: true,
+  equipmentLogId: true,
 } as const;
 
 // Borra del disco los PDF de una unidad: los suyos y los de sus 10 tipos de
@@ -44,12 +46,14 @@ export async function deleteVehicleDocumentFiles(vehicleId: string): Promise<voi
 }
 
 // Igual, pero para todo lo que cuelga de una lista de apartados: los
-// documentos del apartado, los de sus unidades y los de las bitácoras de
-// esas unidades. Sirve para borrar una ciudad o un apartado.
+// documentos del apartado, los de sus unidades/equipos y los de las
+// bitácoras de esas unidades/equipos. Sirve para borrar una ciudad o un
+// apartado.
 export async function deleteSectionDocumentFiles(sectionIds: string[]): Promise<void> {
   if (sectionIds.length === 0) return;
 
   const enEsosApartados = { vehicleRecord: { sectionId: { in: sectionIds } } };
+  const equipoEnEsosApartados = { equipo: { sectionId: { in: sectionIds } } };
   const documents = await prisma.document.findMany({
     where: {
       OR: [
@@ -65,7 +69,20 @@ export async function deleteSectionDocumentFiles(sectionIds: string[]): Promise<
         { valveChangeLog: enEsosApartados },
         { valveCorrectiveMaintenanceLog: enEsosApartados },
         { hoseChangeLog: enEsosApartados },
+        { equipo: { sectionId: { in: sectionIds } } },
+        { equipmentLog: equipoEnEsosApartados },
       ],
+    },
+    select: camposDeDueno,
+  });
+  await deleteDocumentFiles(documents);
+}
+
+// Los documentos de un Equipo y de su bitácora, antes de borrarlo.
+export async function deleteEquipoDocumentFiles(equipoId: string): Promise<void> {
+  const documents = await prisma.document.findMany({
+    where: {
+      OR: [{ equipoId }, { equipmentLog: { equipoId } }],
     },
     select: camposDeDueno,
   });

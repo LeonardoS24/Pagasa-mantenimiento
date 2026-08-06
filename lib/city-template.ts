@@ -26,11 +26,13 @@ export const PLANTILLA_APARTADOS: PlantillaApartado[] = [
   },
   { name: "Manuales", slug: "manuales" },
   { name: "Programa de mantenimiento", slug: "programa-de-mantenimiento" },
-  { name: "Equipos Mecánicos", slug: "equipos-mecanicos" },
-  { name: "Equipos electrónicos", slug: "equipos-electronicos" },
+  // Antes eran dos apartados separados (Equipos Mecánicos / Equipos
+  // electrónicos); el usuario pidió fusionarlos en uno solo donde el tipo de
+  // equipo se elige al dar de alta (ver Equipo.tipoEquipo en el schema).
+  { name: "Equipos", slug: "equipos" },
   { name: "Bitácoras de unidades", slug: "bitacoras-de-unidades" },
-  { name: "Bitácoras de equipos mecánicos", slug: "bitacoras-de-equipos-mecanicos" },
-  { name: "Bitácora de equipos electrónicos", slug: "bitacora-de-equipos-electronicos" },
+  // Misma fusión que arriba, para la bitácora.
+  { name: "Bitácora de equipos", slug: "bitacora-de-equipos" },
   // El nombre es "Orden" pero el slug histórico es "orden-de-pieza": por eso
   // la plantilla lleva ambos y no deriva uno del otro.
   { name: "Orden", slug: "orden-de-pieza" },
