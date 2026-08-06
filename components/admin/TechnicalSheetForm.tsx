@@ -104,7 +104,9 @@ export function TechnicalSheetForm({
   // Externa, Hermeticidad, Visual Interna, Ultrasonido, Hidrostática) viven
   // en Auto-Tanques y en Vehículo con tanque de carburación, no aquí.
   showInspeccionesSection?: boolean;
-  // false solo para Auto-Tanques.
+  // false solo para Vehículo con tanque de carburación: cuando la unidad se
+  // repite en Auto-Tanques, el mantenimiento preventivo se lleva desde ahí
+  // para no duplicarlo (ver también lib/alert-visibility.ts).
   showMaintenancePreventiveSection?: boolean;
   // Vehículo con tanque de carburación, y Auto-Tanques cuyo número
   // económico se repite en Vehículo con tanque de carburación (misma

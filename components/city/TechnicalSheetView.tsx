@@ -60,6 +60,7 @@ export function TechnicalSheetView({
   showTankSection = true,
   showInspeccionesSection = true,
   showMaintenancePreventiveSection = true,
+  showAutomovilSection = true,
 }: {
   sheet: VehicleTechnicalSheet | null;
   // Para no repetir la alerta de extintor/mantenimiento preventivo cuando la
@@ -79,8 +80,15 @@ export function TechnicalSheetView({
   // false solo para Vehículo de reparto: sus 5 pruebas de tanque viven en
   // Auto-Tanques y en Vehículo con tanque de carburación.
   showInspeccionesSection?: boolean;
-  // false solo para Auto-Tanques.
+  // false solo para Vehículo con tanque de carburación: cuando la unidad se
+  // repite en Auto-Tanques, el mantenimiento preventivo se lleva desde ahí
+  // para no duplicarlo (ver también lib/alert-visibility.ts).
   showMaintenancePreventiveSection?: boolean;
+  // false cuando esta ficha se imprime junto con la de su unidad pareja
+  // (Auto-Tanques y Vehículo con tanque de carburación con el mismo número
+  // económico): los datos del automóvil son el mismo vehículo físico, así
+  // que solo se imprimen una vez (ver imprimir/page.tsx).
+  showAutomovilSection?: boolean;
 }) {
   if (!sheet) {
     return <p className="text-sm text-ink">Sin ficha técnica registrada.</p>;
@@ -111,40 +119,42 @@ export function TechnicalSheetView({
 
   return (
     <div className="space-y-6">
-      <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
-        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
-          Automóvil
-        </h3>
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Item label="Fabricante" value={sheet.fabricante} />
-          <Item label="Marca" value={sheet.marca} />
-          <Item label="Línea" value={sheet.linea} />
-          <Item label="Modelo" value={sheet.modelo} />
-          {useDeliveryFormat ? (
-            <>
-              <Item label="Peso bruto de unidad vacía" value={sheet.pesoBrutoVacio} />
-              <Item label="Peso bruto de unidad con peso máximo" value={sheet.pesoBrutoMaximo} />
-            </>
-          ) : (
-            <Item label="Peso" value={sheet.peso} />
+      {showAutomovilSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+            Automóvil
+          </h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Item label="Fabricante" value={sheet.fabricante} />
+            <Item label="Marca" value={sheet.marca} />
+            <Item label="Línea" value={sheet.linea} />
+            <Item label="Modelo" value={sheet.modelo} />
+            {useDeliveryFormat ? (
+              <>
+                <Item label="Peso bruto de unidad vacía" value={sheet.pesoBrutoVacio} />
+                <Item label="Peso bruto de unidad con peso máximo" value={sheet.pesoBrutoMaximo} />
+              </>
+            ) : (
+              <Item label="Peso" value={sheet.peso} />
+            )}
+            <Item label="Serie" value={sheet.serie} />
+            <Item
+              label="Combustible"
+              value={sheet.combustible ? combustibleLabels[sheet.combustible as Combustible] : null}
+            />
+            <Item label="Horas de uso diario" value={sheet.horasUsoDiario} />
+            <Item label="Fecha de adquisición" value={formatDate(sheet.fechaAdquisicion) || null} />
+          </dl>
+          {sheet.caracteristicas && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold uppercase text-gray-500">
+                Características especiales o técnicas
+              </p>
+              <p className="text-ink">{sheet.caracteristicas}</p>
+            </div>
           )}
-          <Item label="Serie" value={sheet.serie} />
-          <Item
-            label="Combustible"
-            value={sheet.combustible ? combustibleLabels[sheet.combustible as Combustible] : null}
-          />
-          <Item label="Horas de uso diario" value={sheet.horasUsoDiario} />
-          <Item label="Fecha de adquisición" value={formatDate(sheet.fechaAdquisicion) || null} />
-        </dl>
-        {sheet.caracteristicas && (
-          <div className="mt-3">
-            <p className="text-xs font-semibold uppercase text-gray-500">
-              Características especiales o técnicas
-            </p>
-            <p className="text-ink">{sheet.caracteristicas}</p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {showTankSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>

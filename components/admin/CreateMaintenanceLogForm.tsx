@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { createMaintenanceLog } from "@/actions/maintenance-actions";
 import type { ActionState } from "@/actions/user-actions";
 import { maintenanceStatusLabels, maintenanceTypeOptions } from "@/lib/vehicle-enums";
+import { PIECE_CATALOG, PIECE_CATEGORIES, PIECE_CATEGORY_OTRO, accionPiezaOptions } from "@/lib/piece-catalog";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -43,6 +44,10 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
   // amarrarse a él (ver vincularPiezaARegistro).
   const vincularPieza = searchParams.get("vincularPieza") ?? "";
   const hasPrefill = Boolean(prefillPieza || prefillCantidad || prefillUnidad);
+
+  // La pieza que llega prellenada desde Inventarios es texto libre (no se
+  // sabe su categoría), así que se captura como "Otro" para no perderla.
+  const [categoriaPieza, setCategoriaPieza] = useState(prefillPieza ? PIECE_CATEGORY_OTRO : "");
 
   useEffect(() => {
     if (hasPrefill && detailsRef.current) {
@@ -113,15 +118,68 @@ export function CreateMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
             />
           </div>
           <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-categoriaPieza">
+              Categoría de la pieza
+            </label>
+            <select
+              id="mnt-categoriaPieza"
+              name="categoriaPieza"
+              value={categoriaPieza}
+              onChange={(e) => setCategoriaPieza(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Sin pieza específica</option>
+              {PIECE_CATEGORIES.map((categoria) => (
+                <option key={categoria} value={categoria}>
+                  {categoria}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-pieza">
               Pieza
             </label>
-            <input
-              id="mnt-pieza"
-              name="pieza"
-              defaultValue={prefillPieza}
-              className={inputClass}
-            />
+            {categoriaPieza && categoriaPieza !== PIECE_CATEGORY_OTRO ? (
+              <select
+                key={categoriaPieza}
+                id="mnt-pieza"
+                name="pieza"
+                defaultValue=""
+                className={inputClass}
+              >
+                <option value="" disabled>
+                  Selecciona...
+                </option>
+                {PIECE_CATALOG[categoriaPieza].map((pieza) => (
+                  <option key={pieza} value={pieza}>
+                    {pieza}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id="mnt-pieza"
+                name="pieza"
+                placeholder={categoriaPieza === PIECE_CATEGORY_OTRO ? "Escribe la pieza..." : ""}
+                disabled={!categoriaPieza}
+                defaultValue={prefillPieza}
+                className={`${inputClass} disabled:bg-gray-100 disabled:text-gray-400`}
+              />
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-accionPieza">
+              Acción realizada en la pieza
+            </label>
+            <select id="mnt-accionPieza" name="accionPieza" defaultValue="" className={inputClass}>
+              <option value="">Sin especificar</option>
+              {accionPiezaOptions.map((accion) => (
+                <option key={accion} value={accion}>
+                  {accion}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-cantidad">

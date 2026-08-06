@@ -4,10 +4,23 @@ import { getSession } from "@/lib/auth";
 import { getAccessibleCities } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { normalizeForSearch } from "@/lib/text-normalize";
-import type { VehicleRecord, VehicleTechnicalSheet } from "@prisma/client";
+import { combustibleLabels, calidadExtintorLabels, type Combustible, type CalidadExtintor } from "@/lib/vehicle-enums";
+import {
+  tipoEquipoLabels,
+  estadoEquipoLabels,
+  criticidadEquipoLabels,
+  type TipoEquipo,
+  type EstadoEquipo,
+  type CriticidadEquipo,
+} from "@/lib/equipo-enums";
+import type { VehicleRecord, VehicleTechnicalSheet, Equipo } from "@prisma/client";
 
 type RecordWithSheet = VehicleRecord & {
   technicalSheet: VehicleTechnicalSheet | null;
+  section: { name: string; city: { name: string; slug: string }; parent: { name: string } | null };
+};
+
+type EquipoWithSection = Equipo & {
   section: { name: string; city: { name: string; slug: string }; parent: { name: string } | null };
 };
 
@@ -15,7 +28,7 @@ type RecordWithSheet = VehicleRecord & {
 // técnica donde vive (mismos nombres que las tarjetas de color en
 // TechnicalSheetForm/TechnicalSheetView), para poder decirle al usuario
 // dónde exactamente se encontró su búsqueda.
-function computeMatchedGroups(record: RecordWithSheet, q: string): string[] {
+function vehicleMatchedGroups(record: RecordWithSheet, qNorm: string): string[] {
   const sheet = record.technicalSheet;
   const matchers: { group: string; value: string | null | undefined }[] = [
     { group: "Datos generales", value: record.numeroEconomico },
@@ -33,20 +46,21 @@ function computeMatchedGroups(record: RecordWithSheet, q: string): string[] {
     { group: "Ficha técnica · Automóvil", value: sheet?.serie },
     { group: "Ficha técnica · Automóvil", value: sheet?.caracteristicas },
     { group: "Ficha técnica · Automóvil", value: sheet?.horasUsoDiario },
+    {
+      group: "Ficha técnica · Automóvil",
+      value: sheet?.combustible ? combustibleLabels[sheet.combustible as Combustible] : null,
+    },
     { group: "Ficha técnica · Tanque", value: sheet?.capacidadTanque },
     { group: "Ficha técnica · Tanque", value: sheet?.marcaTanque },
     { group: "Ficha técnica · Tanque", value: sheet?.anioFabricacionTanque },
     { group: "Ficha técnica · Tanque", value: sheet?.numeroSerieTanque },
+    { group: "Ficha técnica · Extintor", value: sheet?.calidadExtintor ? calidadExtintorLabels[sheet.calidadExtintor as CalidadExtintor] : null },
     { group: "Ficha técnica · Ultrasonido", value: sheet?.numeroUltimoUltrasonido },
     { group: "Ficha técnica · Inspección Visual Externa", value: sheet?.numeroUltimaInspeccionVisual },
     { group: "Ficha técnica · Prueba de Hermeticidad", value: sheet?.numeroUltimaPruebaHermeticidad },
     { group: "Ficha técnica · Inspección Visual Interna", value: sheet?.numeroUltimaInspeccionVisualInterna },
     { group: "Ficha técnica · Prueba Hidrostática", value: sheet?.numeroUltimaPruebaHidrostatica },
   ];
-  // Insensible a mayúsculas (como el LIKE de SQLite) y también a los espacios
-  // de más, para que una unidad guardada como "KG  138" marque su recuadro
-  // cuando se buscó "KG 138".
-  const qNorm = normalizeForSearch(q);
   const groups = new Set<string>();
   for (const matcher of matchers) {
     if (matcher.value && normalizeForSearch(matcher.value).includes(qNorm)) groups.add(matcher.group);
@@ -54,52 +68,49 @@ function computeMatchedGroups(record: RecordWithSheet, q: string): string[] {
   return Array.from(groups);
 }
 
-const normalizeForExactMatch = normalizeForSearch;
-
-// Todos los campos buscables de una unidad, ya normalizados. Sirve para una
-// segunda pasada que ignore los espacios de más: LIKE compara carácter por
-// carácter, así que "KG 138" nunca encontraría "KG  138" por consulta.
-function camposBuscables(record: RecordWithSheet): string[] {
-  const sheet = record.technicalSheet;
-  return [
-    record.numeroEconomico,
-    record.placas,
-    record.sucursal,
-    record.numeroAnterior,
-    record.localidadAnterior,
-    sheet?.fabricante,
-    sheet?.marca,
-    sheet?.linea,
-    sheet?.modelo,
-    sheet?.peso,
-    sheet?.pesoBrutoVacio,
-    sheet?.pesoBrutoMaximo,
-    sheet?.serie,
-    sheet?.caracteristicas,
-    sheet?.horasUsoDiario,
-    sheet?.capacidadTanque,
-    sheet?.marcaTanque,
-    sheet?.anioFabricacionTanque,
-    sheet?.numeroSerieTanque,
-    sheet?.numeroUltimoUltrasonido,
-    sheet?.numeroUltimaInspeccionVisual,
-    sheet?.numeroUltimaPruebaHermeticidad,
-    sheet?.numeroUltimaInspeccionVisualInterna,
-    sheet?.numeroUltimaPruebaHidrostatica,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .map(normalizeForSearch);
+function vehicleMatches(record: RecordWithSheet, qNorm: string): boolean {
+  return vehicleMatchedGroups(record, qNorm).length > 0;
 }
 
-// Una unidad dada de baja solo se considera "coincidencia específica" (y por
-// lo tanto conserva su posición normal en los resultados) cuando la
-// búsqueda coincide exactamente con su número económico o placas. Cualquier
+function equipoMatchedGroups(equipo: EquipoWithSection, qNorm: string): string[] {
+  const matchers: { group: string; value: string | null | undefined }[] = [
+    { group: "Datos generales", value: equipo.codigo },
+    { group: "Datos generales", value: equipo.nombre },
+    { group: "Datos generales", value: equipo.categoria },
+    { group: "Datos generales", value: equipo.ubicacion },
+    { group: "Datos generales", value: equipo.responsable },
+    { group: "Datos generales", value: tipoEquipoLabels[equipo.tipoEquipo as TipoEquipo] },
+    { group: "Detalle técnico", value: equipo.tipoEquipoDetalle },
+    { group: "Detalle técnico", value: equipo.marca },
+    { group: "Detalle técnico", value: equipo.modelo },
+    { group: "Detalle técnico", value: equipo.numeroSerie },
+    { group: "Detalle técnico", value: equipo.fabricante },
+    { group: "Detalle técnico", value: equipo.anioFabricacion },
+    { group: "Estado", value: equipo.estado ? estadoEquipoLabels[equipo.estado as EstadoEquipo] : null },
+    { group: "Estado", value: equipo.criticidad ? criticidadEquipoLabels[equipo.criticidad as CriticidadEquipo] : null },
+    { group: "Observaciones", value: equipo.observaciones },
+  ];
+  const groups = new Set<string>();
+  for (const matcher of matchers) {
+    if (matcher.value && normalizeForSearch(matcher.value).includes(qNorm)) groups.add(matcher.group);
+  }
+  return Array.from(groups);
+}
+
+// Una unidad/equipo dado de baja solo se considera "coincidencia específica"
+// (y por lo tanto conserva su posición normal en los resultados) cuando la
+// búsqueda coincide exactamente con su identificador principal. Cualquier
 // otra coincidencia (general, parcial) la manda hasta el final.
-function isSpecificMatch(record: RecordWithSheet, qNormalized: string): boolean {
+function isSpecificVehicleMatch(record: RecordWithSheet, qNorm: string): boolean {
   return (
-    normalizeForExactMatch(record.numeroEconomico) === qNormalized ||
-    normalizeForExactMatch(record.placas) === qNormalized
+    normalizeForSearch(record.numeroEconomico) === qNorm ||
+    normalizeForSearch(record.placas) === qNorm
   );
+}
+
+function isSpecificEquipoMatch(equipo: EquipoWithSection, qNorm: string): boolean {
+  return Boolean(equipo.codigo && normalizeForSearch(equipo.codigo) === qNorm) ||
+    normalizeForSearch(equipo.nombre) === qNorm;
 }
 
 export default async function BuscarPage({
@@ -110,95 +121,54 @@ export default async function BuscarPage({
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
   const cities = await getAccessibleCities(user);
+  const cityIds = cities.map((city) => city.id);
 
   const q = (searchParams.q ?? "").trim();
-  const qNormalized = normalizeForExactMatch(q);
+  const qNorm = normalizeForSearch(q);
 
-  const rawRecords = q
+  // El total de unidades y equipos es chico (cientos, no miles), así que se
+  // trae todo lo accesible para el usuario y se filtra en JS ya normalizado:
+  // así "kg138" encuentra "KG 138" o "KG-138" sin depender de que el LIKE de
+  // SQLite adivine dónde van los espacios o guiones.
+  const candidateVehicles = qNorm
     ? await prisma.vehicleRecord.findMany({
-        where: {
-          section: { cityId: { in: cities.map((city) => city.id) } },
-          OR: [
-            { numeroEconomico: { contains: q } },
-            { placas: { contains: q } },
-            { sucursal: { contains: q } },
-            { numeroAnterior: { contains: q } },
-            { localidadAnterior: { contains: q } },
-            { technicalSheet: { fabricante: { contains: q } } },
-            { technicalSheet: { marca: { contains: q } } },
-            { technicalSheet: { linea: { contains: q } } },
-            { technicalSheet: { modelo: { contains: q } } },
-            { technicalSheet: { peso: { contains: q } } },
-            { technicalSheet: { pesoBrutoVacio: { contains: q } } },
-            { technicalSheet: { pesoBrutoMaximo: { contains: q } } },
-            { technicalSheet: { serie: { contains: q } } },
-            { technicalSheet: { caracteristicas: { contains: q } } },
-            { technicalSheet: { horasUsoDiario: { contains: q } } },
-            { technicalSheet: { capacidadTanque: { contains: q } } },
-            { technicalSheet: { marcaTanque: { contains: q } } },
-            { technicalSheet: { anioFabricacionTanque: { contains: q } } },
-            { technicalSheet: { numeroSerieTanque: { contains: q } } },
-            { technicalSheet: { numeroUltimoUltrasonido: { contains: q } } },
-            { technicalSheet: { numeroUltimaInspeccionVisual: { contains: q } } },
-            { technicalSheet: { numeroUltimaPruebaHermeticidad: { contains: q } } },
-            { technicalSheet: { numeroUltimaInspeccionVisualInterna: { contains: q } } },
-            { technicalSheet: { numeroUltimaPruebaHidrostatica: { contains: q } } },
-          ],
-        },
+        where: { section: { cityId: { in: cityIds } } },
         include: { section: { include: { city: true, parent: true } }, technicalSheet: true },
-        orderBy: { numeroEconomico: "asc" },
-        take: 50,
       })
     : [];
+  const records = candidateVehicles
+    .filter((record) => vehicleMatches(record, qNorm))
+    .sort((a, b) => {
+      const aPushed = !a.activo && !isSpecificVehicleMatch(a, qNorm);
+      const bPushed = !b.activo && !isSpecificVehicleMatch(b, qNorm);
+      if (aPushed !== bPushed) return aPushed ? 1 : -1;
+      return a.numeroEconomico.localeCompare(b.numeroEconomico);
+    });
 
-  // Segunda pasada para los espacios de más. LIKE compara carácter por
-  // carácter, así que buscar "KG 138" no encuentra una unidad capturada como
-  // "KG  138". Se acota por el token más largo de la búsqueda (ese sí coincide
-  // por LIKE) y se filtra ya normalizado.
-  const tokens = qNormalized.split(" ").filter(Boolean);
-  const tokenMasLargo = tokens.sort((a, b) => b.length - a.length)[0] ?? "";
-  const extraRecords =
-    tokens.length > 1 && tokenMasLargo
-      ? await prisma.vehicleRecord.findMany({
-          where: {
-            section: { cityId: { in: cities.map((city) => city.id) } },
-            id: { notIn: rawRecords.map((r) => r.id) },
-            OR: [
-              { numeroEconomico: { contains: tokenMasLargo } },
-              { placas: { contains: tokenMasLargo } },
-              { sucursal: { contains: tokenMasLargo } },
-              { numeroAnterior: { contains: tokenMasLargo } },
-              { localidadAnterior: { contains: tokenMasLargo } },
-            ],
-          },
-          include: { section: { include: { city: true, parent: true } }, technicalSheet: true },
-          take: 50,
-        })
-      : [];
+  const candidateEquipos = qNorm
+    ? await prisma.equipo.findMany({
+        where: { section: { cityId: { in: cityIds } } },
+        include: { section: { include: { city: true, parent: true } } },
+      })
+    : [];
+  const equipos = candidateEquipos
+    .filter((equipo) => equipoMatchedGroups(equipo, qNorm).length > 0)
+    .sort((a, b) => {
+      const aPushed = !a.activo && !isSpecificEquipoMatch(a, qNorm);
+      const bPushed = !b.activo && !isSpecificEquipoMatch(b, qNorm);
+      if (aPushed !== bPushed) return aPushed ? 1 : -1;
+      return a.nombre.localeCompare(b.nombre);
+    });
 
-  const allRecords = [
-    ...rawRecords,
-    ...extraRecords.filter((record) =>
-      camposBuscables(record).some((campo) => campo.includes(qNormalized))
-    ),
-  ];
-
-  // Las unidades dadas de baja se mandan hasta el final de los resultados,
-  // a menos que la búsqueda coincida exactamente con su número económico o
-  // placas (en ese caso es justo lo que se estaba buscando, así que se
-  // queda en su posición normal).
-  const records = [...allRecords].sort((a, b) => {
-    const aPushed = !a.activo && !isSpecificMatch(a, qNormalized);
-    const bPushed = !b.activo && !isSpecificMatch(b, qNormalized);
-    if (aPushed !== bPushed) return aPushed ? 1 : -1;
-    return a.numeroEconomico.localeCompare(b.numeroEconomico);
-  });
+  const hasResults = records.length > 0 || equipos.length > 0;
 
   return (
     <div>
       <h1 className="mb-1 text-2xl font-semibold text-primary">Buscar</h1>
       <p className="mb-6 text-sm text-ink">
-        Busca por número económico, placas, sucursal o localidad anterior.
+        Busca unidades y equipos por cualquier dato de su ficha: número económico, placas,
+        marca, modelo, número de serie y más. No hace falta escribir espacios ni guiones tal
+        cual se capturaron.
       </p>
 
       <form action="/buscar" method="GET" className="mb-6 max-w-md">
@@ -214,94 +184,188 @@ export default async function BuscarPage({
 
       {!q && <p className="text-sm text-gray-500">Escribe un término para comenzar a buscar.</p>}
 
-      {q && records.length === 0 && (
+      {q && !hasResults && (
         <p className="text-sm text-gray-500">
           No se encontraron resultados para <span className="font-medium text-ink">“{q}”</span>.
         </p>
       )}
 
       {records.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
-              <tr>
-                <th className="whitespace-nowrap px-4 py-2">Número económico</th>
-                <th className="whitespace-nowrap px-4 py-2">Placas</th>
-                <th className="whitespace-nowrap px-4 py-2">Sucursal</th>
-                <th className="whitespace-nowrap px-4 py-2">Ubicación</th>
-                <th className="whitespace-nowrap px-4 py-2">Coincide en</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((record, index) => {
-                const location = [
-                  record.section.city.name,
-                  record.section.parent?.name,
-                  record.section.name,
-                ]
-                  .filter(Boolean)
-                  .join(" / ");
-                const matchedGroups = computeMatchedGroups(record, q);
-                const isPushedDown = !record.activo && !isSpecificMatch(record, qNormalized);
-                const isFirstPushedDown =
-                  isPushedDown &&
-                  (index === 0 ||
-                    records[index - 1].activo ||
-                    isSpecificMatch(records[index - 1], qNormalized));
-                return (
-                  <Fragment key={record.id}>
-                    {isFirstPushedDown && (
-                      <tr aria-hidden="true">
-                        <td colSpan={5} className="border-t-4 border-gray-200 bg-gray-100 px-4 py-3">
-                          <span className="text-xs font-semibold uppercase text-gray-500">
-                            Dadas de baja
+        <div className="mb-8">
+          <h2 className="mb-2 text-xs font-semibold uppercase text-gray-500">
+            Unidades ({records.length})
+          </h2>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+                <tr>
+                  <th className="whitespace-nowrap px-4 py-2">Número económico</th>
+                  <th className="whitespace-nowrap px-4 py-2">Placas</th>
+                  <th className="whitespace-nowrap px-4 py-2">Sucursal</th>
+                  <th className="whitespace-nowrap px-4 py-2">Ubicación</th>
+                  <th className="whitespace-nowrap px-4 py-2">Coincide en</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((record, index) => {
+                  const location = [
+                    record.section.city.name,
+                    record.section.parent?.name,
+                    record.section.name,
+                  ]
+                    .filter(Boolean)
+                    .join(" / ");
+                  const matchedGroups = vehicleMatchedGroups(record, qNorm);
+                  const isPushedDown = !record.activo && !isSpecificVehicleMatch(record, qNorm);
+                  const isFirstPushedDown =
+                    isPushedDown &&
+                    (index === 0 ||
+                      records[index - 1].activo ||
+                      isSpecificVehicleMatch(records[index - 1], qNorm));
+                  return (
+                    <Fragment key={record.id}>
+                      {isFirstPushedDown && (
+                        <tr aria-hidden="true">
+                          <td colSpan={5} className="border-t-4 border-gray-200 bg-gray-100 px-4 py-3">
+                            <span className="text-xs font-semibold uppercase text-gray-500">
+                              Dadas de baja
+                            </span>
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-2 font-medium text-primary">
+                          <div className="whitespace-nowrap">
+                            <Link
+                              href={`/ciudades/${record.section.city.slug}/vehiculo/${record.id}`}
+                              className="hover:underline"
+                            >
+                              {record.numeroEconomico}
+                            </Link>
+                            {!record.activo && (
+                              <span className="ml-2 rounded-full border border-orange-400 bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">
+                                Dado de baja
+                              </span>
+                            )}
+                          </div>
+                          {/* El mismo número económico existe a menudo en dos
+                              apartados (Auto-Tanques y carburación). Sin esto no
+                              se sabe a cuál de las dos fichas se va a entrar. */}
+                          <span className="mt-0.5 block whitespace-nowrap text-xs font-normal text-gray-500">
+                            {record.section.name}
                           </span>
                         </td>
+                        <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+                        <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
+                        <td className="whitespace-nowrap px-4 py-2 text-ink">{location}</td>
+                        <td className="px-4 py-2 text-ink">
+                          <div className="flex flex-wrap gap-1">
+                            {matchedGroups.map((group) => (
+                              <span
+                                key={group}
+                                className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                              >
+                                {group}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
                       </tr>
-                    )}
-                    <tr className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="px-4 py-2 font-medium text-primary">
-                        <div className="whitespace-nowrap">
-                          <Link
-                            href={`/ciudades/${record.section.city.slug}/vehiculo/${record.id}`}
-                            className="hover:underline"
-                          >
-                            {record.numeroEconomico}
-                          </Link>
-                          {!record.activo && (
-                            <span className="ml-2 rounded-full border border-orange-400 bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">
-                              Dado de baja
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {equipos.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-xs font-semibold uppercase text-gray-500">
+            Equipos ({equipos.length})
+          </h2>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+                <tr>
+                  <th className="whitespace-nowrap px-4 py-2">Código</th>
+                  <th className="whitespace-nowrap px-4 py-2">Nombre</th>
+                  <th className="whitespace-nowrap px-4 py-2">Tipo</th>
+                  <th className="whitespace-nowrap px-4 py-2">Ubicación</th>
+                  <th className="whitespace-nowrap px-4 py-2">Coincide en</th>
+                </tr>
+              </thead>
+              <tbody>
+                {equipos.map((equipo, index) => {
+                  const location = [
+                    equipo.section.city.name,
+                    equipo.section.parent?.name,
+                    equipo.section.name,
+                  ]
+                    .filter(Boolean)
+                    .join(" / ");
+                  const matchedGroups = equipoMatchedGroups(equipo, qNorm);
+                  const isPushedDown = !equipo.activo && !isSpecificEquipoMatch(equipo, qNorm);
+                  const isFirstPushedDown =
+                    isPushedDown &&
+                    (index === 0 ||
+                      equipos[index - 1].activo ||
+                      isSpecificEquipoMatch(equipos[index - 1], qNorm));
+                  return (
+                    <Fragment key={equipo.id}>
+                      {isFirstPushedDown && (
+                        <tr aria-hidden="true">
+                          <td colSpan={5} className="border-t-4 border-gray-200 bg-gray-100 px-4 py-3">
+                            <span className="text-xs font-semibold uppercase text-gray-500">
+                              Dados de baja
                             </span>
-                          )}
-                        </div>
-                        {/* El mismo número económico existe a menudo en dos
-                            apartados (Auto-Tanques y carburación). Sin esto no
-                            se sabe a cuál de las dos fichas se va a entrar. */}
-                        <span className="mt-0.5 block whitespace-nowrap text-xs font-normal text-gray-500">
-                          {record.section.name}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
-                      <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
-                      <td className="whitespace-nowrap px-4 py-2 text-ink">{location}</td>
-                      <td className="px-4 py-2 text-ink">
-                        <div className="flex flex-wrap gap-1">
-                          {matchedGroups.map((group) => (
-                            <span
-                              key={group}
-                              className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-2 font-medium text-primary">
+                          <div className="whitespace-nowrap">
+                            <Link
+                              href={`/ciudades/${equipo.section.city.slug}/equipo/${equipo.id}`}
+                              className="hover:underline"
                             >
-                              {group}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                              {equipo.codigo || equipo.nombre}
+                            </Link>
+                            {!equipo.activo && (
+                              <span className="ml-2 rounded-full border border-orange-400 bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">
+                                Dado de baja
+                              </span>
+                            )}
+                          </div>
+                          <span className="mt-0.5 block whitespace-nowrap text-xs font-normal text-gray-500">
+                            {equipo.section.name}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-2 text-ink">{equipo.nombre}</td>
+                        <td className="whitespace-nowrap px-4 py-2 text-ink">
+                          {tipoEquipoLabels[equipo.tipoEquipo as TipoEquipo] ?? equipo.tipoEquipo}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-2 text-ink">{location}</td>
+                        <td className="px-4 py-2 text-ink">
+                          <div className="flex flex-wrap gap-1">
+                            {matchedGroups.map((group) => (
+                              <span
+                                key={group}
+                                className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                              >
+                                {group}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

@@ -135,7 +135,9 @@ export function MaintenanceLogRow({
               label="Kilometraje"
               value={log.kilometraje != null ? `${log.kilometraje.toLocaleString("es-MX")} km` : null}
             />
+            <Field label="Categoría de la pieza" value={log.categoriaPieza} />
             <Field label="Pieza" value={log.pieza} />
+            <Field label="Acción realizada en la pieza" value={log.accionPieza} />
             <Field label="Cantidad" value={log.cantidad} />
             <Field label="Unidad" value={log.unidad} />
             <Field

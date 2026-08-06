@@ -100,7 +100,7 @@ function EditEquipmentLogForm({ log }: { log: EquipmentLog }) {
       </div>
       {log.tipoMantenimiento === "Cambio" && (
         <p className="text-xs text-gray-500">
-          Este registro ya se aplicó como "Cambio" (dio de baja el equipo y creó uno nuevo).
+          Este registro ya se aplicó como &quot;Cambio&quot; (dio de baja el equipo y creó uno nuevo).
           Cambiarle el tipo aquí no deshace ni repite ese efecto, solo corrige el dato.
         </p>
       )}

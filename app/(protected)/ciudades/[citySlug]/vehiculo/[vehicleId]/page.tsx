@@ -155,7 +155,6 @@ export default async function VehicleDetailPage({
   // tanque de carburación; Vehículo de reparto no tiene tanque, así que
   // tampoco le corresponden.
   const showInspeccionesSection = isAutoTanques || isTanqueCarburacion;
-  const showMaintenancePreventiveSection = !isAutoTanques;
   // Algunas unidades de Auto-Tanques repiten el mismo número económico en
   // Vehículo con tanque de carburación (mismo camión, pero su motor también
   // usa el sistema dual de combustible). Cuando eso pasa, el combustible se
@@ -389,7 +388,7 @@ export default async function VehicleDetailPage({
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
             showInspeccionesSection={showInspeccionesSection}
-            showMaintenancePreventiveSection={showMaintenancePreventiveSection}
+            showMaintenancePreventiveSection={!isTanqueCarburacion}
             lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
           />
         ) : (
@@ -401,7 +400,7 @@ export default async function VehicleDetailPage({
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
             showInspeccionesSection={showInspeccionesSection}
-            showMaintenancePreventiveSection={showMaintenancePreventiveSection}
+            showMaintenancePreventiveSection={!isTanqueCarburacion}
           />
         )}
       </div>

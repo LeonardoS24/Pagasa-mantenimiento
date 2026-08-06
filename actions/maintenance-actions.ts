@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { maintenanceStatusSchema, maintenanceTypeSchema } from "@/lib/vehicle-enums";
+import { accionPiezaSchema } from "@/lib/piece-catalog";
 import {
   saveDocumentFile,
   maintenanceLogOwnerKey,
@@ -35,7 +36,12 @@ const optionalInt = z.preprocess((value) => {
 const createLogSchema = z.object({
   tipoMantenimiento: maintenanceTypeSchema,
   tipoServicio: requiredText("El tipo de servicio", 100),
+  categoriaPieza: optionalText(100),
   pieza: optionalText(100),
+  accionPieza: z.preprocess((value) => {
+    const text = String(value ?? "").trim();
+    return text.length > 0 ? text : null;
+  }, accionPiezaSchema.nullable()),
   cantidad: optionalText(50),
   unidad: optionalText(50),
   descripcion: optionalText(1000),
@@ -92,7 +98,9 @@ export async function createMaintenanceLog(
   const parsed = createLogSchema.safeParse({
     tipoMantenimiento: formData.get("tipoMantenimiento"),
     tipoServicio: formData.get("tipoServicio"),
+    categoriaPieza: formData.get("categoriaPieza"),
     pieza: formData.get("pieza"),
+    accionPieza: formData.get("accionPieza"),
     cantidad: formData.get("cantidad"),
     unidad: formData.get("unidad"),
     descripcion: formData.get("descripcion"),

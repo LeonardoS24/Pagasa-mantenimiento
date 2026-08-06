@@ -20,6 +20,8 @@ import { CreateEquipoForm } from "@/components/admin/CreateEquipoForm";
 import { EquipoTable } from "@/components/city/EquipoTable";
 import { getCityEquipmentLogFeed } from "@/lib/city-equipment-log-feed";
 import { CityEquipmentLogFeed } from "@/components/city/CityEquipmentLogFeed";
+import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
+import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
 
 export default async function SectionPage({
   params,
@@ -69,6 +71,7 @@ export default async function SectionPage({
     : [];
 
   const cityMaintenanceLogs = isBitacoraFeed ? await getCityUnitLogFeed(city.id) : [];
+  const pieceMaintenanceStats = isBitacoraFeed ? await getPieceMaintenanceStats(city.id) : [];
   const cityEquipmentLogs = isBitacoraEquiposFeed ? await getCityEquipmentLogFeed(city.id) : [];
 
   // Los equipos dados de baja (reemplazados con un mantenimiento tipo
@@ -164,7 +167,10 @@ export default async function SectionPage({
           ))}
         </div>
       ) : isBitacoraFeed ? (
-        <CityMaintenanceFeed logs={cityMaintenanceLogs} citySlug={city.slug} />
+        <div className="space-y-6">
+          <PieceMaintenanceChart stats={pieceMaintenanceStats} />
+          <CityMaintenanceFeed logs={cityMaintenanceLogs} citySlug={city.slug} />
+        </div>
       ) : isBitacoraEquiposFeed ? (
         <CityEquipmentLogFeed logs={cityEquipmentLogs} citySlug={city.slug} />
       ) : isEquiposSection ? (

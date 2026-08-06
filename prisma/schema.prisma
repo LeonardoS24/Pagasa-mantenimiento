@@ -255,7 +255,13 @@ model MaintenanceLog {
 
   tipoMantenimiento String
   tipoServicio      String
+  // Categoría y pieza vienen del catálogo fijo en lib/piece-catalog.ts
+  // (categoría "Otro" = pieza escrita a mano en el mismo campo "pieza").
+  // accionPieza alimenta el gráfico de piezas con más mantenimiento por
+  // tipo de acción (ver components/city/PieceMaintenanceChart.tsx).
+  categoriaPieza    String?
   pieza             String?
+  accionPieza       String?
   cantidad          String?
   unidad            String?
   descripcion       String?
