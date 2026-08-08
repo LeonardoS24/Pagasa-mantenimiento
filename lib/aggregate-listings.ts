@@ -7,6 +7,7 @@ export interface AggregateVehicleRow {
   sucursal: string;
   anio: string;
   placas: string;
+  serie: string | null;
   activo: boolean;
   citySlug: string;
   cityName: string;
@@ -27,6 +28,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       anio: true,
       placas: true,
       activo: true,
+      technicalSheet: { select: { serie: true } },
       section: { select: { city: { select: { slug: true, name: true, order: true } } } },
     },
   });
@@ -38,6 +40,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       sucursal: r.sucursal,
       anio: r.anio,
       placas: r.placas,
+      serie: r.technicalSheet?.serie ?? null,
       activo: r.activo,
       citySlug: r.section.city.slug,
       cityName: r.section.city.name,
@@ -54,8 +57,10 @@ export interface AggregateEquipoRow {
   id: string;
   codigo: string | null;
   nombre: string;
+  numeroSerie: string | null;
   tipoEquipo: string;
   activo: boolean;
+  criticidad: string | null;
   citySlug: string;
   cityName: string;
 }
@@ -69,8 +74,10 @@ export async function getAggregateEquipos(): Promise<AggregateEquipoRow[]> {
       id: true,
       codigo: true,
       nombre: true,
+      numeroSerie: true,
       tipoEquipo: true,
       activo: true,
+      criticidad: true,
       section: { select: { city: { select: { slug: true, name: true, order: true } } } },
     },
   });
@@ -80,8 +87,10 @@ export async function getAggregateEquipos(): Promise<AggregateEquipoRow[]> {
       id: e.id,
       codigo: e.codigo,
       nombre: e.nombre,
+      numeroSerie: e.numeroSerie,
       tipoEquipo: e.tipoEquipo,
       activo: e.activo,
+      criticidad: e.criticidad,
       citySlug: e.section.city.slug,
       cityName: e.section.city.name,
       cityOrder: e.section.city.order,
@@ -91,4 +100,14 @@ export async function getAggregateEquipos(): Promise<AggregateEquipoRow[]> {
       if (a.cityOrder !== b.cityOrder) return a.cityOrder - b.cityOrder;
       return a.nombre.localeCompare(b.nombre);
     });
+}
+
+// Equipos activos de criticidad ALTA de todas las ciudades reales, sin
+// importar si ya tienen mantenimiento registrado (a diferencia de
+// CityEquipmentLogFeed, que solo muestra equipos con bitácora): para que
+// Administración no pierda de vista un equipo crítico que todavía no se ha
+// tocado.
+export async function getHighCriticidadEquipos(): Promise<AggregateEquipoRow[]> {
+  const equipos = await getAggregateEquipos();
+  return equipos.filter((e) => e.activo && e.criticidad === "ALTA");
 }

@@ -24,6 +24,7 @@ export function AggregateVehicleTable({ records }: { records: AggregateVehicleRo
             <th className="whitespace-nowrap px-4 py-2">Sucursal</th>
             <th className="whitespace-nowrap px-4 py-2">Año</th>
             <th className="whitespace-nowrap px-4 py-2">Placas</th>
+            <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
           </tr>
         </thead>
         <tbody>
@@ -59,6 +60,7 @@ export function AggregateVehicleTable({ records }: { records: AggregateVehicleRo
               <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
               <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
               <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+              <td className="whitespace-nowrap px-4 py-2 text-ink">{record.serie || "—"}</td>
             </tr>
           ))}
         </tbody>

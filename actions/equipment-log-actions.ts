@@ -4,11 +4,14 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, requireUser, checkSessionUserExists } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
-import { equipmentLogTipoSchema } from "@/lib/equipo-enums";
+import { equipmentLogTipoSchema, criticidadEquipoSchema } from "@/lib/equipo-enums";
 import { saveDocumentFile, equipmentLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
+import { assertCanViewCity } from "./record-drilldown-actions";
+import { getEquipmentLogsForType, type EquipmentMaintenanceTypeLogEntry } from "@/lib/equipment-maintenance-type-stats";
+import type { MonthRange } from "@/lib/piece-maintenance-stats";
 import type { ActionState } from "./user-actions";
 
 const requiredText = (label: string, max: number) =>
@@ -31,7 +34,32 @@ const createLogSchema = z.object({
   responsable: optionalText(150),
   fecha: requiredDate,
   observacion: optionalText(1000),
+  criticidad: criticidadEquipoSchema,
 });
+
+// El registro con la fecha más cercana a hoy manda (igual que
+// recalcularFichaTecnicaMantenimiento en actions/maintenance-actions.ts):
+// así una edición o un borrado de un registro viejo no deja a Equipo.criticidad
+// pegada a lo último que se guardó si ya no es lo más vigente.
+function masCercanoAHoyPorFecha<T extends { fecha: Date }>(logs: T[]): T | null {
+  if (logs.length === 0) return null;
+  const hoy = Date.now();
+  return logs.reduce((mejor, actual) =>
+    Math.abs(hoy - actual.fecha.getTime()) < Math.abs(hoy - mejor.fecha.getTime()) ? actual : mejor
+  );
+}
+
+async function recalcularCriticidadEquipo(equipoId: string): Promise<void> {
+  const logs = await prisma.equipmentLog.findMany({
+    where: { equipoId, criticidad: { not: null } },
+    select: { fecha: true, criticidad: true },
+  });
+  const masReciente = masCercanoAHoyPorFecha(logs);
+  await prisma.equipo.update({
+    where: { id: equipoId },
+    data: { criticidad: masReciente?.criticidad ?? null },
+  });
+}
 
 async function revalidateEquipoAndCityFeed(equipoId: string) {
   const equipo = await prisma.equipo.findUnique({
@@ -72,6 +100,7 @@ export async function createEquipmentLog(
     responsable: formData.get("responsable"),
     fecha: formData.get("fecha"),
     observacion: formData.get("observacion"),
+    criticidad: formData.get("criticidad"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -91,6 +120,7 @@ export async function createEquipmentLog(
   const log = await prisma.equipmentLog.create({
     data: { equipoId, createdById: editor.userId, ...parsed.data },
   });
+  await recalcularCriticidadEquipo(equipoId);
 
   for (const file of files) {
     const { storedName } = await saveDocumentFile(equipmentLogOwnerKey(log.id), file);
@@ -146,6 +176,7 @@ const updateLogSchema = z.object({
   responsable: optionalText(150),
   fecha: requiredDate,
   observacion: optionalText(1000),
+  criticidad: criticidadEquipoSchema,
 });
 
 // Solo ADMIN puede corregir un registro de bitácora ya guardado (fecha,
@@ -165,6 +196,7 @@ export async function updateEquipmentLog(
     responsable: formData.get("responsable"),
     fecha: formData.get("fecha"),
     observacion: formData.get("observacion"),
+    criticidad: formData.get("criticidad"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -176,6 +208,7 @@ export async function updateEquipmentLog(
   }
 
   await prisma.equipmentLog.update({ where: { id: logId }, data: parsed.data });
+  await recalcularCriticidadEquipo(log.equipoId);
   await revalidateEquipoAndCityFeed(log.equipoId);
   return { success: "Registro actualizado." };
 }
@@ -188,5 +221,19 @@ export async function deleteEquipmentLog(logId: string) {
 
   await deleteLogDocumentFiles("equipmentLogId", logId);
   await prisma.equipmentLog.delete({ where: { id: logId } });
+  await recalcularCriticidadEquipo(log.equipoId);
   await revalidateEquipoAndCityFeed(log.equipoId);
+}
+
+// Desglose al hacer clic en una rebanada de EquipmentMaintenanceTypePieChart
+// (ver lib/equipment-maintenance-type-stats.ts), mismo control de acceso que
+// fetchRecordEntriesForType.
+export async function fetchEquipmentLogsForType(
+  cityId: string | null,
+  tipoMantenimiento: string,
+  range: MonthRange
+): Promise<EquipmentMaintenanceTypeLogEntry[]> {
+  const user = await requireUser();
+  await assertCanViewCity(user, cityId);
+  return getEquipmentLogsForType(cityId, tipoMantenimiento, range);
 }

@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import type { RecordTypeStats } from "@/lib/record-count-stats";
 import { fetchRecordEntriesForType } from "@/actions/record-drilldown-actions";
-import type { UnitLogEvent } from "@/lib/city-unit-log-feed";
+import { unitLogEventHref, type UnitLogEvent } from "@/lib/city-unit-log-feed";
 import type { MonthRange } from "@/lib/piece-maintenance-stats";
 import { formatDate } from "@/lib/dates";
 
@@ -15,14 +15,6 @@ const LABEL_WIDTH = 200;
 // Ver el mismo comentario en RecordCountByCityChart.tsx: sin este margen, el
 // número de la barra con el total más alto queda fuera del viewBox.
 const VALUE_WIDTH = 30;
-
-function eventHref(event: UnitLogEvent): string {
-  const base = `/ciudades/${event.citySlug}/vehiculo/${event.vehicleRecordId}`;
-  if (event.id.startsWith("mantenimiento-")) {
-    return `${base}?mantenimiento=${event.id.slice("mantenimiento-".length)}`;
-  }
-  return base;
-}
 
 // Desglose al hacer clic en una barra del ranking general: todas las
 // ciudades combinadas (cityId null), a diferencia de RecordCountByCityChart
@@ -67,7 +59,7 @@ function TypeBreakdown({
         <ul className="divide-y divide-gray-200">
           {entries.map((event) => (
             <li key={event.id} className="py-1.5 text-sm">
-              <Link href={eventHref(event)} className="text-primary hover:underline">
+              <Link href={unitLogEventHref(event)} className="text-primary hover:underline">
                 {formatDate(event.fecha)} · {event.numeroEconomico} ({event.cityName})
               </Link>
               <span className="text-gray-500"> — {event.detalle}</span>

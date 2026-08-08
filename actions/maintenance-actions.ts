@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
-import { maintenanceStatusSchema, maintenanceTypeSchema } from "@/lib/vehicle-enums";
+import { maintenanceStatusSchema, maintenanceTypeSchema, calidadMantenimientoSchema } from "@/lib/vehicle-enums";
 import { accionPiezaSchema } from "@/lib/piece-catalog";
 import {
   parseChecklistPreventivo,
@@ -42,6 +42,7 @@ const requiredInt = (label: string) =>
 const createLogSchema = z.object({
   tipoMantenimiento: maintenanceTypeSchema,
   tipoServicio: requiredText("El tipo de servicio", 100),
+  calidad: calidadMantenimientoSchema,
   categoriaPieza: optionalText(100),
   pieza: optionalText(100),
   accionPieza: z.preprocess((value) => {
@@ -113,13 +114,18 @@ function masCercanoAHoyConKilometraje<T extends { fecha: Date; kilometraje: numb
 async function recalcularFichaTecnicaMantenimiento(vehicleId: string): Promise<void> {
   const logs = await prisma.maintenanceLog.findMany({
     where: { vehicleRecordId: vehicleId },
-    select: { fecha: true, kilometraje: true, tipoMantenimiento: true },
+    select: { fecha: true, kilometraje: true, tipoMantenimiento: true, calidad: true },
   });
   const logsPreventivo = logs.filter((log) => log.tipoMantenimiento === "Preventivo");
 
   const masRecienteGeneral = masCercanoAHoyConKilometraje(logs);
   const masRecientePreventivoPorFecha = masCercanoAHoyPorFecha(logsPreventivo);
   const masRecientePreventivoConKm = masCercanoAHoyConKilometraje(logsPreventivo);
+  // La calidad general de la unidad se toma del mantenimiento (de cualquier
+  // tipo) con la fecha más cercana a hoy, igual criterio que el kilometraje
+  // actual — no solo de los Preventivo.
+  const logsConCalidad = logs.filter((log): log is typeof log & { calidad: string } => log.calidad !== null);
+  const masRecienteConCalidad = masCercanoAHoyPorFecha(logsConCalidad);
 
   const sheetFields = {
     kilometrajeUltimoMantenimiento: masRecienteGeneral?.kilometraje ?? null,
@@ -135,6 +141,11 @@ async function recalcularFichaTecnicaMantenimiento(vehicleId: string): Promise<v
     where: { vehicleRecordId: vehicleId },
     update: sheetFields,
     create: { vehicleRecordId: vehicleId, ...sheetFields },
+  });
+
+  await prisma.vehicleRecord.update({
+    where: { id: vehicleId },
+    data: { calidad: masRecienteConCalidad?.calidad ?? null },
   });
 }
 
@@ -173,6 +184,7 @@ export async function createMaintenanceLog(
   const parsed = createLogSchema.safeParse({
     tipoMantenimiento: formData.get("tipoMantenimiento"),
     tipoServicio: formData.get("tipoServicio"),
+    calidad: formData.get("calidad"),
     categoriaPieza: formData.get("categoriaPieza"),
     pieza: formData.get("pieza"),
     accionPieza: formData.get("accionPieza"),
@@ -344,6 +356,7 @@ export async function updateMaintenanceLog(
 const updateLogFullSchema = z.object({
   tipoMantenimiento: maintenanceTypeSchema,
   tipoServicio: requiredText("El tipo de servicio", 100),
+  calidad: calidadMantenimientoSchema,
   categoriaPieza: optionalText(100),
   pieza: optionalText(100),
   accionPieza: z.preprocess((value) => {
@@ -383,6 +396,7 @@ export async function updateMaintenanceLogFull(
   const parsed = updateLogFullSchema.safeParse({
     tipoMantenimiento: formData.get("tipoMantenimiento"),
     tipoServicio: formData.get("tipoServicio"),
+    calidad: formData.get("calidad"),
     categoriaPieza: formData.get("categoriaPieza"),
     pieza: formData.get("pieza"),
     accionPieza: formData.get("accionPieza"),

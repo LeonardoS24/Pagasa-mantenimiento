@@ -40,6 +40,7 @@ import {
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
+import { calidadMantenimientoLabels, calidadMantenimientoStyles, type CalidadMantenimiento } from "@/lib/vehicle-enums";
 
 function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
   if (levels.includes("red")) return ultrasoundAlertRowStyles.red;
@@ -82,6 +83,8 @@ export function VehicleTable({
             <th className="whitespace-nowrap px-4 py-2">Sucursal</th>
             <th className="whitespace-nowrap px-4 py-2">Año</th>
             <th className="whitespace-nowrap px-4 py-2">Placas</th>
+            <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
+            <th className="whitespace-nowrap px-4 py-2">Calidad</th>
           </tr>
         </thead>
         <tbody>
@@ -134,7 +137,7 @@ export function VehicleTable({
               <Fragment key={record.id}>
                 {isFirstInactive && (
                   <tr aria-hidden="true">
-                    <td colSpan={4} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
+                    <td colSpan={6} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
                       <span className="text-xs font-semibold uppercase text-gray-500">
                         Dadas de baja
                       </span>
@@ -270,6 +273,16 @@ export function VehicleTable({
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-ink">{record.technicalSheet?.serie || "—"}</td>
+                <td className="whitespace-nowrap px-4 py-2">
+                  {record.calidad && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${calidadMantenimientoStyles[record.calidad as CalidadMantenimiento]}`}
+                    >
+                      {calidadMantenimientoLabels[record.calidad as CalidadMantenimiento]}
+                    </span>
+                  )}
+                </td>
                 </tr>
               </Fragment>
             );

@@ -10,6 +10,8 @@ import {
   maintenanceStatusLabels,
   maintenanceTypeOptions,
   maintenanceStatusStyles,
+  calidadMantenimientoOptions,
+  calidadMantenimientoLabels,
   type MaintenanceStatus,
 } from "@/lib/vehicle-enums";
 import { accionPiezaOptions } from "@/lib/piece-catalog";
@@ -189,6 +191,27 @@ function EditMaintenanceLogFullForm({ log }: { log: MaintenanceLog }) {
             defaultValue={log.kilometraje ?? ""}
             className={inputClass}
           />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`calidad-${log.id}`}>
+            Calidad general de la unidad
+          </label>
+          <select
+            id={`calidad-${log.id}`}
+            name="calidad"
+            required
+            defaultValue={log.calidad ?? ""}
+            className={inputClass}
+          >
+            <option value="" disabled>
+              Selecciona...
+            </option>
+            {calidadMantenimientoOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {calidadMantenimientoLabels[opt]}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`categoriaPieza-${log.id}`}>
@@ -377,6 +400,10 @@ export function MaintenanceLogRow({
             <Field
               label="Kilometraje"
               value={log.kilometraje != null ? `${log.kilometraje.toLocaleString("es-MX")} km` : null}
+            />
+            <Field
+              label="Calidad general reportada"
+              value={log.calidad ? calidadMantenimientoLabels[log.calidad as keyof typeof calidadMantenimientoLabels] : null}
             />
             <Field label="Categoría de la pieza" value={log.categoriaPieza} />
             <Field label="Pieza" value={log.pieza} />

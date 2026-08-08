@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { createEquipmentLog } from "@/actions/equipment-log-actions";
-import { equipmentLogTipoOptions } from "@/lib/equipo-enums";
+import { equipmentLogTipoOptions, criticidadEquipoSchema, criticidadEquipoLabels } from "@/lib/equipo-enums";
 import type { ActionState } from "@/actions/user-actions";
 import { FormMessage } from "./FormMessage";
 
@@ -76,6 +76,21 @@ export function CreateEquipmentLogForm({ equipoId }: { equipoId: string }) {
               Responsable
             </label>
             <input id="eq-responsable" name="responsable" className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="eq-criticidad">
+              Criticidad del equipo
+            </label>
+            <select id="eq-criticidad" name="criticidad" required defaultValue="" className={inputClass}>
+              <option value="" disabled>
+                Selecciona...
+              </option>
+              {criticidadEquipoSchema.options.map((opt) => (
+                <option key={opt} value={opt}>
+                  {criticidadEquipoLabels[opt]}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

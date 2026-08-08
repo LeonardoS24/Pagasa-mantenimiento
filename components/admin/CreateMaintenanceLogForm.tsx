@@ -5,7 +5,13 @@ import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { createMaintenanceLog } from "@/actions/maintenance-actions";
 import type { ActionState } from "@/actions/user-actions";
-import { maintenanceStatusLabels, maintenanceTypeOptions, type MaintenanceType } from "@/lib/vehicle-enums";
+import {
+  maintenanceStatusLabels,
+  maintenanceTypeOptions,
+  calidadMantenimientoOptions,
+  calidadMantenimientoLabels,
+  type MaintenanceType,
+} from "@/lib/vehicle-enums";
 import { PIECE_CATALOG, PIECE_CATEGORIES, PIECE_CATEGORY_OTRO, accionPiezaOptions } from "@/lib/piece-catalog";
 import { unidadAbreviatura } from "@/lib/inventory-enums";
 import {
@@ -187,6 +193,21 @@ export function CreateMaintenanceLogForm({
               required
               className={inputClass}
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-calidad">
+              Calidad general de la unidad
+            </label>
+            <select id="mnt-calidad" name="calidad" required defaultValue="" className={inputClass}>
+              <option value="" disabled>
+                Selecciona...
+              </option>
+              {calidadMantenimientoOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {calidadMantenimientoLabels[opt]}
+                </option>
+              ))}
+            </select>
           </div>
           {!isPreventivo && availableInventory.length > 0 && (
             <div className="sm:col-span-2 lg:col-span-3">

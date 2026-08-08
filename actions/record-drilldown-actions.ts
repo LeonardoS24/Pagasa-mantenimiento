@@ -12,7 +12,7 @@ import type { SessionData } from "@/lib/session";
 // acción se pide desde el cliente (al hacer clic en una barra de
 // RecordCountByCityChart o RecordTypeComparisonSection), así que hay que
 // revalidar el acceso aquí, no confiar en lo que el cliente diga que ve.
-async function assertCanViewCity(user: SessionData, cityId: string | null) {
+export async function assertCanViewCity(user: SessionData, cityId: string | null) {
   if (user.role === "ADMIN") return;
 
   const targetCityId =

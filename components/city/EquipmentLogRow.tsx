@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import type { EquipmentLog, Document } from "@prisma/client";
 import { deleteEquipmentLog, updateEquipmentLog } from "@/actions/equipment-log-actions";
 import type { ActionState } from "@/actions/user-actions";
-import { equipmentLogTipoOptions } from "@/lib/equipo-enums";
+import { equipmentLogTipoOptions, criticidadEquipoSchema, criticidadEquipoLabels } from "@/lib/equipo-enums";
 import { formatDate, toDateInputValue } from "@/lib/dates";
 import { DocumentList } from "./DocumentList";
 import { UploadEquipmentLogDocumentForm } from "@/components/admin/UploadEquipmentLogDocumentForm";
@@ -73,6 +74,27 @@ function EditEquipmentLogForm({ log }: { log: EquipmentLog }) {
             className={inputClass}
           />
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`criticidad-${log.id}`}>
+            Criticidad del equipo
+          </label>
+          <select
+            id={`criticidad-${log.id}`}
+            name="criticidad"
+            required
+            defaultValue={log.criticidad ?? ""}
+            className={inputClass}
+          >
+            <option value="" disabled>
+              Selecciona...
+            </option>
+            {criticidadEquipoSchema.options.map((opt) => (
+              <option key={opt} value={opt}>
+                {criticidadEquipoLabels[opt]}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`descripcion-${log.id}`}>
@@ -120,10 +142,25 @@ export function EquipmentLogRow({
   canEdit: boolean;
   isAdmin: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  // Desglose de CityEquipmentLogFeed (ver components/city/CityEquipmentLogFeed.tsx):
+  // sus links a este equipo llevan ?equipoLog=<id> para llegar directo a este
+  // registro ya expandido y resaltado, igual que ?mantenimiento= en
+  // MaintenanceLogRow.
+  const searchParams = useSearchParams();
+  const isTarget = searchParams.get("equipoLog") === log.id;
+  const [expanded, setExpanded] = useState(isTarget);
+  const rowRef = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    if (isTarget) rowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <li className="px-4 py-3">
+    <li
+      ref={rowRef}
+      className={`px-4 py-3 ${isTarget ? "bg-accent/5 ring-1 ring-inset ring-accent/40" : ""}`}
+    >
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
@@ -144,6 +181,12 @@ export function EquipmentLogRow({
               <dt className="text-xs font-semibold uppercase text-gray-500">Responsable</dt>
               <dd>{log.responsable || "—"}</dd>
             </div>
+            {log.criticidad && (
+              <div>
+                <dt className="text-xs font-semibold uppercase text-gray-500">Criticidad reportada</dt>
+                <dd>{criticidadEquipoLabels[log.criticidad as keyof typeof criticidadEquipoLabels]}</dd>
+              </div>
+            )}
             {log.observacion && (
               <div className="sm:col-span-2 lg:col-span-3">
                 <dt className="text-xs font-semibold uppercase text-gray-500">Observación</dt>

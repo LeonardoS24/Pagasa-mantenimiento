@@ -1,19 +1,26 @@
 import { z } from "zod";
 
-export const pieceOrderStatusSchema = z.enum(["PENDIENTE", "ACEPTADA", "RECHAZADA"]);
+export const pieceOrderStatusSchema = z.enum(["PENDIENTE", "ACEPTADA", "RECHAZADA", "EN_INVENTARIO"]);
 export type PieceOrderStatus = z.infer<typeof pieceOrderStatusSchema>;
 
 export const pieceOrderStatusLabels: Record<PieceOrderStatus, string> = {
   PENDIENTE: "Pendiente",
   ACEPTADA: "Aceptada",
   RECHAZADA: "Rechazada",
+  EN_INVENTARIO: "En inventario",
 };
 
 export const pieceOrderStatusStyles: Record<PieceOrderStatus, string> = {
   PENDIENTE: "bg-gray-100 text-gray-700",
   ACEPTADA: "bg-green-100 text-green-700",
   RECHAZADA: "bg-red-100 text-red-700",
+  EN_INVENTARIO: "bg-blue-100 text-blue-700",
 };
+
+// Si una orden se queda ACEPTADA (ver PieceOrder.fechaAceptada) sin que
+// alguien la pase a mano a EN_INVENTARIO, se hace sola al cumplirse este
+// plazo (ver sweepExpiredAcceptedOrders en actions/piece-order-actions.ts).
+export const PIECE_ORDER_ACEPTADA_DAYS = 14;
 
 export const inventoryItemStatusSchema = z.enum(["EN_INVENTARIO", "POR_UTILIZAR", "UTILIZADA"]);
 export type InventoryItemStatus = z.infer<typeof inventoryItemStatusSchema>;

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, requireUser, checkSessionUserExists } from "@/lib/auth";
 import { sectionBasePath } from "@/lib/section-path";
 import {
   pieceOrderStatusSchema,
@@ -11,7 +11,11 @@ import {
   consumibleUnidadSchema,
   unidadParaTipo,
   esContable,
+  PIECE_ORDER_ACEPTADA_DAYS,
 } from "@/lib/inventory-enums";
+import { assertCanViewCity } from "./record-drilldown-actions";
+import { getPieceOrdersForCity, type PieceOrderEntry } from "@/lib/piece-order-stats";
+import type { MonthRange } from "@/lib/piece-maintenance-stats";
 import type { ActionState } from "./user-actions";
 
 const createPieceOrderSchema = z.object({
@@ -152,6 +156,7 @@ export async function createPieceOrder(
       cantidad: parsed.data.cantidad,
       fechaOrden: parsed.data.fechaOrden,
       estado: parsed.data.estado,
+      fechaAceptada: parsed.data.estado === "ACEPTADA" ? new Date() : null,
       vehicleRecordId,
     },
   });
@@ -194,7 +199,16 @@ export async function updatePieceOrderEstado(
     return { error: "El registro no existe." };
   }
 
-  await prisma.pieceOrder.update({ where: { id: orderId }, data: { estado: parsed.data } });
+  await prisma.pieceOrder.update({
+    where: { id: orderId },
+    data: {
+      estado: parsed.data,
+      // Cada vez que (re)pasa a ACEPTADA se reinicia el plazo de 2 semanas;
+      // al pasar a cualquier otro estado a mano ya no aplica, así que se
+      // limpia (evita que el barrido la mueva sola más adelante).
+      fechaAceptada: parsed.data === "ACEPTADA" ? new Date() : null,
+    },
+  });
 
   if (parsed.data === "ACEPTADA") {
     await createInventoryItemsForAcceptedOrder({
@@ -214,6 +228,18 @@ export async function updatePieceOrderEstado(
   return { success: "Estatus actualizado." };
 }
 
+// Si una orden lleva ACEPTADA más de 2 semanas sin que alguien la haya
+// pasado a mano a EN_INVENTARIO, se hace sola (mismo patrón que
+// sweepExpiredPorUtilizar en actions/inventory-actions.ts). No toca los
+// InventoryItem ya generados al aceptarse: eso pasó aparte, en su momento.
+export async function sweepExpiredAcceptedOrders(sectionId: string): Promise<void> {
+  const threshold = new Date(Date.now() - PIECE_ORDER_ACEPTADA_DAYS * 24 * 60 * 60 * 1000);
+  await prisma.pieceOrder.updateMany({
+    where: { sectionId, estado: "ACEPTADA", fechaAceptada: { lte: threshold } },
+    data: { estado: "EN_INVENTARIO" },
+  });
+}
+
 export async function deletePieceOrder(orderId: string) {
   await requireElevatedEditor();
 
@@ -225,4 +251,12 @@ export async function deletePieceOrder(orderId: string) {
 
   await prisma.pieceOrder.delete({ where: { id: orderId } });
   revalidatePath(sectionBasePath(order.section.city.slug, [order.section]));
+}
+
+// Desglose al hacer clic en una barra de PieceOrderStatsChart (ver
+// lib/piece-order-stats.ts), mismo control de acceso que fetchRecordEntriesForType.
+export async function fetchPieceOrdersForCity(cityId: string, range: MonthRange): Promise<PieceOrderEntry[]> {
+  const user = await requireUser();
+  await assertCanViewCity(user, cityId);
+  return getPieceOrdersForCity(cityId, range);
 }

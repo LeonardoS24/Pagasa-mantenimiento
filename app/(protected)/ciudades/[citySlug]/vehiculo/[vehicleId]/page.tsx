@@ -5,6 +5,7 @@ import { assertCityAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { canEdit } from "@/lib/roles";
+import { calidadMantenimientoLabels, calidadMantenimientoStyles, type CalidadMantenimiento } from "@/lib/vehicle-enums";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/layout/Breadcrumb";
 import { DocumentList } from "@/components/city/DocumentList";
 import { UploadVehicleDocumentForm } from "@/components/admin/UploadVehicleDocumentForm";
@@ -270,6 +271,13 @@ export default async function VehicleDetailPage({
             Dado de baja{vehicle.fechaBaja ? ` · ${formatDate(vehicle.fechaBaja)}` : ""}
           </span>
         )}
+        {vehicle.calidad && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${calidadMantenimientoStyles[vehicle.calidad as CalidadMantenimiento]}`}
+          >
+            Calidad: {calidadMantenimientoLabels[vehicle.calidad as CalidadMantenimiento]}
+          </span>
+        )}
         {alertLevel !== "none" && vehicle.technicalSheet?.fechaProximoUltrasonido && (
           <span
             className={`rounded-full px-3 py-1 text-xs font-medium ${ultrasoundAlertBadgeStyles[alertLevel]}`}
@@ -463,7 +471,7 @@ export default async function VehicleDetailPage({
         </div>
       </div>
 
-      <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.extintor}`}>
+      <div id="extintor" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.extintor}`}>
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Cambio de extintor
         </h2>
@@ -478,7 +486,7 @@ export default async function VehicleDetailPage({
       </div>
 
       {isTanqueCarburacion && (
-        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.mangueras}`}>
+        <div id="mangueras" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.mangueras}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Cambio de mangueras
           </h2>
@@ -518,7 +526,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualExterna}`}>
+        <div id="visual-externa" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualExterna}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Externa
           </h2>
@@ -541,7 +549,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hermeticidad}`}>
+        <div id="hermeticidad" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hermeticidad}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba de Hermeticidad
           </h2>
@@ -564,7 +572,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualInterna}`}>
+        <div id="visual-interna" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualInterna}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Interna
           </h2>
@@ -587,7 +595,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.ultrasonido}`}>
+        <div id="ultrasonido" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.ultrasonido}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Registro de ultrasonido
           </h2>
@@ -604,7 +612,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hidrostatica}`}>
+        <div id="hidrostatica" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hidrostatica}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba Hidrostática
           </h2>
@@ -637,7 +645,7 @@ export default async function VehicleDetailPage({
       </div>
 
       {isAdmin && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div id="baja" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             Estatus de la unidad
           </h2>

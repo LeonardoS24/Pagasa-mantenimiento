@@ -263,3 +263,39 @@ export async function getCityUnitLogFeed(
   // Con range: ya viene acotado por mes en cada consulta, se muestra todo.
   return range ? events : events.slice(0, 150);
 }
+
+// Prefijos usados arriba para armar UnitLogEvent.id (`${prefijo}-${log.id}`),
+// del más largo al más corto para que un prefijo que es substring de otro
+// (p.ej. "valvulas" dentro de "valvulas-correctivo") no se confunda al
+// buscarlo con startsWith.
+const EVENT_PREFIXES = [
+  "valvulas-correctivo",
+  "visual-externa",
+  "visual-interna",
+  "hidrostatica",
+  "hermeticidad",
+  "mantenimiento",
+  "ultrasonido",
+  "extintor",
+  "valvulas",
+  "mangueras",
+  "baja",
+] as const;
+
+// A dónde debe llevar el link de un evento del feed: los de tipo
+// "Mantenimiento" llegan directo a su registro ya expandido y resaltado (ver
+// ?mantenimiento= en components/city/MaintenanceLogRow.tsx); los otros 9
+// tipos no tienen ese mecanismo por registro individual, así que llegan al
+// ancla de su propia sección en la página de la unidad (ver los id= en
+// app/(protected)/ciudades/[citySlug]/vehiculo/[vehicleId]/page.tsx) en vez
+// de mandar siempre a la parte superior de la página.
+export function unitLogEventHref(event: UnitLogEvent): string {
+  const base = `/ciudades/${event.citySlug}/vehiculo/${event.vehicleRecordId}`;
+  const prefix = EVENT_PREFIXES.find((p) => event.id.startsWith(`${p}-`));
+  if (!prefix) return base;
+  if (prefix === "mantenimiento") {
+    const rawId = event.id.slice("mantenimiento-".length);
+    return `${base}?mantenimiento=${rawId}`;
+  }
+  return `${base}#${prefix}`;
+}

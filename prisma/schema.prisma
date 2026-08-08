@@ -121,6 +121,13 @@ model VehicleRecord {
   activo    Boolean   @default(true)
   fechaBaja DateTime?
 
+  // Calidad general de la unidad (ver lib/vehicle-enums.ts:
+  // calidadMantenimientoSchema): se recalcula sola con cada mantenimiento
+  // registrado (el del registro con la fecha más cercana a hoy, ver
+  // recalcularFichaTecnicaMantenimiento en actions/maintenance-actions.ts).
+  // No se edita a mano, a diferencia de Equipo.criticidad.
+  calidad String?
+
   documents                    Document[]
   technicalSheet               VehicleTechnicalSheet?
   maintenanceLogs              MaintenanceLog[]
@@ -275,6 +282,12 @@ model MaintenanceLog {
 
   tipoMantenimiento String
   tipoServicio      String
+  // Calidad general de la unidad reportada en este mantenimiento (ver
+  // lib/vehicle-enums.ts: calidadMantenimientoSchema). Obligatoria desde que
+  // se agregó (ver actions/maintenance-actions.ts); nula en registros
+  // capturados antes. Cada vez que se crea/edita/borra un mantenimiento se
+  // recalcula VehicleRecord.calidad a partir del más cercano a hoy.
+  calidad           String?
   // Categoría y pieza vienen del catálogo fijo en lib/piece-catalog.ts
   // (categoría "Otro" = pieza escrita a mano en el mismo campo "pieza").
   // accionPieza alimenta el gráfico de piezas con más mantenimiento por
@@ -622,8 +635,14 @@ model PieceOrder {
   cantidad   Int
   fechaOrden DateTime
 
-  // "PENDIENTE" | "ACEPTADA" | "RECHAZADA"
+  // "PENDIENTE" | "ACEPTADA" | "RECHAZADA" | "EN_INVENTARIO"
   estado String @default("PENDIENTE")
+
+  // Momento en que la orden pasó a ACEPTADA (se vuelve a fijar cada vez que
+  // pasa a ese estado). Ancla el plazo de 2 semanas tras el cual, si nadie la
+  // pasó a EN_INVENTARIO a mano, se hace sola (ver
+  // sweepExpiredAcceptedOrders en actions/piece-order-actions.ts).
+  fechaAceptada DateTime?
 
   // Unidad destino, cuando ya se sabe desde que se levanta la orden (no
   // siempre se sabe). Al aceptarse la orden, el/los renglón(es) de inventario
@@ -797,6 +816,12 @@ model EquipmentLog {
   responsable       String?
   fecha             DateTime
   observacion       String?
+  // Criticidad del equipo reportada en este mantenimiento (ver
+  // lib/equipo-enums.ts: criticidadEquipoSchema). Obligatoria desde que se
+  // agregó (ver actions/equipment-log-actions.ts); nula en registros
+  // capturados antes. Cada vez que se crea/edita/borra un registro se
+  // recalcula Equipo.criticidad a partir del más cercano a hoy.
+  criticidad        String?
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)

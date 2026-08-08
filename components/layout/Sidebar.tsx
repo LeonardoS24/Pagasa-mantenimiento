@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { City } from "@prisma/client";
 import { isAggregateCitySlug } from "@/lib/aggregate-city";
+import { getCityInfo } from "@/lib/city-info";
 
 function CityDot() {
   return <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-60" />;
@@ -57,14 +58,15 @@ export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean 
         </p>
         {realCities.map((city) => {
           const active = pathname.startsWith(`/ciudades/${city.slug}`);
+          const info = getCityInfo(city.slug);
           return (
             <Link
               key={city.id}
               href={`/ciudades/${city.slug}`}
-              className={`mx-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
+              className={`mx-2 flex items-center gap-2 rounded-r-md border-l-4 px-3 py-2 text-sm ${
                 active
-                  ? "bg-primary/10 font-medium text-primary"
-                  : "text-ink hover:bg-gray-50"
+                  ? `${info.sidebarActive} bg-primary/10 font-medium text-primary`
+                  : `border-l-transparent text-ink hover:bg-gray-50 ${info.sidebarHover}`
               }`}
             >
               <CityDot />

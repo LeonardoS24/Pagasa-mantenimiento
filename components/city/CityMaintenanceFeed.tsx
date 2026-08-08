@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { UnitLogEvent } from "@/lib/city-unit-log-feed";
+import { unitLogEventHref, type UnitLogEvent } from "@/lib/city-unit-log-feed";
 import { BADGE_STYLES } from "@/lib/section-colors";
 import { formatDate } from "@/lib/dates";
 
@@ -27,23 +27,23 @@ export function CityMaintenanceFeed({
   return (
     <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
       {logs.map((log) => (
-        <li key={log.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <div className="text-sm text-ink">
-            <span className="font-medium text-primary">{formatDate(log.fecha)}</span>
-            {" · "}
-            <Link
-              href={`/ciudades/${log.citySlug}/vehiculo/${log.vehicleRecordId}`}
-              className="font-medium text-primary hover:underline"
-            >
-              {log.numeroEconomico}
-            </Link>
-            {showCity && <span className="text-gray-500"> ({log.cityName})</span>}
-            {" — "}
-            {log.detalle}
-          </div>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${BADGE_STYLES[log.colorKey]}`}>
-            {log.tipo}
-          </span>
+        <li key={log.id} className="hover:bg-gray-50">
+          <Link
+            href={unitLogEventHref(log)}
+            className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+          >
+            <span className="text-sm text-ink">
+              <span className="font-medium text-primary">{formatDate(log.fecha)}</span>
+              {" · "}
+              <span className="font-medium text-primary hover:underline">{log.numeroEconomico}</span>
+              {showCity && <span className="text-gray-500"> ({log.cityName})</span>}
+              {" — "}
+              {log.detalle}
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${BADGE_STYLES[log.colorKey]}`}>
+              {log.tipo}
+            </span>
+          </Link>
         </li>
       ))}
     </ul>

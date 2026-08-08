@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import type { RecordCountCityStat, RecordTypeKey } from "@/lib/record-count-stats";
 import { fetchRecordEntriesForType } from "@/actions/record-drilldown-actions";
-import type { UnitLogEvent } from "@/lib/city-unit-log-feed";
+import { unitLogEventHref, type UnitLogEvent } from "@/lib/city-unit-log-feed";
 import type { MonthRange } from "@/lib/piece-maintenance-stats";
 import { formatDate } from "@/lib/dates";
 
@@ -16,18 +16,6 @@ const LABEL_WIDTH = 168;
 // esto, la barra con el valor más alto siempre llega justo al borde del
 // viewBox y su número queda recortado (fuera de 0..CHART_WIDTH), invisible.
 const VALUE_WIDTH = 30;
-
-// Si el evento es un mantenimiento, MaintenanceLogRow lo auto-expande y
-// resalta con ?mantenimiento=<id> (ver components/city/MaintenanceLogRow.tsx);
-// para los demás 9 tipos no existe ese mecanismo todavía, así que el link
-// solo lleva a la unidad.
-function eventHref(event: UnitLogEvent): string {
-  const base = `/ciudades/${event.citySlug}/vehiculo/${event.vehicleRecordId}`;
-  if (event.id.startsWith("mantenimiento-")) {
-    return `${base}?mantenimiento=${event.id.slice("mantenimiento-".length)}`;
-  }
-  return base;
-}
 
 function CityBreakdown({
   type,
@@ -69,7 +57,7 @@ function CityBreakdown({
         <ul className="divide-y divide-gray-200">
           {entries.map((event) => (
             <li key={event.id} className="py-1.5 text-sm">
-              <Link href={eventHref(event)} className="text-primary hover:underline">
+              <Link href={unitLogEventHref(event)} className="text-primary hover:underline">
                 {formatDate(event.fecha)} · {event.numeroEconomico}
               </Link>
               <span className="text-gray-500"> — {event.detalle}</span>

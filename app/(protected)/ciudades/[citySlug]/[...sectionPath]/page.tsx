@@ -27,13 +27,18 @@ import { isAggregateCitySlug } from "@/lib/aggregate-city";
 import { getAllRecordTypeStats } from "@/lib/record-count-stats";
 import { RecordCountByCityChart } from "@/components/city/RecordCountByCityChart";
 import { RecordTypeComparisonSection } from "@/components/city/RecordTypeComparisonSection";
-import { getAggregateVehicleRecords, getAggregateEquipos } from "@/lib/aggregate-listings";
+import { getAggregateVehicleRecords, getAggregateEquipos, getHighCriticidadEquipos } from "@/lib/aggregate-listings";
 import { AggregateVehicleTable } from "@/components/city/AggregateVehicleTable";
 import { AggregateEquipoTable } from "@/components/city/AggregateEquipoTable";
-import { getPieceOrderStatsByCity } from "@/lib/piece-order-stats";
+import { HighCriticidadEquiposPanel } from "@/components/city/HighCriticidadEquiposPanel";
+import { getPieceOrderStatsByCity, getPieceOrderStatusStatsByCity } from "@/lib/piece-order-stats";
 import { PieceOrderStatsChart } from "@/components/city/PieceOrderStatsChart";
+import { PieceOrderStatusChart } from "@/components/city/PieceOrderStatusChart";
+import { sweepExpiredAcceptedOrders } from "@/actions/piece-order-actions";
 import { getMaintenanceTypeStats } from "@/lib/maintenance-type-stats";
 import { MaintenanceTypePieChart } from "@/components/city/MaintenanceTypePieChart";
+import { getEquipmentMaintenanceTypeStats } from "@/lib/equipment-maintenance-type-stats";
+import { EquipmentMaintenanceTypePieChart } from "@/components/city/EquipmentMaintenanceTypePieChart";
 import {
   getMonthRange,
   getCurrentMonthRange,
@@ -113,12 +118,13 @@ export default async function SectionPage({
       })()
     : [];
 
-  // Selector de mes: solo en la Bitácora de unidades de Administración (ver
-  // lib/aggregate-city.ts). Las ciudades reales siguen mostrando "actividad
-  // reciente" sin acotar por mes, como siempre.
+  // Selector de mes: en la Bitácora de unidades y en Orden de pieza de
+  // Administración (ver lib/aggregate-city.ts). Las ciudades reales siguen
+  // mostrando "actividad reciente" sin acotar por mes, como siempre.
   const { year: selectedYear, month: selectedMonth } = parseMonthParam(searchParams.mes);
   const selectedMonthRange = getMonthRange(selectedYear, selectedMonth);
   const showMonthPicker = isBitacoraFeed && isAggregateCity;
+  const showOrderMonthPicker = isOrdenDePieza && isAggregateCity;
 
   const cityMaintenanceLogs = isBitacoraFeed
     ? await getCityUnitLogFeed(isAggregateCity ? null : city.id, showMonthPicker ? selectedMonthRange : undefined)
@@ -137,7 +143,16 @@ export default async function SectionPage({
   const maintenanceTypeStats = isBitacoraFeed
     ? await getMaintenanceTypeStats(isAggregateCity ? null : city.id, pieceMaintenanceRange)
     : [];
-  const cityEquipmentLogs = isBitacoraEquiposFeed ? await getCityEquipmentLogFeed(city.id) : [];
+  const cityEquipmentLogs = isBitacoraEquiposFeed
+    ? await getCityEquipmentLogFeed(isAggregateCity ? null : city.id)
+    : [];
+  const highCriticidadEquipos =
+    isBitacoraEquiposFeed && isAggregateCity ? await getHighCriticidadEquipos() : [];
+  // Mismo rango que pieceMaintenanceRange (mes en curso, sin selector de mes
+  // propio en Bitácora de equipos).
+  const equipmentMaintenanceTypeStats = isBitacoraEquiposFeed
+    ? await getEquipmentMaintenanceTypeStats(isAggregateCity ? null : city.id)
+    : [];
 
   // Mismo combinado que aggregateVehicleRecords, para equipos.
   const aggregateEquipos = isEquiposSection && isAggregateCity ? await getAggregateEquipos() : [];
@@ -158,17 +173,37 @@ export default async function SectionPage({
       })()
     : [];
 
-  const pieceOrders = isOrdenDePieza
-    ? await prisma.pieceOrder.findMany({
-        where: { sectionId: current.id },
-        orderBy: { fechaOrden: "desc" },
-        include: { vehicleRecord: { select: { id: true, numeroEconomico: true } } },
-      })
-    : [];
-  // Gráfica de Administración sobre las órdenes que se realizan, por ciudad
-  // (ver lib/piece-order-stats.ts); solo tiene sentido combinando ciudades.
+  // Administración no levanta órdenes propias (no tiene flota ni inventario
+  // propios): antes esta consulta corría sin importar la ciudad, así que un
+  // admin parado en la vista combinada podía levantar una orden pegada a la
+  // sección propia de Administración, invisible para siempre en la gráfica
+  // de abajo (que solo suma ciudades reales). Ahora la tabla y el alta solo
+  // aplican a una ciudad real (ver el JSX: CreatePieceOrderForm/PieceOrderTable
+  // también quedaron condicionados a !isAggregateCity).
+  if (isOrdenDePieza && !isAggregateCity) {
+    await sweepExpiredAcceptedOrders(current.id);
+  }
+  const pieceOrders =
+    isOrdenDePieza && !isAggregateCity
+      ? await prisma.pieceOrder.findMany({
+          where: { sectionId: current.id },
+          orderBy: { fechaOrden: "desc" },
+          include: { vehicleRecord: { select: { id: true, numeroEconomico: true } } },
+        })
+      : [];
+  // Rango seleccionado con el MonthPicker (o el mes en curso por defecto),
+  // mismo patrón que pieceMaintenanceRange arriba: antes esto siempre era el
+  // mes en curso y sin selector, así que una orden de un mes anterior
+  // desaparecía de la gráfica en cuanto cambiaba el mes sin forma de volver a
+  // verla — eso es lo que se reportó como "no toma todas las órdenes".
+  const pieceOrderRange = showOrderMonthPicker ? selectedMonthRange : getCurrentMonthRange();
+  const pieceOrderMonthLabel = showOrderMonthPicker ? monthLabel(selectedYear, selectedMonth) : currentMonthLabel();
+  // Gráficas de Administración sobre las órdenes que se realizan, por ciudad
+  // (ver lib/piece-order-stats.ts); solo tienen sentido combinando ciudades.
   const pieceOrderStats =
-    isOrdenDePieza && isAggregateCity ? await getPieceOrderStatsByCity() : [];
+    isOrdenDePieza && isAggregateCity ? await getPieceOrderStatsByCity(pieceOrderRange) : [];
+  const pieceOrderStatusStats =
+    isOrdenDePieza && isAggregateCity ? await getPieceOrderStatusStatsByCity(pieceOrderRange) : [];
 
   if (isInventarios) {
     await sweepExpiredPorUtilizar(current.id);
@@ -287,7 +322,17 @@ export default async function SectionPage({
           <CityMaintenanceFeed logs={cityMaintenanceLogs} showCity={isAggregateCity} />
         </div>
       ) : isBitacoraEquiposFeed ? (
-        <CityEquipmentLogFeed logs={cityEquipmentLogs} citySlug={city.slug} />
+        <div className="space-y-6">
+          {isAggregateCity && <HighCriticidadEquiposPanel equipos={highCriticidadEquipos} />}
+          <EquipmentMaintenanceTypePieChart
+            stats={equipmentMaintenanceTypeStats}
+            cityId={isAggregateCity ? null : city.id}
+            range={getCurrentMonthRange()}
+            monthLabel={currentMonthLabel()}
+            showCity={isAggregateCity}
+          />
+          <CityEquipmentLogFeed logs={cityEquipmentLogs} showCity={isAggregateCity} />
+        </div>
       ) : isEquiposSection ? (
         <div>
           {isAggregateCity ? (
@@ -300,12 +345,30 @@ export default async function SectionPage({
           )}
         </div>
       ) : isOrdenDePieza ? (
-        <div className="space-y-3">
-          {isAggregateCity && (
-            <PieceOrderStatsChart stats={pieceOrderStats} monthLabel={currentMonthLabel()} />
+        <div className="space-y-6">
+          {showOrderMonthPicker && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3">
+              <p className="text-sm text-ink">
+                Viendo <span className="font-medium">{monthLabel(selectedYear, selectedMonth)}</span>: las
+                gráficas de abajo son solo de ese mes.
+              </p>
+              <MonthPicker
+                months={listRecentMonths(12)}
+                selected={monthParamValue(selectedYear, selectedMonth)}
+              />
+            </div>
           )}
-          {isEditor && <CreatePieceOrderForm sectionId={current.id} vehicles={cityVehicles} />}
-          <PieceOrderTable orders={pieceOrders} canEdit={isEditor} isAdmin={isAdmin} citySlug={city.slug} />
+          {isAggregateCity ? (
+            <>
+              <PieceOrderStatsChart stats={pieceOrderStats} range={pieceOrderRange} monthLabel={pieceOrderMonthLabel} />
+              <PieceOrderStatusChart stats={pieceOrderStatusStats} range={pieceOrderRange} monthLabel={pieceOrderMonthLabel} />
+            </>
+          ) : (
+            <>
+              {isEditor && <CreatePieceOrderForm sectionId={current.id} vehicles={cityVehicles} />}
+              <PieceOrderTable orders={pieceOrders} canEdit={isEditor} isAdmin={isAdmin} citySlug={city.slug} />
+            </>
+          )}
         </div>
       ) : isInventarios ? (
         <InventoryItemTable

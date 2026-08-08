@@ -54,3 +54,27 @@ export const calidadExtintorLabels: Record<CalidadExtintor, string> = {
   BUENA: "Buena",
   MALA: "Mala",
 };
+
+// Calidad general de la unidad, capturada en cada mantenimiento (ver
+// MaintenanceLog.calidad) y usada para recalcular VehicleRecord.calidad
+// (el registro con la fecha más cercana a hoy, mismo patrón que el
+// kilometraje/fechas de la ficha técnica — ver actions/maintenance-actions.ts).
+// Distinta de calidadExtintor: esta califica la unidad completa, no solo el
+// extintor, y tiene un nivel intermedio (MEDIA) que ese enum no tiene.
+export const calidadMantenimientoSchema = z.enum(["EXCELENTE", "BUENA", "MEDIA", "MALA"]);
+export type CalidadMantenimiento = z.infer<typeof calidadMantenimientoSchema>;
+export const calidadMantenimientoOptions = calidadMantenimientoSchema.options;
+
+export const calidadMantenimientoLabels: Record<CalidadMantenimiento, string> = {
+  EXCELENTE: "Excelente",
+  BUENA: "Buena",
+  MEDIA: "Media",
+  MALA: "Mala",
+};
+
+export const calidadMantenimientoStyles: Record<CalidadMantenimiento, string> = {
+  EXCELENTE: "bg-green-100 text-green-700",
+  BUENA: "bg-emerald-100 text-emerald-700",
+  MEDIA: "bg-amber-100 text-amber-700",
+  MALA: "bg-red-100 text-red-700",
+};
