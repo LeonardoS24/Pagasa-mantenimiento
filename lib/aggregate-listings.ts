@@ -5,8 +5,10 @@ export interface AggregateVehicleRow {
   id: string;
   numeroEconomico: string;
   sucursal: string;
-  anio: string;
-  placas: string;
+  // Vacíos en "Estaciones de carburación" (no son vehículos, ver
+  // scripts/add-estaciones-de-carburacion.mjs y components/admin/VehicleForm.tsx).
+  anio: string | null;
+  placas: string | null;
   serie: string | null;
   activo: boolean;
   citySlug: string;

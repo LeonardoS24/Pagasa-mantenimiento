@@ -5,11 +5,23 @@ import type { AggregateVehicleRow } from "@/lib/aggregate-listings";
 // Administración (ver lib/aggregate-city.ts y lib/aggregate-listings.ts):
 // a diferencia de VehicleTable (una sola ciudad), cada fila dice de qué
 // ciudad es.
-export function AggregateVehicleTable({ records }: { records: AggregateVehicleRow[] }) {
+export function AggregateVehicleTable({
+  records,
+  sectionSlug,
+}: {
+  records: AggregateVehicleRow[];
+  sectionSlug: string;
+}) {
+  // "Estaciones de carburación" reutiliza numeroEconomico/sucursal como
+  // "Nombre"/"Dirección" (ver components/city/VehicleTable.tsx, mismo criterio).
+  const isEstacion = sectionSlug === "estaciones-de-carburacion";
+
   if (records.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-ink">
-        Todavía no hay unidades registradas en ninguna ciudad para este apartado.
+        {isEstacion
+          ? "Todavía no hay estaciones registradas en ninguna ciudad para este apartado."
+          : "Todavía no hay unidades registradas en ninguna ciudad para este apartado."}
       </p>
     );
   }
@@ -19,11 +31,15 @@ export function AggregateVehicleTable({ records }: { records: AggregateVehicleRo
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
           <tr>
-            <th className="whitespace-nowrap px-4 py-2">Número económico</th>
+            <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Nombre" : "Número económico"}</th>
             <th className="whitespace-nowrap px-4 py-2">Ciudad</th>
-            <th className="whitespace-nowrap px-4 py-2">Sucursal</th>
-            <th className="whitespace-nowrap px-4 py-2">Año</th>
-            <th className="whitespace-nowrap px-4 py-2">Placas</th>
+            <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Dirección" : "Sucursal"}</th>
+            {!isEstacion && (
+              <>
+                <th className="whitespace-nowrap px-4 py-2">Año</th>
+                <th className="whitespace-nowrap px-4 py-2">Placas</th>
+              </>
+            )}
             <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
           </tr>
         </thead>
@@ -58,8 +74,12 @@ export function AggregateVehicleTable({ records }: { records: AggregateVehicleRo
               </td>
               <td className="whitespace-nowrap px-4 py-2 text-ink">{record.cityName}</td>
               <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
-              <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
-              <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+              {!isEstacion && (
+                <>
+                  <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
+                  <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+                </>
+              )}
               <td className="whitespace-nowrap px-4 py-2 text-ink">{record.serie || "—"}</td>
             </tr>
           ))}

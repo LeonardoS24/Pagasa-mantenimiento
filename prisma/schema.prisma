@@ -108,10 +108,14 @@ model VehicleRecord {
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
+  // En "Estaciones de carburación" (dentro de Unidad de distribución, ver
+  // scripts/add-estaciones-de-carburacion.mjs) numeroEconomico/sucursal se
+  // reutilizan como "Nombre"/"Dirección" (ver components/admin/VehicleForm.tsx)
+  // y anio/placas se dejan vacíos: no aplican a una estación fija.
   numeroEconomico   String
   sucursal          String
-  anio              String
-  placas            String
+  anio              String?
+  placas            String?
   numeroAnterior    String?
   localidadAnterior String?
 

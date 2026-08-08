@@ -381,11 +381,11 @@ export default async function SectionPage({
       ) : isVehicleSection ? (
         <div>
           {isAggregateCity ? (
-            <AggregateVehicleTable records={aggregateVehicleRecords} />
+            <AggregateVehicleTable records={aggregateVehicleRecords} sectionSlug={current.slug} />
           ) : (
             <>
               <VehicleTable records={vehicleRecords} citySlug={city.slug} sectionSlug={current.slug} />
-              {isEditor && <CreateVehicleForm sectionId={current.id} />}
+              {isEditor && <CreateVehicleForm sectionId={current.id} sectionSlug={current.slug} />}
             </>
           )}
         </div>

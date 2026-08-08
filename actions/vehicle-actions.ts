@@ -13,11 +13,18 @@ import { deleteVehicleDocumentFiles } from "@/lib/document-cleanup";
 import { getVehicleDeleteImpact } from "@/lib/delete-impact";
 import type { ActionState } from "./user-actions";
 
+// "Estaciones de carburación" (ver scripts/add-estaciones-de-carburacion.mjs)
+// reutiliza numeroEconomico/sucursal como "Nombre"/"Dirección" y no pide
+// año/placas — no aplican a una estación fija. Para cualquier otra sección
+// (un vehículo de verdad) siguen siendo obligatorios, validado aparte más
+// abajo porque cuál aplica depende de a qué sección pertenece el registro.
+const ESTACION_SECTION_SLUG = "estaciones-de-carburacion";
+
 const vehicleSchema = z.object({
-  numeroEconomico: z.string().min(1, "El número económico es requerido").max(50),
-  sucursal: z.string().min(1, "La sucursal/marca es requerida").max(100),
-  anio: z.string().min(1, "El año es requerido").max(20),
-  placas: z.string().min(1, "Las placas son requeridas").max(50),
+  numeroEconomico: z.string().min(1, "El nombre/número económico es requerido").max(50),
+  sucursal: z.string().min(1, "La sucursal/dirección es requerida").max(100),
+  anio: z.string().max(20).optional(),
+  placas: z.string().max(50).optional(),
   numeroAnterior: z.string().max(50).optional(),
   localidadAnterior: z.string().max(100).optional(),
 });
@@ -58,6 +65,9 @@ export async function createVehicleRecord(
   });
   if (!section) {
     return { error: "El apartado no existe." };
+  }
+  if (section.slug !== ESTACION_SECTION_SLUG && (!parsed.data.anio || !parsed.data.placas)) {
+    return { error: "El año y las placas son requeridos." };
   }
 
   const maxOrder = await prisma.vehicleRecord.aggregate({
@@ -102,6 +112,9 @@ export async function updateVehicleRecord(
   });
   if (!vehicle) {
     return { error: "El registro no existe." };
+  }
+  if (vehicle.section.slug !== ESTACION_SECTION_SLUG && (!parsed.data.anio || !parsed.data.placas)) {
+    return { error: "El año y las placas son requeridos." };
   }
 
   await prisma.vehicleRecord.update({ where: { id: vehicleId }, data: parsed.data });

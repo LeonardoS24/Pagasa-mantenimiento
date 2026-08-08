@@ -66,10 +66,17 @@ export function VehicleTable({
   citySlug: string;
   sectionSlug: string;
 }) {
+  // "Estaciones de carburación" (ver scripts/add-estaciones-de-carburacion.mjs)
+  // no es un vehículo: reutiliza numeroEconomico/sucursal como
+  // "Nombre"/"Dirección" y no tiene año/placas (ver components/admin/VehicleForm.tsx).
+  const isEstacion = sectionSlug === "estaciones-de-carburacion";
+
   if (records.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-ink">
-        Todavía no hay números económicos registrados en este apartado.
+        {isEstacion
+          ? "Todavía no hay estaciones registradas en este apartado."
+          : "Todavía no hay números económicos registrados en este apartado."}
       </p>
     );
   }
@@ -79,10 +86,14 @@ export function VehicleTable({
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
           <tr>
-            <th className="whitespace-nowrap px-4 py-2">Número económico</th>
-            <th className="whitespace-nowrap px-4 py-2">Sucursal</th>
-            <th className="whitespace-nowrap px-4 py-2">Año</th>
-            <th className="whitespace-nowrap px-4 py-2">Placas</th>
+            <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Nombre" : "Número económico"}</th>
+            <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Dirección" : "Sucursal"}</th>
+            {!isEstacion && (
+              <>
+                <th className="whitespace-nowrap px-4 py-2">Año</th>
+                <th className="whitespace-nowrap px-4 py-2">Placas</th>
+              </>
+            )}
             <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
             <th className="whitespace-nowrap px-4 py-2">Calidad</th>
           </tr>
@@ -137,7 +148,7 @@ export function VehicleTable({
               <Fragment key={record.id}>
                 {isFirstInactive && (
                   <tr aria-hidden="true">
-                    <td colSpan={6} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
+                    <td colSpan={isEstacion ? 4 : 6} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
                       <span className="text-xs font-semibold uppercase text-gray-500">
                         Dadas de baja
                       </span>
@@ -271,8 +282,12 @@ export function VehicleTable({
                   )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
-                <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
-                <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+                {!isEstacion && (
+                  <>
+                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+                  </>
+                )}
                 <td className="whitespace-nowrap px-4 py-2 text-ink">{record.technicalSheet?.serie || "—"}</td>
                 <td className="whitespace-nowrap px-4 py-2">
                   {record.calidad && (

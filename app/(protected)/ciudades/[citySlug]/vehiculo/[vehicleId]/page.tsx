@@ -177,16 +177,22 @@ export default async function VehicleDetailPage({
   const vehicleYearRange = getCurrentYearRange();
   const vehiclePieceStats = await getPieceMaintenanceStats(null, 10, vehicleYearRange, vehicle.id);
   const isAutoTanques = vehicle.section.slug === "auto-tanques";
+  // "Estaciones de carburación" (ver scripts/add-estaciones-de-carburacion.mjs)
+  // no es un vehículo (no tiene número económico/año/placas, ver
+  // components/admin/VehicleForm.tsx) pero sí tiene tanque propio: su ficha
+  // técnica se trata igual que Auto-Tanques para todo lo del tanque, solo que
+  // sin la sección "Automóvil" (ver showAutomovilSection más abajo).
+  const isEstacionCarburacion = vehicle.section.slug === "estaciones-de-carburacion";
   const useDeliveryFormat =
     vehicle.section.slug === "vehiculo-de-reparto" ||
     vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const isTanqueCarburacion = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   const showTankSection = vehicle.section.slug !== "vehiculo-de-reparto";
   // Las 5 pruebas de tanque (Visual Externa, Hermeticidad, Visual Interna,
-  // Ultrasonido, Hidrostática) viven en Auto-Tanques y en Vehículo con
-  // tanque de carburación; Vehículo de reparto no tiene tanque, así que
-  // tampoco le corresponden.
-  const showInspeccionesSection = isAutoTanques || isTanqueCarburacion;
+  // Ultrasonido, Hidrostática) viven en Auto-Tanques, Vehículo con tanque de
+  // carburación y Estaciones de carburación; Vehículo de reparto no tiene
+  // tanque, así que no le corresponden.
+  const showInspeccionesSection = isAutoTanques || isTanqueCarburacion || isEstacionCarburacion;
   // Algunas unidades de Auto-Tanques repiten el mismo número económico en
   // Vehículo con tanque de carburación (mismo camión, pero su motor también
   // usa el sistema dual de combustible). Cuando eso pasa, el combustible se
@@ -377,7 +383,15 @@ export default async function VehicleDetailPage({
             action={updateVehicleRecord.bind(null, vehicle.id)}
             defaults={vehicle}
             submitLabel="Guardar cambios"
+            isEstacion={isEstacionCarburacion}
           />
+        ) : isEstacionCarburacion ? (
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-semibold uppercase text-gray-500">Dirección</dt>
+              <dd className="text-ink">{vehicle.sucursal}</dd>
+            </div>
+          </dl>
         ) : (
           <dl className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -419,15 +433,16 @@ export default async function VehicleDetailPage({
             vehicleId={vehicle.id}
             sheet={vehicle.technicalSheet}
             sectionSlug={vehicle.section.slug}
-            requireProximoUltrasonido={isAutoTanques}
-            requireProximaInspeccionVisual={isAutoTanques}
-            requireProximaPruebaHermeticidad={isAutoTanques}
+            requireProximoUltrasonido={isAutoTanques || isEstacionCarburacion}
+            requireProximaInspeccionVisual={isAutoTanques || isEstacionCarburacion}
+            requireProximaPruebaHermeticidad={isAutoTanques || isEstacionCarburacion}
             useDeliveryFormat={useDeliveryFormat}
             showValveSection={isTanqueCarburacion}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
             showInspeccionesSection={showInspeccionesSection}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
+            showAutomovilSection={!isEstacionCarburacion}
             lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
           />
         ) : (
@@ -440,6 +455,7 @@ export default async function VehicleDetailPage({
             showTankSection={showTankSection}
             showInspeccionesSection={showInspeccionesSection}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
+            showAutomovilSection={!isEstacionCarburacion}
           />
         )}
       </div>

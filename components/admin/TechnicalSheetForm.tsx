@@ -78,6 +78,7 @@ export function TechnicalSheetForm({
   showTankSection = true,
   showInspeccionesSection = true,
   showMaintenancePreventiveSection = true,
+  showAutomovilSection = true,
   lockCombustibleGasLpGasolina = false,
 }: {
   vehicleId: string;
@@ -109,6 +110,11 @@ export function TechnicalSheetForm({
   // repite en Auto-Tanques, el mantenimiento preventivo se lleva desde ahí
   // para no duplicarlo (ver también lib/alert-visibility.ts).
   showMaintenancePreventiveSection?: boolean;
+  // false solo para Estaciones de carburación (ver
+  // scripts/add-estaciones-de-carburacion.mjs): no es un vehículo, su
+  // identidad ya es "Nombre"/"Dirección" (ver VehicleForm.tsx), así que esta
+  // sección de datos del automóvil no aplica.
+  showAutomovilSection?: boolean;
   // Vehículo con tanque de carburación, y Auto-Tanques cuyo número
   // económico se repite en Vehículo con tanque de carburación (misma
   // ciudad), siempre usan Gas LP/Gasolina: el select queda visible pero el
@@ -172,6 +178,7 @@ export function TechnicalSheetForm({
       </div>
 
       <fieldset disabled={locked} className="space-y-6">
+      {showAutomovilSection && (
       <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Automóvil
@@ -243,6 +250,7 @@ export function TechnicalSheetForm({
           />
         </div>
       </div>
+      )}
 
       {showTankSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
@@ -487,7 +495,7 @@ export function TechnicalSheetForm({
           panel de alertas del inicio.
           {requireProximaInspeccionVisual && (
             <span className="block font-medium text-accent">
-              Este campo es obligatorio para Auto-Tanques: no se puede guardar la ficha técnica
+              Este campo es obligatorio para Auto-Tanques y Estaciones de carburación: no se puede guardar la ficha técnica
               sin la fecha próxima de inspección visual externa.
             </span>
           )}
@@ -524,7 +532,7 @@ export function TechnicalSheetForm({
           panel de alertas del inicio.
           {requireProximaPruebaHermeticidad && (
             <span className="block font-medium text-accent">
-              Este campo es obligatorio para Auto-Tanques: no se puede guardar la ficha técnica
+              Este campo es obligatorio para Auto-Tanques y Estaciones de carburación: no se puede guardar la ficha técnica
               sin la fecha próxima de prueba de hermeticidad.
             </span>
           )}
@@ -592,7 +600,7 @@ export function TechnicalSheetForm({
           alertas del inicio.
           {requireProximoUltrasonido && (
             <span className="block font-medium text-accent">
-              Este campo es obligatorio para Auto-Tanques: no se puede guardar la ficha técnica
+              Este campo es obligatorio para Auto-Tanques y Estaciones de carburación: no se puede guardar la ficha técnica
               sin la fecha próxima de ultrasonido.
             </span>
           )}

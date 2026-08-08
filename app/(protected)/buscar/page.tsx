@@ -104,7 +104,7 @@ function equipoMatchedGroups(equipo: EquipoWithSection, qNorm: string): string[]
 function isSpecificVehicleMatch(record: RecordWithSheet, qNorm: string): boolean {
   return (
     normalizeForSearch(record.numeroEconomico) === qNorm ||
-    normalizeForSearch(record.placas) === qNorm
+    (Boolean(record.placas) && normalizeForSearch(record.placas!) === qNorm)
   );
 }
 
