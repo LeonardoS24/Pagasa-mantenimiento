@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import {
   saveDocumentFile,
   deleteDocumentFile,
@@ -26,13 +26,37 @@ import type { ActionState } from "./user-actions";
 
 const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-function readPdfFromForm(formData: FormData): File | { error: string } {
+// Solo "Programa de mantenimiento" y "Manuales" (ver uploadDocument):
+// además de PDF e imagen, ahí se permiten documentos de oficina. El resto de
+// apartados con documentos (unidades, bitácoras, equipos) se quedan solo con
+// PDF/imagen.
+const OFFICE_ALLOWED_SECTION_SLUGS = ["programa-de-mantenimiento", "manuales"];
+const OFFICE_MIME_TYPES = [
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/csv",
+  "text/plain",
+];
+
+function readPdfFromForm(
+  formData: FormData,
+  options?: { allowOfficeDocs?: boolean }
+): File | { error: string } {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Selecciona un archivo." };
   }
-  if (file.type !== "application/pdf" && !IMAGE_MIME_TYPES.includes(file.type)) {
-    return { error: "Solo se permiten archivos PDF o imágenes (JPG, PNG, WEBP)." };
+  const esOffice = options?.allowOfficeDocs && OFFICE_MIME_TYPES.includes(file.type);
+  if (file.type !== "application/pdf" && !IMAGE_MIME_TYPES.includes(file.type) && !esOffice) {
+    return {
+      error: options?.allowOfficeDocs
+        ? "Solo se permiten archivos PDF, imágenes (JPG, PNG, WEBP) o de oficina (Word, Excel, PowerPoint, CSV, TXT)."
+        : "Solo se permiten archivos PDF o imágenes (JPG, PNG, WEBP).",
+    };
   }
   if (file.size > MAX_DOCUMENT_SIZE) {
     return { error: "El archivo supera el tamaño máximo permitido (20 MB)." };
@@ -49,9 +73,6 @@ export async function uploadDocument(
   const sessionError = await checkSessionUserExists(editor);
   if (sessionError) return { error: sessionError };
 
-  const file = readPdfFromForm(formData);
-  if (!(file instanceof File)) return file;
-
   const section = await prisma.section.findUnique({
     where: { id: sectionId },
     include: { city: true },
@@ -59,6 +80,11 @@ export async function uploadDocument(
   if (!section) {
     return { error: "El apartado no existe." };
   }
+
+  const file = readPdfFromForm(formData, {
+    allowOfficeDocs: OFFICE_ALLOWED_SECTION_SLUGS.includes(section.slug),
+  });
+  if (!(file instanceof File)) return file;
 
   const { storedName } = await saveDocumentFile(sectionId, file);
 
@@ -608,7 +634,7 @@ export async function uploadEquipmentLogDocument(
 }
 
 export async function deleteDocument(documentId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const document = await prisma.document.findUnique({
     where: { id: documentId },

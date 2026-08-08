@@ -117,17 +117,35 @@ export function InventoryItemTable({
                 </td>
                 <td className="px-4 py-2 text-ink">
                   {item.usedOnVehicle ? (
-                    <>
-                      <Link
-                        href={`/ciudades/${citySlug}/vehiculo/${item.usedOnVehicle.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {item.usedOnVehicle.numeroEconomico}
-                      </Link>
-                      {describeTrabajo(item) && (
-                        <span className="block text-xs text-gray-500">{describeTrabajo(item)}</span>
-                      )}
-                    </>
+                    utilizada ? (
+                      <>
+                        <Link
+                          href={`/ciudades/${citySlug}/vehiculo/${item.usedOnVehicle.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {item.usedOnVehicle.numeroEconomico}
+                        </Link>
+                        {describeTrabajo(item) && (
+                          <span className="block text-xs text-gray-500">{describeTrabajo(item)}</span>
+                        )}
+                      </>
+                    ) : (
+                      // Ya se sabe para qué unidad es (por la orden o porque
+                      // se eligió desde el mantenimiento), pero todavía no se
+                      // marca "Utilizada": no es lo mismo que ya estar
+                      // colocada, así que no dice "Colocado en".
+                      <>
+                        <span className="mr-1.5 rounded-full bg-accent-light/20 px-2 py-0.5 text-xs font-medium text-accent">
+                          Por colocar
+                        </span>
+                        <Link
+                          href={`/ciudades/${citySlug}/vehiculo/${item.usedOnVehicle.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {item.usedOnVehicle.numeroEconomico}
+                        </Link>
+                      </>
+                    )
                   ) : (
                     "—"
                   )}

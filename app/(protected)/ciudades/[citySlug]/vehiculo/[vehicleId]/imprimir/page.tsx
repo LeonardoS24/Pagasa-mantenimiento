@@ -7,9 +7,12 @@ import { TechnicalSheetView } from "@/components/city/TechnicalSheetView";
 import { DocumentList } from "@/components/city/DocumentList";
 import { MaintenancePhotos } from "@/components/city/MaintenancePhotos";
 import { PrintButton } from "@/components/city/PrintButton";
-import { formatDate } from "@/lib/dates";
+import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
+import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
+import { formatDate, getCurrentYearRange, currentYearLabel } from "@/lib/dates";
 import { maintenanceStatusLabels, calidadExtintorLabels, type MaintenanceStatus, type CalidadExtintor } from "@/lib/vehicle-enums";
 import { valvulaCorrectivaLabels, type ValvulaCorrectiva } from "@/lib/valve-alerts";
+import { parseChecklistPreventivo } from "@/lib/preventive-checklist";
 import type { Document } from "@prisma/client";
 
 // Vista de solo lectura pensada para imprimirse completa de una sola vez:
@@ -168,6 +171,23 @@ export default async function PrintVehiclePage({
     : [vehicle];
   const isMerged = printRecords.length > 1;
 
+  // Piezas con más mantenimiento del año en curso, una por cada unidad
+  // impresa (mismo gráfico que la página normal de la unidad, ver
+  // components/city/PieceMaintenanceChart.tsx). Se calcula aquí, fuera del
+  // .map() de abajo, porque ese es JSX síncrono y esto necesita await.
+  const yearRange = getCurrentYearRange();
+  const pieceStatsByRecordId = new Map(
+    await Promise.all(
+      printRecords.map(
+        async (record) => [record.id, await getPieceMaintenanceStats(null, 10, yearRange, record.id)] as const
+      )
+    )
+  );
+
+  // "Cuándo se descargó/imprimió": esta página se genera de nuevo en cada
+  // visita/impresión, así que la hora del render es la hora de impresión.
+  const generatedAt = new Date();
+
   return (
     <div className="mx-auto max-w-4xl print:max-w-none">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -185,6 +205,7 @@ export default async function PrintVehiclePage({
           {vehicle.section.city.name} · {printRecords.map((record) => record.section.name).join(" + ")}
         </p>
         <h1 className="text-2xl font-semibold text-primary">{vehicle.numeroEconomico}</h1>
+        <p className="text-xs text-gray-500">Impreso/descargado el {formatDate(generatedAt)}</p>
         {!vehicle.activo && (
           <p className="text-sm font-medium text-orange-700">
             Dado de baja{vehicle.fechaBaja ? ` · ${formatDate(vehicle.fechaBaja)}` : ""}
@@ -237,6 +258,16 @@ export default async function PrintVehiclePage({
               />
             </Section>
 
+            <Section title="Piezas con más mantenimiento (año en curso)">
+              <PieceMaintenanceChart
+                stats={pieceStatsByRecordId.get(record.id) ?? []}
+                scope={{ type: "vehicle", vehicleRecordId: record.id }}
+                range={yearRange}
+                monthLabel={currentYearLabel()}
+                periodo="año"
+              />
+            </Section>
+
             <Section title="Bitácora de mantenimiento">
               <LogList
                 emptyLabel="Sin mantenimientos registrados."
@@ -259,6 +290,20 @@ export default async function PrintVehiclePage({
                     { label: "Responsable del trabajo mecánico", value: log.responsableTrabajoMecanico },
                     { label: "Descripción", value: log.descripcion },
                     { label: "Observación", value: log.observacion },
+                    {
+                      label: "Checklist de mantenimiento preventivo",
+                      value: (() => {
+                        const checklist = parseChecklistPreventivo(log.checklistPreventivo);
+                        return checklist && checklist.length > 0
+                          ? checklist
+                              .map(
+                                (entry) =>
+                                  `${entry.item}: ${entry.estado}${entry.cantidad ? ` (${entry.cantidad})` : ""}${entry.descripcion ? ` — ${entry.descripcion}` : ""}`
+                              )
+                              .join(" · ")
+                          : null;
+                      })(),
+                    },
                   ],
                 }))}
               />
@@ -271,7 +316,6 @@ export default async function PrintVehiclePage({
                   key: log.id,
                   documents: log.documents,
                   fields: [
-                    { label: "Fecha de realización", value: formatDate(log.fechaRealizacion) },
                     { label: "Responsable", value: log.responsable },
                     { label: "Fecha de instalación", value: formatDate(log.fechaInstalacion) },
                     { label: "Fecha de vencimiento", value: formatDate(log.fechaVencimiento) },

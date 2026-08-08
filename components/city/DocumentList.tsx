@@ -22,10 +22,16 @@ export function DocumentList({
     <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
       {documents.map((document) => {
         const esImagen = document.mimeType.startsWith("image/");
+        // La imagen ya se ve inline con el visor nativo del navegador; PDF,
+        // Word, Excel, etc. pasan por /documentos/[id] sin necesidad de
+        // descargarlos: para PDF esa página solo redirige al archivo (el
+        // visor nativo a pantalla completa pagina bien; embebido en un
+        // iframe no), el resto se convierte a HTML del lado del servidor.
+        const href = esImagen ? `/api/documents/${document.id}` : `/documentos/${document.id}`;
         return (
         <li key={document.id} className="flex items-center justify-between gap-3 px-4 py-3">
           <a
-            href={`/api/documents/${document.id}`}
+            href={href}
             target="_blank"
             rel="noopener noreferrer"
             className="flex min-w-0 flex-1 items-center gap-3"

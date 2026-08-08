@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { createPieceOrder } from "@/actions/piece-order-actions";
 import type { ActionState } from "@/actions/user-actions";
@@ -12,9 +13,11 @@ import {
   pieceOrderStatusLabels,
   formatCantidad,
   unidadParaTipo,
+  usaCatalogoDePiezas,
   type OrdenTipo,
   type ConsumibleUnidad,
 } from "@/lib/inventory-enums";
+import { PIECE_CATALOG } from "@/lib/piece-catalog";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -47,12 +50,33 @@ export function CreatePieceOrderForm({
   const action = createPieceOrder.bind(null, sectionId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const searchParams = useSearchParams();
+
+  // Viene de una alerta (p.ej. extintor en mal estado, ver
+  // components/dashboard/ExtinguisherAlertsPanel.tsx) que ya sabe qué pieza y
+  // para qué unidad hace falta ordenar.
+  const prefillTipo = (searchParams.get("prefillTipo") as OrdenTipo | null) ?? "";
+  const prefillNombre = searchParams.get("prefillNombre") ?? "";
+  const prefillVehicle = searchParams.get("prefillVehicle") ?? "";
+  const hasPrefill = Boolean(prefillTipo || prefillNombre || prefillVehicle);
 
   // La unidad no se captura: se deduce del tipo. Solo el consumible deja
   // elegir entre litros y kilos, y ese selector aparece únicamente entonces.
-  const [tipo, setTipo] = useState<OrdenTipo | "">("");
+  const [tipo, setTipo] = useState<OrdenTipo | "">(prefillTipo);
   const [unidadConsumible, setUnidadConsumible] = useState<ConsumibleUnidad>("LTS");
   const [cantidad, setCantidad] = useState("1");
+  // Para REFACCION/PIEZA/CONSUMIBLE, el nombre se puede elegir del catálogo
+  // de piezas de unidad en vez de escribirlo a mano (ver lib/piece-catalog.ts,
+  // el mismo catálogo de "Registrar mantenimiento"). "" = escribir a mano.
+  const [piezaCatalogo, setPiezaCatalogo] = useState("");
+  const mostrarCatalogo = tipo !== "" && usaCatalogoDePiezas(tipo);
+
+  useEffect(() => {
+    if (hasPrefill && detailsRef.current) {
+      detailsRef.current.open = true;
+    }
+  }, [hasPrefill]);
 
   const esConsumible = tipo === "CONSUMIBLE";
   const unidad = tipo ? unidadParaTipo(tipo, unidadConsumible) : null;
@@ -63,7 +87,7 @@ export function CreatePieceOrderForm({
       : null;
 
   return (
-    <details className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
+    <details ref={detailsRef} className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
       <summary className="cursor-pointer text-sm font-semibold text-primary">
         Registrar orden
       </summary>
@@ -76,6 +100,7 @@ export function CreatePieceOrderForm({
           setTipo("");
           setUnidadConsumible("LTS");
           setCantidad("1");
+          setPiezaCatalogo("");
         }}
         className="mt-4 space-y-3"
       >
@@ -89,7 +114,10 @@ export function CreatePieceOrderForm({
               name="tipo"
               required
               value={tipo}
-              onChange={(event) => setTipo(event.target.value as OrdenTipo | "")}
+              onChange={(event) => {
+                setTipo(event.target.value as OrdenTipo | "");
+                setPiezaCatalogo("");
+              }}
               className={inputClass}
             >
               <option value="" disabled>
@@ -103,15 +131,42 @@ export function CreatePieceOrderForm({
             </select>
           </div>
 
+          {mostrarCatalogo && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-piezaCatalogo">
+                Elegir del catálogo
+              </label>
+              <select
+                id="op-piezaCatalogo"
+                value={piezaCatalogo}
+                onChange={(event) => setPiezaCatalogo(event.target.value)}
+                className={inputClass}
+              >
+                <option value="">Escribir a mano</option>
+                {Object.entries(PIECE_CATALOG).map(([categoria, piezas]) => (
+                  <optgroup key={categoria} label={categoria}>
+                    {piezas.map((pieza) => (
+                      <option key={pieza} value={pieza}>
+                        {pieza}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-nombre">
               {tipo ? ordenNombreLabels[tipo] : "Nombre"}
             </label>
             <input
+              key={piezaCatalogo || "manual"}
               id="op-nombre"
               name="nombre"
               required
               disabled={!tipo}
+              defaultValue={piezaCatalogo || prefillNombre}
               placeholder={tipo ? ordenNombrePlaceholders[tipo] : "Elige primero el tipo"}
               className={`${inputClass} disabled:bg-gray-50 disabled:text-gray-400`}
             />
@@ -193,7 +248,12 @@ export function CreatePieceOrderForm({
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-vehicleRecordId">
               Unidad destino (opcional, si ya se sabe)
             </label>
-            <select id="op-vehicleRecordId" name="vehicleRecordId" defaultValue="" className={inputClass}>
+            <select
+              id="op-vehicleRecordId"
+              name="vehicleRecordId"
+              defaultValue={prefillVehicle}
+              className={inputClass}
+            >
               <option value="">— Se elige después, desde Inventarios —</option>
               {Array.from(
                 vehicles.reduce((groups, vehicle) => {

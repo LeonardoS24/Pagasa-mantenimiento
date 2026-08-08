@@ -18,6 +18,19 @@ model User {
   username     String   @unique
   passwordHash String
   role         String   @default("USUARIO")
+  // Aviso de 5 minutos al iniciar sesión cuando hay mantenimientos "En
+  // proceso" en sus ciudades accesibles (ver actions/auth-actions.ts). Cada
+  // usuario lo puede apagar para sí mismo.
+  avisosMantenimientoActivos Boolean @default(true)
+  // Acceso ampliado por horario (ver lib/elevated-access.ts): solo aplica a
+  // rol USUARIO. Dentro de este horario puede editar/borrar registros y
+  // ficha técnica como si fuera ADMIN; nunca alcanza para borrar
+  // ciudades/apartados/usuarios ni cambiar roles — eso sigue exclusivo del
+  // ADMIN real. accesoAmpliadoDias es JSON de un array de 0 (domingo) a 6
+  // (sábado); las horas se guardan como "HH:MM" en hora local del servidor.
+  accesoAmpliadoDias       String?
+  accesoAmpliadoHoraInicio String?
+  accesoAmpliadoHoraFin    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -39,6 +52,8 @@ model User {
   pieceOrders                   PieceOrder[]
   inventoryItems                InventoryItem[]
   equipmentLogs                  EquipmentLog[]
+  vehicleRecords                 VehicleRecord[]
+  equipos                        Equipo[]
 
   @@map("users")
 }
@@ -126,6 +141,11 @@ model VehicleRecord {
   // Órdenes de pieza que ya se levantaron sabiendo que eran para esta unidad
   // (ver PieceOrder.vehicleRecordId).
   pieceOrders                   PieceOrder[]
+
+  // Quién dio de alta la unidad, para la bitácora de actividad del sistema
+  // (ver app/(protected)/admin/actividad).
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -262,6 +282,12 @@ model MaintenanceLog {
   categoriaPieza    String?
   pieza             String?
   accionPieza       String?
+  // Checklist completo de mantenimiento preventivo (JSON: [{item, estado}],
+  // ver lib/preventive-checklist.ts). Solo se llena cuando tipoMantenimiento
+  // es "Preventivo"; se guarda completo para auditoría, aunque solo los
+  // ítems marcados "Cambio" generan su propio registro de pieza (ver
+  // actions/maintenance-actions.ts).
+  checklistPreventivo String?
   cantidad          String?
   unidad            String?
   descripcion       String?
@@ -744,6 +770,11 @@ model Equipo {
 
   documents     Document[]
   equipmentLogs EquipmentLog[]
+
+  // Quién dio de alta el equipo, para la bitácora de actividad del sistema
+  // (ver app/(protected)/admin/actividad).
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

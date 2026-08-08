@@ -13,6 +13,8 @@ import { TechnicalSheetForm } from "@/components/admin/TechnicalSheetForm";
 import { TechnicalSheetView } from "@/components/city/TechnicalSheetView";
 import { CreateMaintenanceLogForm } from "@/components/admin/CreateMaintenanceLogForm";
 import { MaintenanceLogTable } from "@/components/city/MaintenanceLogTable";
+import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
+import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { CreateUltrasoundLogForm } from "@/components/admin/CreateUltrasoundLogForm";
 import { UltrasoundLogTable } from "@/components/city/UltrasoundLogTable";
 import { CreateVisualInspectionLogForm } from "@/components/admin/CreateVisualInspectionLogForm";
@@ -39,7 +41,7 @@ import {
   setVehicleActive,
   previewVehicleDeleteImpact,
 } from "@/actions/vehicle-actions";
-import { formatDate, toDateInputValue } from "@/lib/dates";
+import { formatDate, toDateInputValue, getCurrentYearRange, currentYearLabel } from "@/lib/dates";
 import { SECTION_STYLES } from "@/lib/section-colors";
 import {
   getUltrasoundAlertLevel,
@@ -79,6 +81,7 @@ import {
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
+import { hasActiveElevatedAccess } from "@/lib/elevated-access";
 
 export default async function VehicleDetailPage({
   params,
@@ -98,7 +101,13 @@ export default async function VehicleDetailPage({
       technicalSheet: true,
       maintenanceLogs: {
         orderBy: { fecha: "desc" },
-        include: { documents: { orderBy: { createdAt: "desc" } } },
+        include: {
+          documents: { orderBy: { createdAt: "desc" } },
+          // Piezas de inventario que se colocaron en este mantenimiento (ver
+          // InventoryItem.usedOnMaintenanceLogId): para poder decir en el
+          // detalle si la pieza que se cambió venía de inventario.
+          piezasUtilizadas: true,
+        },
       },
       ultrasoundLogs: {
         orderBy: { fechaRealizacion: "desc" },
@@ -142,8 +151,30 @@ export default async function VehicleDetailPage({
 
   const chain = await getSectionChain(vehicle.sectionId);
   const basePath = sectionBasePath(params.citySlug, chain);
-  const isAdmin = user.role === "ADMIN";
+  // isAdmin también es true para un USUARIO con acceso ampliado activo en
+  // este momento (ver lib/elevated-access.ts): sin esto, requireElevatedEditor
+  // del lado del servidor dejaría hacer el cambio, pero aquí nunca
+  // aparecerían los botones de editar/borrar para intentarlo.
+  const isAdmin =
+    user.role === "ADMIN" || (user.role === "USUARIO" && (await hasActiveElevatedAccess(user.userId)));
   const isEditor = canEdit(user.role);
+
+  // Piezas disponibles en el inventario de esta ciudad, para poder elegirlas
+  // directo desde "Registrar mantenimiento" (ver CreateMaintenanceLogForm) en
+  // vez de escribir la pieza a mano — la dirección inversa del flujo que ya
+  // existía (marcar una pieza "Utilizada" desde Inventarios y llegar aquí).
+  const availableInventory = isEditor
+    ? await prisma.inventoryItem.findMany({
+        where: { estado: "EN_INVENTARIO", section: { city: { slug: params.citySlug } } },
+        orderBy: { nombre: "asc" },
+        select: { id: true, nombre: true, cantidad: true, unidad: true },
+      })
+    : [];
+  // Piezas con más mantenimiento de esta unidad en el año en curso (mismo
+  // gráfico que Bitácora de unidades, pero acotado a una sola unidad y
+  // reiniciado cada año en vez de cada mes — ver PieceMaintenanceChart).
+  const vehicleYearRange = getCurrentYearRange();
+  const vehiclePieceStats = await getPieceMaintenanceStats(null, 10, vehicleYearRange, vehicle.id);
   const isAutoTanques = vehicle.section.slug === "auto-tanques";
   const useDeliveryFormat =
     vehicle.section.slug === "vehiculo-de-reparto" ||
@@ -418,7 +449,16 @@ export default async function VehicleDetailPage({
           Bitácora de mantenimiento
         </h2>
         <div className="space-y-3">
-          {isEditor && <CreateMaintenanceLogForm vehicleId={vehicle.id} />}
+          <PieceMaintenanceChart
+            stats={vehiclePieceStats}
+            scope={{ type: "vehicle", vehicleRecordId: vehicle.id }}
+            range={vehicleYearRange}
+            monthLabel={currentYearLabel()}
+            periodo="año"
+          />
+          {isEditor && (
+            <CreateMaintenanceLogForm vehicleId={vehicle.id} availableInventory={availableInventory} />
+          )}
           <MaintenanceLogTable logs={vehicle.maintenanceLogs} canEdit={isEditor} isAdmin={isAdmin} />
         </div>
       </div>

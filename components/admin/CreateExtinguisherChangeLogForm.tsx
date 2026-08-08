@@ -96,21 +96,6 @@ export function CreateExtinguisherChangeLogForm({ vehicleId }: { vehicleId: stri
               ))}
             </select>
           </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="ext-fechaRealizacion"
-            >
-              Fecha de realización del cambio
-            </label>
-            <input
-              id="ext-fechaRealizacion"
-              name="fechaRealizacion"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
         </div>
 
         <div>
@@ -128,8 +113,10 @@ export function CreateExtinguisherChangeLogForm({ vehicleId }: { vehicleId: stri
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente la fecha de instalación,
-          fecha de vencimiento y calidad del extintor.
+          Al aceptar, la ficha técnica actualizará automáticamente la fecha de instalación y de
+          vencimiento del extintor. La calidad de este registro es solo un dato histórico de este
+          cambio: la calidad vigente de la unidad se controla y se corrige directo en la ficha
+          técnica.
         </p>
 
         <FormMessage state={state} />

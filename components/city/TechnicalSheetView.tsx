@@ -193,7 +193,7 @@ export function TechnicalSheetView({
           </div>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Item
-              label="Kilometraje del último mantenimiento"
+              label="Kilometraje actual"
               value={
                 sheet.kilometrajeUltimoMantenimiento != null
                   ? `${sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km`
@@ -201,7 +201,7 @@ export function TechnicalSheetView({
               }
             />
             <Item
-              label="Fecha del último mantenimiento"
+              label="Fecha del último mantenimiento preventivo"
               value={formatDate(sheet.fechaUltimoMantenimiento) || null}
             />
             <Item

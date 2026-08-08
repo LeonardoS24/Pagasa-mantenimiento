@@ -4,6 +4,7 @@ import { assertCityAccess } from "@/lib/access";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { prisma } from "@/lib/prisma";
 import { canEdit } from "@/lib/roles";
+import { hasActiveElevatedAccess } from "@/lib/elevated-access";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/layout/Breadcrumb";
 import { SectionIcon } from "@/components/layout/SectionIcon";
 import { EquipoForm } from "@/components/admin/EquipoForm";
@@ -34,7 +35,10 @@ export default async function EquipoPage({
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
-  const isAdmin = user.role === "ADMIN";
+  // isAdmin también es true para un USUARIO con acceso ampliado activo en
+  // este momento (ver lib/elevated-access.ts).
+  const isAdmin =
+    user.role === "ADMIN" || (user.role === "USUARIO" && (await hasActiveElevatedAccess(user.userId)));
   const isEditor = canEdit(user.role);
 
   await assertCityAccess(user, params.citySlug);

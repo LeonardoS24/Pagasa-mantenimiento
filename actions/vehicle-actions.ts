@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { combustibleSchema, calidadExtintorSchema } from "@/lib/vehicle-enums";
 import { collapseSpaces } from "@/lib/text-normalize";
@@ -45,7 +45,7 @@ export async function createVehicleRecord(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireEditor();
+  const editor = await requireEditor();
 
   const parsed = parseVehicleForm(formData);
   if (!parsed.success) {
@@ -69,6 +69,7 @@ export async function createVehicleRecord(
     data: {
       sectionId,
       order: (maxOrder._max.order ?? -1) + 1,
+      createdById: editor.userId,
       ...parsed.data,
     },
   });
@@ -88,7 +89,7 @@ export async function updateVehicleRecord(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const parsed = parseVehicleForm(formData);
   if (!parsed.success) {
@@ -113,7 +114,7 @@ export async function updateVehicleRecord(
 
 // Solo para pintar la confirmación: no borra nada.
 export async function previewVehicleDeleteImpact(vehicleId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
   return { impacto: await getVehicleDeleteImpact(vehicleId), pideContrasena: true };
 }
 
@@ -126,7 +127,7 @@ export async function deleteVehicleRecord(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
+  const admin = await requireElevatedEditor();
 
   const passwordError = await verifySessionPassword(admin, formData.get("password"));
   if (passwordError) {
@@ -153,7 +154,7 @@ export async function deleteVehicleRecord(
 // Dar de baja NO elimina la unidad: solo cambia su estatus a inactiva. Sigue
 // visible en la tabla y conserva ficha técnica, bitácora y documentos.
 export async function setVehicleActive(vehicleId: string, activo: boolean) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const vehicle = await prisma.vehicleRecord.update({
     where: { id: vehicleId },
@@ -272,7 +273,7 @@ export async function upsertTechnicalSheet(
   // Solo ADMIN puede editar la ficha técnica: USUARIO puede registrar
   // bitácoras/cambios y descargar/subir documentos, pero no modificar los
   // valores de la ficha técnica directamente.
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },

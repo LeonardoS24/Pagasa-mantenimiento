@@ -1,14 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { useFormState, useFormStatus } from "react-dom";
 import type { UltrasoundLog, Document } from "@prisma/client";
-import { deleteUltrasoundLog } from "@/actions/ultrasound-actions";
-import { formatDate } from "@/lib/dates";
+import { deleteUltrasoundLog, updateUltrasoundLog } from "@/actions/ultrasound-actions";
+import type { ActionState } from "@/actions/user-actions";
+import { formatDate, toDateInputValue } from "@/lib/dates";
 import { DocumentList } from "./DocumentList";
 import { UploadUltrasoundLogDocumentForm } from "@/components/admin/UploadUltrasoundLogDocumentForm";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 
+const initialState: ActionState = {};
+
 type UltrasoundLogWithDocuments = UltrasoundLog & { documents: Document[] };
+
+const inputClass =
+  "w-full rounded-md border border-gray-300 px-2 py-1 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
@@ -17,6 +24,96 @@ function Field({ label, value }: { label: string; value?: string | null }) {
       <dt className="text-xs font-semibold uppercase text-gray-500">{label}</dt>
       <dd className="text-ink">{value}</dd>
     </div>
+  );
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-60"
+    >
+      {pending ? "Guardando..." : "Actualizar"}
+    </button>
+  );
+}
+
+function EditUltrasoundLogForm({ log }: { log: UltrasoundLog }) {
+  const action = updateUltrasoundLog.bind(null, log.id);
+  const [state, formAction] = useFormState(action, initialState);
+
+  return (
+    <form action={formAction} className="mt-3 space-y-2 rounded-md bg-gray-50 p-3">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`compania-${log.id}`}>
+            Compañía
+          </label>
+          <input id={`compania-${log.id}`} name="compania" defaultValue={log.compania ?? ""} className={inputClass} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`numeroUltrasonido-${log.id}`}>
+            Número de ultrasonido
+          </label>
+          <input
+            id={`numeroUltrasonido-${log.id}`}
+            name="numeroUltrasonido"
+            defaultValue={log.numeroUltrasonido ?? ""}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`responsable-${log.id}`}>
+            Responsable
+          </label>
+          <input id={`responsable-${log.id}`} name="responsable" defaultValue={log.responsable ?? ""} className={inputClass} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaUltimoUltrasonido-${log.id}`}>
+            Última fecha de ultrasonido
+          </label>
+          <input
+            id={`fechaUltimoUltrasonido-${log.id}`}
+            name="fechaUltimoUltrasonido"
+            type="date"
+            defaultValue={toDateInputValue(log.fechaUltimoUltrasonido)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaRealizacion-${log.id}`}>
+            Fecha de realización
+          </label>
+          <input
+            id={`fechaRealizacion-${log.id}`}
+            name="fechaRealizacion"
+            type="date"
+            defaultValue={toDateInputValue(log.fechaRealizacion)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaProximoUltrasonido-${log.id}`}>
+            Fecha del próximo ultrasonido
+          </label>
+          <input
+            id={`fechaProximoUltrasonido-${log.id}`}
+            name="fechaProximoUltrasonido"
+            type="date"
+            defaultValue={toDateInputValue(log.fechaProximoUltrasonido)}
+            className={inputClass}
+          />
+        </div>
+      </div>
+      <p className="text-xs text-gray-500">
+        Esto solo corrige este registro; no vuelve a actualizar la ficha técnica.
+      </p>
+      <SubmitButton />
+      {state.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state.success && <p className="text-xs text-green-700">{state.success}</p>}
+    </form>
   );
 }
 
@@ -58,6 +155,8 @@ export function UltrasoundLogRow({
             <Field label="Fecha de realización" value={formatDate(log.fechaRealizacion)} />
             <Field label="Fecha del próximo ultrasonido" value={formatDate(log.fechaProximoUltrasonido)} />
           </dl>
+
+          {isAdmin && <EditUltrasoundLogForm log={log} />}
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase text-gray-500">

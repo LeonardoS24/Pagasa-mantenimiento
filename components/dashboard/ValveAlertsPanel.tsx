@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   valveAlertBadgeStyles,
+  valveAlertRowStyles,
   valveAlertLabel,
   valveAlertMessage,
   type ValveAlertLevel,
@@ -29,9 +30,7 @@ export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
         {vehicles.map((vehicle) => (
           <li
             key={vehicle.id}
-            className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${
-              vehicle.level === "red" ? "bg-red-50" : "bg-yellow-50"
-            }`}
+            className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${valveAlertRowStyles[vehicle.level]}`}
           >
             <span className="text-ink">
               {valveAlertMessage(

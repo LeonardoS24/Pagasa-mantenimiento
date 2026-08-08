@@ -47,6 +47,12 @@ export function ExtinguisherAlertsPanel({ vehicles }: { vehicles: AlertVehicle[]
                 {extinguisherAlertLabel(vehicle.level, vehicle.fechaCalidadMalaExtintor)}
               </span>
               <Link
+                href={`/ciudades/${vehicle.citySlug}/orden-de-pieza?prefillTipo=REFACCION&prefillNombre=Extintor&prefillVehicle=${vehicle.id}`}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Ordenar pieza →
+              </Link>
+              <Link
                 href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}`}
                 className="text-xs font-medium text-primary hover:underline"
               >

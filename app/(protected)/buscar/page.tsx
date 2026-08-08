@@ -233,12 +233,21 @@ export default async function BuscarPage({
                           </td>
                         </tr>
                       )}
-                      <tr className="border-t border-gray-100 hover:bg-gray-50">
+                      <tr className="relative border-t border-gray-100 hover:bg-gray-50">
                         <td className="px-4 py-2 font-medium text-primary">
+                          {/* Estira el link a toda la fila (no solo el número
+                              económico): "tr" es "relative" y este link
+                              "absolute inset-0" toma su tamaño completo. */}
+                          <Link
+                            href={`/ciudades/${record.section.city.slug}/vehiculo/${record.id}`}
+                            className="absolute inset-0"
+                            aria-label={record.numeroEconomico}
+                          />
                           <div className="whitespace-nowrap">
                             <Link
                               href={`/ciudades/${record.section.city.slug}/vehiculo/${record.id}`}
-                              className="hover:underline"
+                              className="relative hover:underline"
+                              tabIndex={-1}
                             >
                               {record.numeroEconomico}
                             </Link>
@@ -323,12 +332,21 @@ export default async function BuscarPage({
                           </td>
                         </tr>
                       )}
-                      <tr className="border-t border-gray-100 hover:bg-gray-50">
+                      <tr className="relative border-t border-gray-100 hover:bg-gray-50">
                         <td className="px-4 py-2 font-medium text-primary">
+                          {/* Estira el link a toda la fila (no solo el
+                              código/nombre): "tr" es "relative" y este link
+                              "absolute inset-0" toma su tamaño completo. */}
+                          <Link
+                            href={`/ciudades/${equipo.section.city.slug}/equipo/${equipo.id}`}
+                            className="absolute inset-0"
+                            aria-label={equipo.codigo || equipo.nombre}
+                          />
                           <div className="whitespace-nowrap">
                             <Link
                               href={`/ciudades/${equipo.section.city.slug}/equipo/${equipo.id}`}
-                              className="hover:underline"
+                              className="relative hover:underline"
+                              tabIndex={-1}
                             >
                               {equipo.codigo || equipo.nombre}
                             </Link>

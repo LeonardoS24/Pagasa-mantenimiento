@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { getSession } from "@/lib/auth";
 import { roleSchema } from "@/lib/roles";
+import { getAccessibleCities } from "@/lib/access";
+import { isAggregateCitySlug } from "@/lib/aggregate-city";
+import { countInProgressMaintenance } from "@/lib/in-progress-maintenance";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Ingresa tu usuario"),
@@ -47,6 +50,16 @@ export async function loginAction(
   session.userId = user.id;
   session.username = user.username;
   session.role = role;
+
+  if (user.avisosMantenimientoActivos) {
+    const cities = await getAccessibleCities({ userId: user.id, username: user.username, role });
+    const cityIds = cities.filter((c) => !isAggregateCitySlug(c.slug)).map((c) => c.id);
+    const count = await countInProgressMaintenance(cityIds);
+    if (count > 0) {
+      session.pendingInProgressCount = count;
+    }
+  }
+
   await session.save();
 
   redirect("/dashboard");

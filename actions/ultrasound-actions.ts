@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { saveDocumentFile, ultrasoundLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
@@ -116,8 +116,45 @@ export async function createUltrasoundLog(
   return { success: "Ultrasonido registrado y ficha técnica actualizada." };
 }
 
+// Solo ADMIN puede corregir un registro ya guardado. A diferencia de crear
+// uno nuevo, esto no vuelve a sincronizar la ficha técnica (esa ya quedó
+// actualizada al aceptar el registro original) — solo corrige el dato
+// capturado, evitando efectos secundarios sorpresa al editar uno viejo.
+export async function updateUltrasoundLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const parsed = createUltrasoundLogSchema.safeParse({
+    compania: formData.get("compania"),
+    numeroUltrasonido: formData.get("numeroUltrasonido"),
+    responsable: formData.get("responsable"),
+    fechaUltimoUltrasonido: formData.get("fechaUltimoUltrasonido"),
+    fechaRealizacion: formData.get("fechaRealizacion"),
+    fechaProximoUltrasonido: formData.get("fechaProximoUltrasonido"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const log = await prisma.ultrasoundLog.findUnique({
+    where: { id: logId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  await prisma.ultrasoundLog.update({ where: { id: logId }, data: parsed.data });
+
+  revalidatePath(`/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`);
+  return { success: "Registro actualizado." };
+}
+
 export async function deleteUltrasoundLog(logId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const log = await prisma.ultrasoundLog.findUnique({
     where: { id: logId },

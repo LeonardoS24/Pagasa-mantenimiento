@@ -1,4 +1,4 @@
-import type { MaintenanceLog, Document } from "@prisma/client";
+import type { MaintenanceLog, Document, InventoryItem } from "@prisma/client";
 import { MaintenanceLogRow } from "./MaintenanceLogRow";
 
 export function MaintenanceLogTable({
@@ -6,7 +6,7 @@ export function MaintenanceLogTable({
   canEdit,
   isAdmin,
 }: {
-  logs: (MaintenanceLog & { documents: Document[] })[];
+  logs: (MaintenanceLog & { documents: Document[]; piezasUtilizadas: InventoryItem[] })[];
   canEdit: boolean;
   isAdmin: boolean;
 }) {

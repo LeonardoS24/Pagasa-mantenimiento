@@ -5,6 +5,11 @@ export interface SessionData {
   userId: string;
   username: string;
   role: Role;
+  // Cuántos mantenimientos "En proceso" había al iniciar esta sesión (ver
+  // actions/auth-actions.ts). Transitorio: el layout protegido lo lee una
+  // vez para mostrar el aviso y lo borra de inmediato, así solo aparece justo
+  // después de iniciar sesión y no en cada navegación.
+  pendingInProgressCount?: number;
 }
 
 export const sessionOptions: SessionOptions = {

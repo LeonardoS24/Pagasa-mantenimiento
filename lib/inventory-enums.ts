@@ -33,8 +33,10 @@ export const inventoryItemStatusStyles: Record<InventoryItemStatus, string> = {
 export const INVENTORY_POR_UTILIZAR_DAYS = 5;
 
 // Tipo de lo que se ordena. Sustituye al antiguo campo de texto libre
-// "pieza": ahora se elige de una lista y la unidad se deduce sola.
-export const ordenTipoSchema = z.enum(["REFACCION", "PIEZA", "HERRAMIENTA", "CONSUMIBLE"]);
+// "pieza": ahora se elige de una lista y la unidad se deduce sola. "EQUIPO"
+// es para piezas de Equipos Mecánicos/Electrónicos, separado de las piezas
+// de unidades (REFACCION/PIEZA/CONSUMIBLE).
+export const ordenTipoSchema = z.enum(["REFACCION", "PIEZA", "HERRAMIENTA", "CONSUMIBLE", "EQUIPO"]);
 export type OrdenTipo = z.infer<typeof ordenTipoSchema>;
 
 export const ordenTipoLabels: Record<OrdenTipo, string> = {
@@ -42,6 +44,7 @@ export const ordenTipoLabels: Record<OrdenTipo, string> = {
   PIEZA: "Pieza",
   HERRAMIENTA: "Herramienta",
   CONSUMIBLE: "Consumible",
+  EQUIPO: "Equipo",
 };
 
 // Unidad ya resuelta que se guarda junto a la cantidad. Los tipos contables
@@ -101,6 +104,7 @@ export const ordenNombreLabels: Record<OrdenTipo, string> = {
   PIEZA: "Nombre de la pieza",
   HERRAMIENTA: "Nombre de la herramienta",
   CONSUMIBLE: "Nombre del consumible",
+  EQUIPO: "Nombre de la pieza de equipo",
 };
 
 export const ordenNombrePlaceholders: Record<OrdenTipo, string> = {
@@ -108,4 +112,14 @@ export const ordenNombrePlaceholders: Record<OrdenTipo, string> = {
   PIEZA: "Ej. Tornillo M8",
   HERRAMIENTA: "Ej. Llave de torque",
   CONSUMIBLE: "Ej. Aceite 15W40",
+  EQUIPO: "Ej. Rodamiento del motor",
 };
+
+// Tipos cuya pieza se elige del catálogo de piezas de unidad (ver
+// lib/piece-catalog.ts) en vez de escribirse siempre a mano: son piezas que
+// se cambian, se instalan o se rellenan en una unidad. Herramienta y Equipo
+// no tienen catálogo (no son piezas de unidad), así que se quedan en texto
+// libre.
+export function usaCatalogoDePiezas(tipo: OrdenTipo): boolean {
+  return tipo === "REFACCION" || tipo === "PIEZA" || tipo === "CONSUMIBLE";
+}

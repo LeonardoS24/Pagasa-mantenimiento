@@ -49,7 +49,7 @@ export function extinguisherAlertMessage(
   if (level === "none") return null;
   const days = fechaCalidadMala ? daysSince(fechaCalidadMala) : 0;
   if (level === "red") {
-    return `¡URGENTE! El extintor de la unidad "${numeroEconomico}" lleva ${days} día(s) en mal estado: es necesario reemplazarlo de inmediato.`;
+    return `¡URGENTE! El extintor de la unidad "${numeroEconomico}" lleva ${days} día(s) en mal estado: hay que ordenarlo y/o cambiarlo de inmediato.`;
   }
-  return `Atención: el extintor de la unidad "${numeroEconomico}" está en mal estado, prográmese su reemplazo cuanto antes.`;
+  return `Atención: el extintor de la unidad "${numeroEconomico}" está en mal estado, hay que ordenarlo y/o cambiarlo cuanto antes.`;
 }

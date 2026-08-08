@@ -5,6 +5,7 @@ import { getIronSession, type IronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "./session";
 import { canEdit, roleSchema } from "./roles";
 import { prisma } from "./prisma";
+import { parseElevatedAccessSchedule, isWithinElevatedAccessWindow } from "./elevated-access";
 
 // A dónde manda requireUser cuando la cuenta de la cookie ya no sirve. Esa
 // ruta borra la cookie y regresa al login con un aviso.
@@ -67,6 +68,30 @@ export async function requireEditor(): Promise<SessionData> {
     throw new Error("Se requiere rol ADMIN o USUARIO");
   }
   return user;
+}
+
+// Como requireAdmin, pero un USUARIO con acceso ampliado activo en este
+// momento (ver lib/elevated-access.ts) también pasa. Se usa en las acciones
+// que editan/borran registros de negocio (mantenimientos, ficha técnica,
+// documentos, inventario, órdenes, equipos) — NUNCA en las de usuarios,
+// ciudades o apartados, que siguen exigiendo requireAdmin a secas sin
+// importar la hora.
+export async function requireElevatedEditor(): Promise<SessionData> {
+  const user = await requireUser();
+  if (user.role === "ADMIN") return user;
+
+  if (user.role === "USUARIO") {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { accesoAmpliadoDias: true, accesoAmpliadoHoraInicio: true, accesoAmpliadoHoraFin: true },
+    });
+    const schedule = dbUser ? parseElevatedAccessSchedule(dbUser) : null;
+    if (schedule && isWithinElevatedAccessWindow(schedule)) {
+      return user;
+    }
+  }
+
+  redirect("/dashboard");
 }
 
 // Red de seguridad para los actions que escriben usando session.userId como

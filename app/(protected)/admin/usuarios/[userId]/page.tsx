@@ -7,7 +7,9 @@ import { ChangePasswordForm } from "@/components/admin/ChangePasswordForm";
 import { ChangeRoleForm } from "@/components/admin/ChangeRoleForm";
 import { CityAccessCheckboxes } from "@/components/admin/CityAccessCheckboxes";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ElevatedAccessForm } from "@/components/admin/ElevatedAccessForm";
 import { roleLabels, type Role } from "@/lib/roles";
+import { parseElevatedAccessSchedule } from "@/lib/elevated-access";
 
 export default async function UserDetailPage({
   params,
@@ -62,6 +64,15 @@ export default async function UserDetailPage({
           <CityAccessCheckboxes userId={user.id} cities={cities} assignedCityIds={assignedCityIds} />
         )}
       </section>
+
+      {user.role === "USUARIO" && (
+        <section className="rounded-lg border border-gray-200 bg-white p-5">
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+            Acceso ampliado por horario
+          </h3>
+          <ElevatedAccessForm userId={user.id} schedule={parseElevatedAccessSchedule(user)} />
+        </section>
+      )}
 
       <section className="rounded-lg border border-red-200 bg-white p-5">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">

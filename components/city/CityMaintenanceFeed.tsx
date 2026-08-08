@@ -5,10 +5,13 @@ import { formatDate } from "@/lib/dates";
 
 export function CityMaintenanceFeed({
   logs,
-  citySlug,
+  showCity = false,
 }: {
   logs: UnitLogEvent[];
-  citySlug: string;
+  // "Administración" combina el feed de todas las ciudades reales en
+  // uno solo (ver lib/aggregate-city.ts); ahí hace falta decir de cuál
+  // ciudad es cada registro, ya que el link solo no basta para distinguirlo.
+  showCity?: boolean;
 }) {
   if (logs.length === 0) {
     return (
@@ -29,11 +32,12 @@ export function CityMaintenanceFeed({
             <span className="font-medium text-primary">{formatDate(log.fecha)}</span>
             {" · "}
             <Link
-              href={`/ciudades/${citySlug}/vehiculo/${log.vehicleRecordId}`}
+              href={`/ciudades/${log.citySlug}/vehiculo/${log.vehicleRecordId}`}
               className="font-medium text-primary hover:underline"
             >
               {log.numeroEconomico}
             </Link>
+            {showCity && <span className="text-gray-500"> ({log.cityName})</span>}
             {" — "}
             {log.detalle}
           </div>

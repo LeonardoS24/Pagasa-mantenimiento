@@ -3,6 +3,7 @@ import { assertCityAccess } from "@/lib/access";
 import { resolveSectionPath } from "@/lib/section-path";
 import { prisma } from "@/lib/prisma";
 import { canEdit } from "@/lib/roles";
+import { hasActiveElevatedAccess } from "@/lib/elevated-access";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/layout/Breadcrumb";
 import { SectionCard } from "@/components/city/SectionCard";
 import { SectionIcon } from "@/components/layout/SectionIcon";
@@ -22,15 +23,41 @@ import { getCityEquipmentLogFeed } from "@/lib/city-equipment-log-feed";
 import { CityEquipmentLogFeed } from "@/components/city/CityEquipmentLogFeed";
 import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
+import { isAggregateCitySlug } from "@/lib/aggregate-city";
+import { getAllRecordTypeStats } from "@/lib/record-count-stats";
+import { RecordCountByCityChart } from "@/components/city/RecordCountByCityChart";
+import { RecordTypeComparisonSection } from "@/components/city/RecordTypeComparisonSection";
+import { getAggregateVehicleRecords, getAggregateEquipos } from "@/lib/aggregate-listings";
+import { AggregateVehicleTable } from "@/components/city/AggregateVehicleTable";
+import { AggregateEquipoTable } from "@/components/city/AggregateEquipoTable";
+import { getPieceOrderStatsByCity } from "@/lib/piece-order-stats";
+import { PieceOrderStatsChart } from "@/components/city/PieceOrderStatsChart";
+import { getMaintenanceTypeStats } from "@/lib/maintenance-type-stats";
+import { MaintenanceTypePieChart } from "@/components/city/MaintenanceTypePieChart";
+import {
+  getMonthRange,
+  getCurrentMonthRange,
+  currentMonthLabel,
+  monthLabel,
+  monthParamValue,
+  parseMonthParam,
+  listRecentMonths,
+} from "@/lib/dates";
+import { MonthPicker } from "@/components/city/MonthPicker";
 
 export default async function SectionPage({
   params,
+  searchParams,
 }: {
   params: { citySlug: string; sectionPath: string[] };
+  searchParams: { mes?: string };
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
-  const isAdmin = user.role === "ADMIN";
+  // isAdmin también es true para un USUARIO con acceso ampliado activo en
+  // este momento (ver lib/elevated-access.ts).
+  const isAdmin =
+    user.role === "ADMIN" || (user.role === "USUARIO" && (await hasActiveElevatedAccess(user.userId)));
   const isEditor = canEdit(user.role);
 
   await assertCityAccess(user, params.citySlug);
@@ -42,6 +69,14 @@ export default async function SectionPage({
   const isInventarios = chain.length === 1 && current.slug === "inventarios";
   const isEquiposSection = chain.length === 1 && current.slug === "equipos";
   const isBitacoraEquiposFeed = chain.length === 1 && current.slug === "bitacora-de-equipos";
+  // "Administración" (ver lib/aggregate-city.ts): su Bitácora de
+  // unidades combina el feed y los gráficos de todas las ciudades reales.
+  const isAggregateCity = isAggregateCitySlug(city.slug);
+  // Los únicos apartados documentales donde, además de PDF/imagen, se
+  // permite subir documentos de oficina (Word, Excel, etc.).
+  const allowsOfficeDocs =
+    chain.length === 1 &&
+    (current.slug === "programa-de-mantenimiento" || current.slug === "manuales");
 
   // Cualquier apartado hoja directamente dentro de "Unidad de distribución"
   // (en cualquier ciudad) es un apartado de tipo unidades: muestra la tabla
@@ -49,10 +84,18 @@ export default async function SectionPage({
   const isUnderUnidadDistribucion = chain.length >= 2 && chain[0].slug === "unidad-de-distribucion";
   const isVehicleSection = children.length === 0 && !isBitacoraFeed && isUnderUnidadDistribucion;
 
+  // Administración no tiene flota propia: en vez de la tabla de su propio
+  // apartado (siempre vacío), "Unidad de distribución" ahí muestra todas las
+  // unidades de todas las ciudades reales con ese mismo tipo de apartado
+  // (p.ej. todas las Auto-Tanques), cada una diciendo de qué ciudad es (ver
+  // lib/aggregate-listings.ts).
+  const aggregateVehicleRecords =
+    isVehicleSection && isAggregateCity ? await getAggregateVehicleRecords(current.slug) : [];
+
   // Las unidades dadas de baja se listan aparte, siempre al final: entre
   // ellas se ordenan por fecha de baja (más reciente primero) en vez del
   // orden manual usado para las unidades activas.
-  const vehicleRecords = isVehicleSection
+  const vehicleRecords = isVehicleSection && !isAggregateCity
     ? await (async () => {
         const [activeRecords, inactiveRecords] = await Promise.all([
           prisma.vehicleRecord.findMany({
@@ -70,14 +113,39 @@ export default async function SectionPage({
       })()
     : [];
 
-  const cityMaintenanceLogs = isBitacoraFeed ? await getCityUnitLogFeed(city.id) : [];
-  const pieceMaintenanceStats = isBitacoraFeed ? await getPieceMaintenanceStats(city.id) : [];
+  // Selector de mes: solo en la Bitácora de unidades de Administración (ver
+  // lib/aggregate-city.ts). Las ciudades reales siguen mostrando "actividad
+  // reciente" sin acotar por mes, como siempre.
+  const { year: selectedYear, month: selectedMonth } = parseMonthParam(searchParams.mes);
+  const selectedMonthRange = getMonthRange(selectedYear, selectedMonth);
+  const showMonthPicker = isBitacoraFeed && isAggregateCity;
+
+  const cityMaintenanceLogs = isBitacoraFeed
+    ? await getCityUnitLogFeed(isAggregateCity ? null : city.id, showMonthPicker ? selectedMonthRange : undefined)
+    : [];
+  // Mismo rango que se le pasa a PieceMaintenanceChart (para el desglose al
+  // hacer clic en una pieza, ver actions/piece-maintenance-actions.ts): sin
+  // esto el desglose podría no coincidir con lo que muestra la barra.
+  const pieceMaintenanceRange = showMonthPicker ? selectedMonthRange : getCurrentMonthRange();
+  const pieceMaintenanceStats = isBitacoraFeed
+    ? await getPieceMaintenanceStats(isAggregateCity ? null : city.id, 10, pieceMaintenanceRange)
+    : [];
+  const recordTypeStats =
+    isBitacoraFeed && isAggregateCity ? await getAllRecordTypeStats(selectedMonthRange) : [];
+  // Pastel Preventivo/Correctivo/Predictivo, mismo alcance y rango que
+  // pieceMaintenanceStats (ver lib/maintenance-type-stats.ts).
+  const maintenanceTypeStats = isBitacoraFeed
+    ? await getMaintenanceTypeStats(isAggregateCity ? null : city.id, pieceMaintenanceRange)
+    : [];
   const cityEquipmentLogs = isBitacoraEquiposFeed ? await getCityEquipmentLogFeed(city.id) : [];
+
+  // Mismo combinado que aggregateVehicleRecords, para equipos.
+  const aggregateEquipos = isEquiposSection && isAggregateCity ? await getAggregateEquipos() : [];
 
   // Los equipos dados de baja (reemplazados con un mantenimiento tipo
   // "Cambio", ver actions/equipment-log-actions.ts) se listan aparte, igual
   // que las unidades: siempre al final, ordenados por fecha de baja.
-  const equipos = isEquiposSection
+  const equipos = isEquiposSection && !isAggregateCity
     ? await (async () => {
         const [activos, inactivos] = await Promise.all([
           prisma.equipo.findMany({ where: { sectionId: current.id, activo: true }, orderBy: { order: "asc" } }),
@@ -97,6 +165,10 @@ export default async function SectionPage({
         include: { vehicleRecord: { select: { id: true, numeroEconomico: true } } },
       })
     : [];
+  // Gráfica de Administración sobre las órdenes que se realizan, por ciudad
+  // (ver lib/piece-order-stats.ts); solo tiene sentido combinando ciudades.
+  const pieceOrderStats =
+    isOrdenDePieza && isAggregateCity ? await getPieceOrderStatsByCity() : [];
 
   if (isInventarios) {
     await sweepExpiredPorUtilizar(current.id);
@@ -168,18 +240,70 @@ export default async function SectionPage({
         </div>
       ) : isBitacoraFeed ? (
         <div className="space-y-6">
-          <PieceMaintenanceChart stats={pieceMaintenanceStats} />
-          <CityMaintenanceFeed logs={cityMaintenanceLogs} citySlug={city.slug} />
+          {showMonthPicker && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3">
+              <p className="text-sm text-ink">
+                Viendo <span className="font-medium">{monthLabel(selectedYear, selectedMonth)}</span>: la
+                bitácora y las gráficas de abajo son solo de ese mes.
+              </p>
+              <MonthPicker
+                months={listRecentMonths(12)}
+                selected={monthParamValue(selectedYear, selectedMonth)}
+              />
+            </div>
+          )}
+          {isAggregateCity && (
+            <>
+              <RecordTypeComparisonSection
+                stats={recordTypeStats}
+                range={selectedMonthRange}
+                monthLabel={monthLabel(selectedYear, selectedMonth)}
+              />
+              {recordTypeStats.map((stat) => (
+                <RecordCountByCityChart
+                  key={stat.type}
+                  title={stat.label}
+                  type={stat.type}
+                  stats={stat.byCity}
+                  range={selectedMonthRange}
+                  monthLabel={monthLabel(selectedYear, selectedMonth)}
+                  color={stat.color}
+                />
+              ))}
+            </>
+          )}
+          <MaintenanceTypePieChart
+            stats={maintenanceTypeStats}
+            scope={{ type: "city", cityId: isAggregateCity ? null : city.id }}
+            range={pieceMaintenanceRange}
+            monthLabel={showMonthPicker ? monthLabel(selectedYear, selectedMonth) : currentMonthLabel()}
+          />
+          <PieceMaintenanceChart
+            stats={pieceMaintenanceStats}
+            scope={{ type: "city", cityId: isAggregateCity ? null : city.id }}
+            range={pieceMaintenanceRange}
+            monthLabel={showMonthPicker ? monthLabel(selectedYear, selectedMonth) : undefined}
+          />
+          <CityMaintenanceFeed logs={cityMaintenanceLogs} showCity={isAggregateCity} />
         </div>
       ) : isBitacoraEquiposFeed ? (
         <CityEquipmentLogFeed logs={cityEquipmentLogs} citySlug={city.slug} />
       ) : isEquiposSection ? (
         <div>
-          <EquipoTable equipos={equipos} citySlug={city.slug} />
-          {isEditor && <CreateEquipoForm sectionId={current.id} />}
+          {isAggregateCity ? (
+            <AggregateEquipoTable equipos={aggregateEquipos} />
+          ) : (
+            <>
+              <EquipoTable equipos={equipos} citySlug={city.slug} />
+              {isEditor && <CreateEquipoForm sectionId={current.id} />}
+            </>
+          )}
         </div>
       ) : isOrdenDePieza ? (
         <div className="space-y-3">
+          {isAggregateCity && (
+            <PieceOrderStatsChart stats={pieceOrderStats} monthLabel={currentMonthLabel()} />
+          )}
           {isEditor && <CreatePieceOrderForm sectionId={current.id} vehicles={cityVehicles} />}
           <PieceOrderTable orders={pieceOrders} canEdit={isEditor} isAdmin={isAdmin} citySlug={city.slug} />
         </div>
@@ -193,8 +317,14 @@ export default async function SectionPage({
         />
       ) : isVehicleSection ? (
         <div>
-          <VehicleTable records={vehicleRecords} citySlug={city.slug} sectionSlug={current.slug} />
-          {isEditor && <CreateVehicleForm sectionId={current.id} />}
+          {isAggregateCity ? (
+            <AggregateVehicleTable records={aggregateVehicleRecords} />
+          ) : (
+            <>
+              <VehicleTable records={vehicleRecords} citySlug={city.slug} sectionSlug={current.slug} />
+              {isEditor && <CreateVehicleForm sectionId={current.id} />}
+            </>
+          )}
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-ink">
@@ -206,10 +336,10 @@ export default async function SectionPage({
       {!isVehicleSection && !isEquiposSection && (
         <div className="mt-8">
           <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
-            Documentos (PDF o imagen)
+            {allowsOfficeDocs ? "Documentos (PDF, imagen, Word, Excel, PowerPoint, CSV o TXT)" : "Documentos (PDF o imagen)"}
           </h2>
           <div className="space-y-3">
-            {isEditor && <UploadDocumentForm sectionId={current.id} />}
+            {isEditor && <UploadDocumentForm sectionId={current.id} allowOfficeDocs={allowsOfficeDocs} />}
             <DocumentList documents={documents} isAdmin={isAdmin} />
           </div>
         </div>

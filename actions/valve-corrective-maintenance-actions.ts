@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import {
   saveDocumentFile,
   valveCorrectiveMaintenanceLogOwnerKey,
@@ -101,8 +101,40 @@ export async function createValveCorrectiveMaintenanceLog(
   return { success: "Mantenimiento correctivo registrado." };
 }
 
+// Solo ADMIN puede corregir un registro ya guardado.
+export async function updateValveCorrectiveMaintenanceLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const parsed = createValveCorrectiveMaintenanceLogSchema.safeParse({
+    valvula: formData.get("valvula"),
+    descripcion: formData.get("descripcion"),
+    responsable: formData.get("responsable"),
+    fecha: formData.get("fecha"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const log = await prisma.valveCorrectiveMaintenanceLog.findUnique({
+    where: { id: logId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  await prisma.valveCorrectiveMaintenanceLog.update({ where: { id: logId }, data: parsed.data });
+
+  revalidatePath(`/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`);
+  return { success: "Registro actualizado." };
+}
+
 export async function deleteValveCorrectiveMaintenanceLog(logId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const log = await prisma.valveCorrectiveMaintenanceLog.findUnique({
     where: { id: logId },

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { saveDocumentFile, valveChangeLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import { vincularPiezaARegistro } from "./inventory-actions";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
@@ -128,8 +128,44 @@ export async function createValveChangeLog(
   return { success: "Cambio de válvulas registrado y ficha técnica actualizada." };
 }
 
+// Solo ADMIN puede corregir un registro ya guardado. No vuelve a sincronizar
+// la ficha técnica (ver actions/ultrasound-actions.ts para el mismo patrón).
+export async function updateValveChangeLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const parsed = createValveChangeLogSchema.safeParse({
+    responsable: formData.get("responsable"),
+    fechaInstalacion: formData.get("fechaInstalacion"),
+    fechaFabricacionValvulaLlenado: formData.get("fechaFabricacionValvulaLlenado"),
+    fechaFabricacionValvulaServicio: formData.get("fechaFabricacionValvulaServicio"),
+    fechaFabricacionValvulaMaximoLlenado: formData.get("fechaFabricacionValvulaMaximoLlenado"),
+    fechaFabricacionValvulaAlivio: formData.get("fechaFabricacionValvulaAlivio"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const log = await prisma.valveChangeLog.findUnique({
+    where: { id: logId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  await prisma.valveChangeLog.update({ where: { id: logId }, data: parsed.data });
+
+  revalidatePath(`/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`);
+  revalidatePath("/dashboard");
+  return { success: "Registro actualizado." };
+}
+
 export async function deleteValveChangeLog(logId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const log = await prisma.valveChangeLog.findUnique({
     where: { id: logId },

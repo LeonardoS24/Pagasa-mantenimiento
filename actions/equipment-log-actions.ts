@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { equipmentLogTipoSchema } from "@/lib/equipo-enums";
 import { saveDocumentFile, equipmentLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
@@ -157,7 +157,7 @@ export async function updateEquipmentLog(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const parsed = updateLogSchema.safeParse({
     tipoMantenimiento: formData.get("tipoMantenimiento"),
@@ -181,7 +181,7 @@ export async function updateEquipmentLog(
 }
 
 export async function deleteEquipmentLog(logId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const log = await prisma.equipmentLog.findUnique({ where: { id: logId } });
   if (!log) return;

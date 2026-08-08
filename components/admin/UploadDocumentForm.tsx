@@ -21,7 +21,20 @@ function SubmitButton() {
   );
 }
 
-export function UploadDocumentForm({ sectionId }: { sectionId: string }) {
+// allowOfficeDocs: solo "Programa de mantenimiento" (ver
+// actions/document-actions.ts) deja subir Word/Excel/PowerPoint/CSV/TXT
+// además de PDF e imagen; el resto de apartados con documentos se queda
+// solo con PDF/imagen.
+const OFFICE_ACCEPT =
+  ".doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/csv,text/plain";
+
+export function UploadDocumentForm({
+  sectionId,
+  allowOfficeDocs = false,
+}: {
+  sectionId: string;
+  allowOfficeDocs?: boolean;
+}) {
   const action = uploadDocument.bind(null, sectionId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -38,7 +51,7 @@ export function UploadDocumentForm({ sectionId }: { sectionId: string }) {
       <input
         type="file"
         name="file"
-        accept="application/pdf,image/*"
+        accept={allowOfficeDocs ? `application/pdf,image/*,${OFFICE_ACCEPT}` : "application/pdf,image/*"}
         required
         className="text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:bg-gray-200"
       />

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { tipoEquipoSchema, estadoEquipoSchema, criticidadEquipoSchema } from "@/lib/equipo-enums";
 import { saveDocumentFile, equipoOwnerKey, readOptionalPdfFiles, readOptionalImageFiles } from "@/lib/documents";
@@ -132,7 +132,7 @@ export async function createEquipo(
   const maxOrder = await prisma.equipo.aggregate({ where: { sectionId }, _max: { order: true } });
 
   const equipo = await prisma.equipo.create({
-    data: { sectionId, order: (maxOrder._max.order ?? -1) + 1, ...parsed.data },
+    data: { sectionId, order: (maxOrder._max.order ?? -1) + 1, createdById: editor.userId, ...parsed.data },
   });
 
   for (const file of manuales) {
@@ -199,7 +199,7 @@ export async function updateEquipo(
 }
 
 export async function previewEquipoDeleteImpact(equipoId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
   return { impacto: await getEquipoDeleteImpact(equipoId), pideContrasena: true };
 }
 
@@ -208,7 +208,7 @@ export async function deleteEquipo(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
+  const admin = await requireElevatedEditor();
 
   const passwordError = await verifySessionPassword(admin, String(formData.get("password") ?? ""));
   if (passwordError) return { error: passwordError };

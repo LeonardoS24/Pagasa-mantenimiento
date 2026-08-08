@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { sectionBasePath } from "@/lib/section-path";
 import {
   pieceOrderStatusSchema,
@@ -215,7 +215,7 @@ export async function updatePieceOrderEstado(
 }
 
 export async function deletePieceOrder(orderId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const order = await prisma.pieceOrder.findUnique({
     where: { id: orderId },

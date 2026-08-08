@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { VehicleTechnicalSheet } from "@prisma/client";
 import { upsertTechnicalSheet } from "@/actions/vehicle-actions";
@@ -117,6 +118,16 @@ export function TechnicalSheetForm({
 }) {
   const action = upsertTechnicalSheet.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
+  // Bloqueada por default: sin esto, cualquiera que entre a la ficha técnica
+  // puede cambiar o borrar un valor sin querer con solo dar clic. Hay que
+  // apretar "Editar" para poder tocar los campos.
+  const [locked, setLocked] = useState(true);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function handleCancel() {
+    formRef.current?.reset();
+    setLocked(true);
+  }
   const extinguisherAlertLevel = getExtinguisherAlertLevel(
     sheet?.calidadExtintor,
     sheet?.fechaCalidadMalaExtintor
@@ -138,7 +149,29 @@ export function TechnicalSheetForm({
   const hoseVencimiento = getHoseVencimiento(sheet?.fechaFabricacionManguera);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form ref={formRef} action={formAction} className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-2">
+        <p className="text-sm text-ink">
+          {locked
+            ? "La ficha técnica está bloqueada para evitar cambios por accidente."
+            : "Editando la ficha técnica."}
+        </p>
+        {locked ? (
+          <button
+            type="button"
+            onClick={() => setLocked(false)}
+            className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-white transition hover:bg-primary-dark"
+          >
+            Editar
+          </button>
+        ) : (
+          <button type="button" onClick={handleCancel} className="text-sm text-ink hover:underline">
+            Cancelar
+          </button>
+        )}
+      </div>
+
+      <fieldset disabled={locked} className="space-y-6">
       <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Automóvil
@@ -259,12 +292,19 @@ export function TechnicalSheetForm({
               </span>
             )}
           </div>
+          {/* El kilometraje se actualiza con cualquier tipo de mantenimiento
+              (es solo el odómetro); la fecha del preventivo y su próxima
+              fecha/kilometraje solo se mueven con un mantenimiento tipo
+              "Preventivo" (ver actions/maintenance-actions.ts), así que se
+              muestran por separado: uno puede estar sin el otro. */}
+          {sheet?.kilometrajeUltimoMantenimiento != null && (
+            <p className="text-sm text-ink">
+              Kilometraje actual: {sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km
+            </p>
+          )}
           {sheet?.fechaUltimoMantenimiento ? (
             <p className="text-sm text-ink">
-              Último mantenimiento con kilometraje: {formatDate(sheet.fechaUltimoMantenimiento)}
-              {sheet.kilometrajeUltimoMantenimiento != null &&
-                ` a los ${sheet.kilometrajeUltimoMantenimiento.toLocaleString("es-MX")} km`}
-              . Próximo preventivo:{" "}
+              Último mantenimiento preventivo: {formatDate(sheet.fechaUltimoMantenimiento)}. Próximo:{" "}
               {sheet.fechaProximoMantenimiento && formatDate(sheet.fechaProximoMantenimiento)}
               {sheet.kilometrajeProximoMantenimiento != null &&
                 ` o a los ${sheet.kilometrajeProximoMantenimiento.toLocaleString("es-MX")} km`}
@@ -272,8 +312,8 @@ export function TechnicalSheetForm({
             </p>
           ) : (
             <p className="text-sm text-ink">
-              Sin kilometraje registrado todavía. Se calcula solo al capturar el kilometraje en un
-              mantenimiento (ver Bitácora de mantenimiento).
+              Sin mantenimiento preventivo registrado todavía. Se calcula al capturar un
+              mantenimiento tipo &quot;Preventivo&quot; (ver Bitácora de mantenimiento).
             </p>
           )}
         </div>
@@ -589,10 +629,11 @@ export function TechnicalSheetForm({
       </div>
       </>
       )}
+      </fieldset>
 
       <FormMessage state={state} />
 
-      <SubmitButton />
+      {!locked && <SubmitButton />}
     </form>
   );
 }

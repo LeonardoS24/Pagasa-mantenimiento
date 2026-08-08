@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { saveDocumentFile, hoseChangeLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
@@ -99,8 +99,41 @@ export async function createHoseChangeLog(
   return { success: "Cambio de mangueras registrado y ficha técnica actualizada." };
 }
 
+// Solo ADMIN puede corregir un registro ya guardado. No vuelve a sincronizar
+// la ficha técnica (ver actions/ultrasound-actions.ts para el mismo patrón).
+export async function updateHoseChangeLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const parsed = createHoseChangeLogSchema.safeParse({
+    responsable: formData.get("responsable"),
+    fechaInstalacion: formData.get("fechaInstalacion"),
+    fechaFabricacionManguera: formData.get("fechaFabricacionManguera"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const log = await prisma.hoseChangeLog.findUnique({
+    where: { id: logId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  await prisma.hoseChangeLog.update({ where: { id: logId }, data: parsed.data });
+
+  revalidatePath(`/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`);
+  revalidatePath("/dashboard");
+  return { success: "Registro actualizado." };
+}
+
 export async function deleteHoseChangeLog(logId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const log = await prisma.hoseChangeLog.findUnique({
     where: { id: logId },

@@ -17,14 +17,19 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
         </thead>
         <tbody>
           {users.map((user) => (
-            <tr key={user.id} className="border-t border-gray-100">
+            <tr key={user.id} className="relative border-t border-gray-100 hover:bg-gray-50">
               <td className="px-4 py-2">
-                <Link href={`/admin/usuarios/${user.id}`} className="text-primary hover:underline">
+                {/* Estira el link a toda la fila (no solo el nombre): "tr" es
+                    "relative" y este link "absolute inset-0" toma su tamaño
+                    completo. El link visible de abajo sigue ahí para que el
+                    texto se vea subrayado/enfocable como antes. */}
+                <Link href={`/admin/usuarios/${user.id}`} className="absolute inset-0" aria-label={user.username} />
+                <Link href={`/admin/usuarios/${user.id}`} className="relative text-primary hover:underline" tabIndex={-1}>
                   {user.username}
                 </Link>
               </td>
               <td className="px-4 py-2 text-ink">{roleLabels[user.role as Role]}</td>
-              <td className="px-4 py-2 text-right">
+              <td className="relative px-4 py-2 text-right">
                 {user.id !== currentUserId && (
                   <form action={deleteUser.bind(null, user.id)}>
                     <ConfirmSubmitButton

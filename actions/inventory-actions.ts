@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor } from "@/lib/auth";
 import { sectionBasePath } from "@/lib/section-path";
 import {
   inventoryItemStatusSchema,
@@ -257,8 +257,33 @@ export async function vincularPiezaARegistro(
   });
 }
 
+// Dirección inversa de "marcar Utilizada desde Inventarios": aquí la pieza
+// todavía está EN_INVENTARIO cuando se elige desde el formulario de
+// mantenimiento (ver components/admin/CreateMaintenanceLogForm.tsx), así que
+// hay que marcarla Utilizada y ligarla al registro recién creado en un solo
+// paso. Si alguien más ya la usó mientras tanto (estado ya no EN_INVENTARIO),
+// no se pisa: el mantenimiento se guarda igual, solo sin el amarre.
+export async function usarPiezaDesdeMantenimiento(
+  itemId: string,
+  vehicleId: string,
+  logId: string
+): Promise<void> {
+  const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
+  if (!item || item.estado !== "EN_INVENTARIO") return;
+
+  await prisma.inventoryItem.update({
+    where: { id: itemId },
+    data: {
+      estado: "UTILIZADA",
+      fechaUtilizada: new Date(),
+      usedOnVehicleId: vehicleId,
+      usedOnMaintenanceLogId: logId,
+    },
+  });
+}
+
 export async function deleteInventoryItem(itemId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const item = await prisma.inventoryItem.findUnique({
     where: { id: itemId },

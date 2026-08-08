@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { saveDocumentFile, extinguisherChangeLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import { calidadExtintorSchema } from "@/lib/vehicle-enums";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
@@ -26,7 +26,6 @@ const createExtinguisherChangeLogSchema = z.object({
   fechaInstalacion: requiredDate("La fecha de instalación es requerida"),
   fechaVencimiento: requiredDate("La fecha de vencimiento es requerida"),
   calidad: calidadExtintorSchema,
-  fechaRealizacion: requiredDate("La fecha de realización es requerida"),
 });
 
 export async function createExtinguisherChangeLog(
@@ -43,7 +42,6 @@ export async function createExtinguisherChangeLog(
     fechaInstalacion: formData.get("fechaInstalacion"),
     fechaVencimiento: formData.get("fechaVencimiento"),
     calidad: formData.get("calidad"),
-    fechaRealizacion: formData.get("fechaRealizacion"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -65,6 +63,9 @@ export async function createExtinguisherChangeLog(
       vehicleRecordId: vehicleId,
       createdById: editor.userId,
       ...parsed.data,
+      // Ya no se pide por separado: el registro se considera "realizado" en
+      // la fecha de instalación (ver components/admin/CreateExtinguisherChangeLogForm.tsx).
+      fechaRealizacion: parsed.data.fechaInstalacion,
     },
   });
 
@@ -83,31 +84,23 @@ export async function createExtinguisherChangeLog(
     });
   }
 
-  // Al aceptar el cambio, la ficha técnica refleja automáticamente el nuevo
-  // extintor. fechaCalidadMalaExtintor marca la primera vez que se detectó
-  // "MALA" (ancla la alerta amarilla/roja); se conserva si ya venía en MALA
-  // y se limpia si la nueva calidad no es MALA.
-  const fechaCalidadMalaExtintor =
-    parsed.data.calidad === "MALA"
-      ? vehicle.technicalSheet?.calidadExtintor === "MALA"
-        ? vehicle.technicalSheet.fechaCalidadMalaExtintor
-        : new Date()
-      : null;
-
+  // Al aceptar el cambio, la ficha técnica refleja automáticamente la fecha
+  // de instalación y de vencimiento del extintor nuevo. La calidad YA NO se
+  // sincroniza desde aquí: es un dato que el admin controla directo en la
+  // ficha técnica (ver upsertTechnicalSheet en actions/vehicle-actions.ts,
+  // que es también donde vive fechaCalidadMalaExtintor/la alerta). Este
+  // registro guarda su propia calidad como dato histórico de ese cambio en
+  // particular, sin que afecte el estado vigente de la unidad.
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
     update: {
       fechaInstalacionExtintor: parsed.data.fechaInstalacion,
       fechaVencimientoExtintor: parsed.data.fechaVencimiento,
-      calidadExtintor: parsed.data.calidad,
-      fechaCalidadMalaExtintor,
     },
     create: {
       vehicleRecordId: vehicleId,
       fechaInstalacionExtintor: parsed.data.fechaInstalacion,
       fechaVencimientoExtintor: parsed.data.fechaVencimiento,
-      calidadExtintor: parsed.data.calidad,
-      fechaCalidadMalaExtintor,
     },
   });
 
@@ -116,8 +109,48 @@ export async function createExtinguisherChangeLog(
   return { success: "Cambio de extintor registrado y ficha técnica actualizada." };
 }
 
+// Solo ADMIN puede corregir un registro ya guardado. No vuelve a sincronizar
+// la ficha técnica (ver actions/ultrasound-actions.ts para el mismo patrón):
+// si hace falta corregir también la alerta de extintor vigente, se edita
+// directo la ficha técnica.
+export async function updateExtinguisherChangeLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const parsed = createExtinguisherChangeLogSchema.safeParse({
+    responsable: formData.get("responsable"),
+    fechaInstalacion: formData.get("fechaInstalacion"),
+    fechaVencimiento: formData.get("fechaVencimiento"),
+    calidad: formData.get("calidad"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const log = await prisma.extinguisherChangeLog.findUnique({
+    where: { id: logId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  await prisma.extinguisherChangeLog.update({
+    where: { id: logId },
+    // fechaRealizacion sigue a fechaInstalacion (ya no se captura aparte).
+    data: { ...parsed.data, fechaRealizacion: parsed.data.fechaInstalacion },
+  });
+
+  revalidatePath(`/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`);
+  revalidatePath("/dashboard");
+  return { success: "Registro actualizado." };
+}
+
 export async function deleteExtinguisherChangeLog(logId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const log = await prisma.extinguisherChangeLog.findUnique({
     where: { id: logId },

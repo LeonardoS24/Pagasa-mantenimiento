@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireUser, getSession } from "@/lib/auth";
 import { roleSchema } from "@/lib/roles";
 
 export interface ActionState {
@@ -165,4 +165,84 @@ export async function assignUserCitiesAction(userId: string, formData: FormData)
   const cityIds = formData.getAll("cityIds").map(String);
   await assignUserCities(userId, cityIds);
   redirect(`/admin/usuarios/${userId}`);
+}
+
+// Cualquier usuario (no solo ADMIN) puede apagar para sí mismo el aviso de
+// mantenimientos "En proceso" que se muestra al iniciar sesión (ver
+// actions/auth-actions.ts y components/layout/InProgressAlertToast.tsx).
+export async function disableInProgressAlerts() {
+  const user = await requireUser();
+  await prisma.user.update({
+    where: { id: user.userId },
+    data: { avisosMantenimientoActivos: false },
+  });
+}
+
+const elevatedAccessSchema = z.object({
+  dias: z.array(z.number().int().min(0).max(6)).min(1, "Selecciona al menos un día"),
+  horaInicio: z.string().regex(/^\d{2}:\d{2}$/, "Hora de inicio inválida"),
+  horaFin: z.string().regex(/^\d{2}:\d{2}$/, "Hora de fin inválida"),
+});
+
+// Solo ADMIN configura esto, y solo aplica a rol USUARIO: dentro del
+// horario, ese usuario puede editar/borrar registros y ficha técnica como si
+// fuera ADMIN (ver lib/auth.ts: requireElevatedEditor), pero nunca borrar
+// ciudades/apartados/usuarios ni cambiar roles — eso sigue exigiendo
+// requireAdmin a secas en esas acciones, sin importar la hora.
+export async function updateElevatedAccessSchedule(
+  userId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { error: "El usuario no existe." };
+  if (user.role !== "USUARIO") {
+    return { error: "El acceso ampliado solo aplica a cuentas con rol Usuario." };
+  }
+
+  const dias = formData.getAll("dias").map(Number);
+  const horaInicio = String(formData.get("horaInicio") ?? "");
+  const horaFin = String(formData.get("horaFin") ?? "");
+
+  const parsed = elevatedAccessSchema.safeParse({ dias, horaInicio, horaFin });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      accesoAmpliadoDias: JSON.stringify(parsed.data.dias),
+      accesoAmpliadoHoraInicio: parsed.data.horaInicio,
+      accesoAmpliadoHoraFin: parsed.data.horaFin,
+    },
+  });
+
+  revalidatePath(`/admin/usuarios/${userId}`);
+  return { success: "Acceso ampliado guardado." };
+}
+
+export async function disableElevatedAccessSchedule(userId: string): Promise<void> {
+  await requireAdmin();
+  await prisma.user.update({
+    where: { id: userId },
+    data: { accesoAmpliadoDias: null, accesoAmpliadoHoraInicio: null, accesoAmpliadoHoraFin: null },
+  });
+  revalidatePath(`/admin/usuarios/${userId}`);
+}
+
+// Lee y borra en el mismo paso el aviso pendiente que loginAction dejó en la
+// sesión (ver actions/auth-actions.ts). Solo un Server Action puede escribir
+// cookies, por eso InProgressAlertToast lo llama al montarse en vez de que el
+// layout protegido (Server Component) lea/borre la sesión directamente.
+export async function consumePendingInProgressAlert(): Promise<number | null> {
+  const session = await getSession();
+  const count = session.pendingInProgressCount;
+  if (count === undefined) return null;
+
+  session.pendingInProgressCount = undefined;
+  await session.save();
+  return count;
 }

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import {
   saveDocumentFile,
   internalVisualInspectionLogOwnerKey,
@@ -118,8 +118,43 @@ export async function createInternalVisualInspectionLog(
   return { success: "Inspección visual interna registrada y ficha técnica actualizada." };
 }
 
+// Solo ADMIN puede corregir un registro ya guardado. No vuelve a sincronizar
+// la ficha técnica ni recalcula la fecha próxima (ver
+// actions/ultrasound-actions.ts para el mismo patrón).
+export async function updateInternalVisualInspectionLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const parsed = createInternalVisualInspectionLogSchema.safeParse({
+    compania: formData.get("compania"),
+    numeroInspeccion: formData.get("numeroInspeccion"),
+    responsable: formData.get("responsable"),
+    fechaUltimaInspeccion: formData.get("fechaUltimaInspeccion"),
+    fechaRealizacion: formData.get("fechaRealizacion"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const log = await prisma.internalVisualInspectionLog.findUnique({
+    where: { id: logId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+
+  await prisma.internalVisualInspectionLog.update({ where: { id: logId }, data: parsed.data });
+
+  revalidatePath(`/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`);
+  return { success: "Registro actualizado." };
+}
+
 export async function deleteInternalVisualInspectionLog(logId: string) {
-  await requireAdmin();
+  await requireElevatedEditor();
 
   const log = await prisma.internalVisualInspectionLog.findUnique({
     where: { id: logId },

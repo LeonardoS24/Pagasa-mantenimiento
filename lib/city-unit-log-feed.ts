@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { BadgeColorKey } from "@/lib/section-colors";
 import { maintenanceStatusLabels, calidadExtintorLabels, type MaintenanceStatus, type CalidadExtintor } from "@/lib/vehicle-enums";
 import { valvulaCorrectivaLabels, type ValvulaCorrectiva } from "@/lib/valve-alerts";
+import type { MonthRange } from "@/lib/piece-maintenance-stats";
 
 export interface UnitLogEvent {
   id: string;
@@ -10,18 +11,40 @@ export interface UnitLogEvent {
   colorKey: BadgeColorKey;
   vehicleRecordId: string;
   numeroEconomico: string;
+  citySlug: string;
+  cityName: string;
   detalle: string;
 }
 
 const TAKE = 100;
+// Cuando se pide un mes específico (Administración, ver lib/dates.ts:
+// getMonthRange), no tiene sentido truncar a los últimos N: hay que ver
+// TODO lo que pasó ese mes. 2000 es solo un tope de seguridad.
+const TAKE_RANGE = 2000;
+const cityInclude = { section: { select: { city: { select: { slug: true, name: true } } } } } as const;
+
+function dateFilter(range: MonthRange | undefined) {
+  return range ? { gte: range.start, lt: range.end } : undefined;
+}
 
 // Reúne los 10 tipos de bitácora de una unidad más el evento "Dado de baja"
 // en un solo feed cronológico a nivel ciudad. Cada tipo vive en su propio
 // modelo (ver prisma/schema.prisma), así que se consultan por separado y se
 // combinan en memoria — no hay forma de hacer esto en una sola consulta SQL
 // porque son tablas distintas sin una columna de tipo compartida.
-export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]> {
-  const vehicleWhere = { section: { cityId } };
+// cityId null = todas las ciudades combinadas (ver el apartado
+// "Administración", lib/aggregate-city.ts); cada evento lleva su propia
+// ciudad para que el link a la unidad y la etiqueta salgan correctos ahí.
+// range opcional: sin él, se muestran los últimos eventos sin importar
+// cuándo pasaron (comportamiento de siempre). Con él (selector de mes de
+// Administración), se muestra TODO lo que cayó en ese mes, sin truncar a
+// los más recientes.
+export async function getCityUnitLogFeed(
+  cityId: string | null,
+  range?: MonthRange
+): Promise<UnitLogEvent[]> {
+  const vehicleWhere = cityId ? { section: { cityId } } : {};
+  const take = range ? TAKE_RANGE : TAKE;
 
   const [
     mantenimiento,
@@ -37,73 +60,77 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
     bajas,
   ] = await Promise.all([
     prisma.maintenanceLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fecha: dateFilter(range) },
       orderBy: { fecha: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.ultrasoundLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fechaRealizacion: dateFilter(range) },
       orderBy: { fechaRealizacion: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.visualInspectionLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fechaRealizacion: dateFilter(range) },
       orderBy: { fechaRealizacion: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.tightnessTestLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fechaRealizacion: dateFilter(range) },
       orderBy: { fechaRealizacion: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.internalVisualInspectionLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fechaRealizacion: dateFilter(range) },
       orderBy: { fechaRealizacion: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.hydrostaticTestLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fechaRealizacion: dateFilter(range) },
       orderBy: { fechaRealizacion: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.extinguisherChangeLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fechaRealizacion: dateFilter(range) },
       orderBy: { fechaRealizacion: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.valveChangeLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fechaInstalacion: dateFilter(range) },
       orderBy: { fechaInstalacion: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.valveCorrectiveMaintenanceLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fecha: dateFilter(range) },
       orderBy: { fecha: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     prisma.hoseChangeLog.findMany({
-      where: { vehicleRecord: vehicleWhere },
+      where: { vehicleRecord: vehicleWhere, fechaInstalacion: dateFilter(range) },
       orderBy: { fechaInstalacion: "desc" },
-      take: TAKE,
-      include: { vehicleRecord: { select: { numeroEconomico: true } } },
+      take,
+      include: { vehicleRecord: { select: { numeroEconomico: true, ...cityInclude } } },
     }),
     // "Reactivar" borra fechaBaja (ver actions/vehicle-actions.ts), así que
     // solo las unidades actualmente inactivas tienen un evento de baja que
     // mostrar; no queda historial de reactivaciones pasadas.
     prisma.vehicleRecord.findMany({
-      where: { ...vehicleWhere, activo: false, fechaBaja: { not: null } },
+      where: {
+        ...vehicleWhere,
+        activo: false,
+        fechaBaja: range ? { not: null, gte: range.start, lt: range.end } : { not: null },
+      },
       orderBy: { fechaBaja: "desc" },
-      take: TAKE,
-      select: { id: true, numeroEconomico: true, fechaBaja: true },
+      take,
+      select: { id: true, numeroEconomico: true, fechaBaja: true, ...cityInclude },
     }),
   ]);
 
@@ -115,6 +142,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "mantenimiento" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: `${log.tipoMantenimiento} — ${log.tipoServicio} (${maintenanceStatusLabels[log.estatus as MaintenanceStatus] ?? log.estatus})`,
     })),
     ...ultrasonido.map((log) => ({
@@ -124,6 +153,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "ultrasonido" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: log.numeroUltrasonido ? `No. ${log.numeroUltrasonido}` : "Ultrasonido realizado",
     })),
     ...visualExterna.map((log) => ({
@@ -133,6 +164,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "visualExterna" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: log.numeroInspeccion ? `No. ${log.numeroInspeccion}` : "Inspección realizada",
     })),
     ...hermeticidad.map((log) => ({
@@ -142,6 +175,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "hermeticidad" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: log.numeroPrueba ? `No. ${log.numeroPrueba}` : "Prueba realizada",
     })),
     ...visualInterna.map((log) => ({
@@ -151,6 +186,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "visualInterna" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: log.numeroInspeccion ? `No. ${log.numeroInspeccion}` : "Inspección realizada",
     })),
     ...hidrostatica.map((log) => ({
@@ -160,6 +197,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "hidrostatica" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: log.numeroPrueba ? `No. ${log.numeroPrueba}` : "Prueba realizada",
     })),
     ...extintor.map((log) => ({
@@ -169,6 +208,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "extintor" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: `Calidad: ${calidadExtintorLabels[log.calidad as CalidadExtintor] ?? log.calidad}`,
     })),
     ...valvulas.map((log) => ({
@@ -178,6 +219,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "valvulas" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: "Juego de válvulas instalado",
     })),
     ...valvulasCorrectivo.map((log) => ({
@@ -187,6 +230,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "valvulas" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: `${valvulaCorrectivaLabels[log.valvula as ValvulaCorrectiva] ?? log.valvula} — ${log.descripcion}`,
     })),
     ...mangueras.map((log) => ({
@@ -196,6 +241,8 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "mangueras" as const,
       vehicleRecordId: log.vehicleRecordId,
       numeroEconomico: log.vehicleRecord.numeroEconomico,
+      citySlug: log.vehicleRecord.section.city.slug,
+      cityName: log.vehicleRecord.section.city.name,
       detalle: "Manguera instalada",
     })),
     ...bajas.map((v) => ({
@@ -205,10 +252,14 @@ export async function getCityUnitLogFeed(cityId: string): Promise<UnitLogEvent[]
       colorKey: "baja" as const,
       vehicleRecordId: v.id,
       numeroEconomico: v.numeroEconomico,
+      citySlug: v.section.city.slug,
+      cityName: v.section.city.name,
       detalle: "La unidad se dio de baja",
     })),
   ];
 
   events.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
-  return events.slice(0, 150);
+  // Sin range: mantiene el tope corto de "actividad reciente" de siempre.
+  // Con range: ya viene acotado por mes en cada consulta, se muestra todo.
+  return range ? events : events.slice(0, 150);
 }

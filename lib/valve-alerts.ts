@@ -52,16 +52,20 @@ export function getValveAlertLevel(dates: ValveDates): ValveAlertLevel {
   return "none";
 }
 
+// Las válvulas de un tanque de gas son la pieza más delicada de toda la
+// ficha técnica: esta alerta se ve deliberadamente más fuerte que las demás
+// (colores sólidos y saturados, no los tonos pálidos bg-X-100 del resto) para
+// que nunca se confunda con una alerta cualquiera ni se pase por alto.
 export const valveAlertBadgeStyles: Record<ValveAlertLevel, string> = {
   none: "",
-  yellow: "bg-yellow-100 text-yellow-800 border border-yellow-300",
-  red: "bg-red-100 text-red-800 border border-red-300",
+  yellow: "bg-yellow-400 text-yellow-950 border border-yellow-600 font-bold",
+  red: "bg-red-600 text-white border border-red-700 font-bold",
 };
 
 export const valveAlertRowStyles: Record<ValveAlertLevel, string> = {
   none: "",
-  yellow: "bg-yellow-50",
-  red: "bg-red-50",
+  yellow: "bg-yellow-200",
+  red: "bg-red-200",
 };
 
 export function valveAlertLabel(level: ValveAlertLevel, vencimiento: Date): string {
