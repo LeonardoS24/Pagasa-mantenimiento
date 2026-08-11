@@ -1,9 +1,18 @@
 import Link from "next/link";
 import type { AggregateVehicleRow } from "@/lib/aggregate-listings";
+import { semaforoDotStyles, semaforoLabels } from "@/lib/vehicle-semaforo";
 
 function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEstacion: boolean }) {
   return (
     <tr className={`relative border-t border-gray-100 hover:bg-gray-50 ${!record.activo ? "bg-orange-50" : ""}`}>
+      <td className="whitespace-nowrap px-2 py-2">
+        {record.semaforoLevel !== "none" && (
+          <span
+            className={`inline-block h-3 w-3 rounded-full ${semaforoDotStyles[record.semaforoLevel]}`}
+            title={semaforoLabels[record.semaforoLevel]}
+          />
+        )}
+      </td>
       <td className="whitespace-nowrap px-4 py-2 font-medium text-primary">
         {/* Estira el link a toda la fila (no solo esta celda), mismo
             truco que VehicleTable.tsx. */}
@@ -37,6 +46,9 @@ function VehicleTableHead({ isEstacion }: { isEstacion: boolean }) {
   return (
     <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
       <tr>
+        <th className="whitespace-nowrap px-2 py-2" title="Semáforo de vencimientos próximos" aria-label="Semáforo">
+          <span className="sr-only">Estado</span>
+        </th>
         <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Nombre" : "Número económico"}</th>
         <th className="whitespace-nowrap px-4 py-2">Ciudad</th>
         <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Dirección" : "Sucursal"}</th>

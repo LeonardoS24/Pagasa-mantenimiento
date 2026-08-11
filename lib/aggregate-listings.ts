@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AGGREGATE_CITY_SLUG } from "@/lib/aggregate-city";
+import { getVehicleSemaforoLevel, type SemaforoLevel } from "@/lib/vehicle-semaforo";
 
 export interface AggregateVehicleRow {
   id: string;
@@ -13,6 +14,7 @@ export interface AggregateVehicleRow {
   activo: boolean;
   citySlug: string;
   cityName: string;
+  semaforoLevel: SemaforoLevel;
 }
 
 // Todas las unidades de todas las ciudades reales cuyo apartado (dentro de
@@ -30,8 +32,8 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       anio: true,
       placas: true,
       activo: true,
-      technicalSheet: { select: { serie: true } },
-      section: { select: { city: { select: { slug: true, name: true, order: true } } } },
+      technicalSheet: true,
+      section: { select: { slug: true, city: { select: { slug: true, name: true, order: true } } } },
     },
   });
 
@@ -47,6 +49,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       citySlug: r.section.city.slug,
       cityName: r.section.city.name,
       cityOrder: r.section.city.order,
+      semaforoLevel: r.activo ? getVehicleSemaforoLevel(r.technicalSheet, r.section.slug) : ("none" as const),
     }))
     .sort((a, b) => {
       if (a.activo !== b.activo) return a.activo ? -1 : 1;

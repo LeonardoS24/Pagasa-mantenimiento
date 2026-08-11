@@ -250,16 +250,25 @@ model VehicleTechnicalSheet {
   kilometrajeProximoMantenimiento  Int?
   fechaProximoMantenimiento        DateTime?
 
-  // Cambio de válvulas: solo para Vehículo con tanque de carburación. Cada
-  // válvula guarda su propia fecha de fabricación; la alerta (igual que la
-  // de ultrasonido) se calcula sobre la más antigua de las 4, venciendo a
-  // los 5 años (ver lib/valve-alerts.ts). fechaInstalacionValvulas es la
-  // fecha general en que se instaló el juego de válvulas.
-  fechaInstalacionValvulas             DateTime?
-  fechaFabricacionValvulaLlenado       DateTime?
-  fechaFabricacionValvulaServicio      DateTime?
-  fechaFabricacionValvulaMaximoLlenado DateTime?
-  fechaFabricacionValvulaAlivio        DateTime?
+  // Cambio de válvulas: Auto-Tanques y Vehículo con tanque de carburación
+  // (ver showValveSection en la página de detalle de vehículo). Cada válvula
+  // guarda su propia fecha de fabricación; la alerta (igual que la de
+  // ultrasonido) se calcula sobre la más antigua de todas, venciendo a los 5
+  // años (ver lib/valve-alerts.ts). fechaInstalacionValvulas es la fecha
+  // general en que se instaló el juego de válvulas. tieneValvulaMaximoLlenado85
+  // marca si la unidad tiene esa válvula (no todas la tienen); solo si es
+  // true participa fechaFabricacionValvulaMaximoLlenado85 en el cálculo.
+  fechaInstalacionValvulas                    DateTime?
+  fechaFabricacionValvulaLlenado              DateTime?
+  fechaFabricacionValvulaNoRetroceso          DateTime?
+  fechaFabricacionValvulaBypass               DateTime?
+  fechaFabricacionValvulaRetornoVapores       DateTime?
+  fechaFabricacionValvulaServicio             DateTime?
+  fechaFabricacionValvulaMaximoLlenado        DateTime?
+  tieneValvulaMaximoLlenado85                 Boolean   @default(false)
+  fechaFabricacionValvulaMaximoLlenado85      DateTime?
+  fechaFabricacionValvulaAlivio               DateTime?
+  fechaFabricacionValvulaDescargaEmergencia   DateTime?
 
   // Cambio de mangueras: solo para Vehículo con tanque de carburación. La
   // alerta vence a los 2 años (mismo esquema que las válvulas, pero con
@@ -541,9 +550,16 @@ model ValveChangeLog {
   fechaInstalacion DateTime
 
   fechaFabricacionValvulaLlenado       DateTime
+  fechaFabricacionValvulaNoRetroceso   DateTime
+  fechaFabricacionValvulaBypass        DateTime
+  fechaFabricacionValvulaRetornoVapores DateTime
   fechaFabricacionValvulaServicio      DateTime
   fechaFabricacionValvulaMaximoLlenado DateTime
-  fechaFabricacionValvulaAlivio        DateTime
+  // Única opcional del juego: no todos los tanques la tienen.
+  tieneValvulaMaximoLlenado85            Boolean   @default(false)
+  fechaFabricacionValvulaMaximoLlenado85 DateTime?
+  fechaFabricacionValvulaAlivio             DateTime
+  fechaFabricacionValvulaDescargaEmergencia DateTime
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)

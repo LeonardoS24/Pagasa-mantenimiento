@@ -3,6 +3,7 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { createUser, type ActionState } from "@/actions/user-actions";
 import { roleLabels } from "@/lib/roles";
+import { PasswordInput } from "@/components/PasswordInput";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -45,10 +46,9 @@ export function CreateUserForm() {
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="password">
             Contraseña
           </label>
-          <input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             required
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />

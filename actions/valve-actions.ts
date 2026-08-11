@@ -21,22 +21,62 @@ const requiredDate = (message: string) =>
     return text.length > 0 ? new Date(text) : undefined;
   }, z.date({ required_error: message, invalid_type_error: "Fecha inválida" }));
 
-const createValveChangeLogSchema = z.object({
-  responsable: optionalText(150),
-  fechaInstalacion: requiredDate("La fecha de instalación es requerida"),
-  fechaFabricacionValvulaLlenado: requiredDate(
-    "La fecha de fabricación de la válvula de llenado es requerida"
-  ),
-  fechaFabricacionValvulaServicio: requiredDate(
-    "La fecha de fabricación de la válvula de servicio es requerida"
-  ),
-  fechaFabricacionValvulaMaximoLlenado: requiredDate(
-    "La fecha de fabricación de la válvula de máximo llenado es requerida"
-  ),
-  fechaFabricacionValvulaAlivio: requiredDate(
-    "La fecha de fabricación de la válvula de alivio es requerida"
-  ),
-});
+const optionalDate = z.preprocess((value) => {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? new Date(text) : null;
+}, z.date().nullable());
+
+const createValveChangeLogSchema = z
+  .object({
+    responsable: optionalText(150),
+    fechaInstalacion: requiredDate("La fecha de instalación es requerida"),
+    fechaFabricacionValvulaLlenado: requiredDate(
+      "La fecha de fabricación de la válvula de llenado es requerida"
+    ),
+    fechaFabricacionValvulaNoRetroceso: requiredDate(
+      "La fecha de fabricación de la válvula de no retroceso (check) es requerida"
+    ),
+    fechaFabricacionValvulaBypass: requiredDate(
+      "La fecha de fabricación de la válvula de retroceso (bypass) es requerida"
+    ),
+    fechaFabricacionValvulaRetornoVapores: requiredDate(
+      "La fecha de fabricación de la válvula de retorno de vapores es requerida"
+    ),
+    fechaFabricacionValvulaServicio: requiredDate(
+      "La fecha de fabricación de la válvula de servicio de vapor es requerida"
+    ),
+    fechaFabricacionValvulaMaximoLlenado: requiredDate(
+      "La fecha de fabricación de la válvula de máximo llenado 90% es requerida"
+    ),
+    // Única opcional del juego (ver lib/valve-alerts.ts): no todos los
+    // tanques tienen esta válvula. Solo se pide la fecha si se marca que sí.
+    tieneValvulaMaximoLlenado85: z.preprocess(
+      (value) => value === "on" || value === "true",
+      z.boolean()
+    ),
+    fechaFabricacionValvulaMaximoLlenado85: optionalDate,
+    fechaFabricacionValvulaAlivio: requiredDate(
+      "La fecha de fabricación de la válvula de seguridad es requerida"
+    ),
+    fechaFabricacionValvulaDescargaEmergencia: requiredDate(
+      "La fecha de fabricación de la válvula de descarga de emergencia es requerida"
+    ),
+  })
+  .superRefine((data, ctx) => {
+    if (data.tieneValvulaMaximoLlenado85 && !data.fechaFabricacionValvulaMaximoLlenado85) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "La fecha de fabricación de la válvula de máximo llenado 85% es requerida",
+        path: ["fechaFabricacionValvulaMaximoLlenado85"],
+      });
+    }
+  })
+  .transform((data) => ({
+    ...data,
+    fechaFabricacionValvulaMaximoLlenado85: data.tieneValvulaMaximoLlenado85
+      ? data.fechaFabricacionValvulaMaximoLlenado85
+      : null,
+  }));
 
 export async function createValveChangeLog(
   vehicleId: string,
@@ -51,9 +91,17 @@ export async function createValveChangeLog(
     responsable: formData.get("responsable"),
     fechaInstalacion: formData.get("fechaInstalacion"),
     fechaFabricacionValvulaLlenado: formData.get("fechaFabricacionValvulaLlenado"),
+    fechaFabricacionValvulaNoRetroceso: formData.get("fechaFabricacionValvulaNoRetroceso"),
+    fechaFabricacionValvulaBypass: formData.get("fechaFabricacionValvulaBypass"),
+    fechaFabricacionValvulaRetornoVapores: formData.get("fechaFabricacionValvulaRetornoVapores"),
     fechaFabricacionValvulaServicio: formData.get("fechaFabricacionValvulaServicio"),
     fechaFabricacionValvulaMaximoLlenado: formData.get("fechaFabricacionValvulaMaximoLlenado"),
+    tieneValvulaMaximoLlenado85: formData.get("tieneValvulaMaximoLlenado85"),
+    fechaFabricacionValvulaMaximoLlenado85: formData.get("fechaFabricacionValvulaMaximoLlenado85"),
     fechaFabricacionValvulaAlivio: formData.get("fechaFabricacionValvulaAlivio"),
+    fechaFabricacionValvulaDescargaEmergencia: formData.get(
+      "fechaFabricacionValvulaDescargaEmergencia"
+    ),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -100,27 +148,27 @@ export async function createValveChangeLog(
     });
   }
 
-  // Al aceptar el cambio, la ficha técnica refleja automáticamente las 4
+  // Al aceptar el cambio, la ficha técnica refleja automáticamente todas las
   // fechas de fabricación y la fecha general de instalación del nuevo juego
   // de válvulas (mismo patrón que extintor: siempre se sobrescribe con lo
   // más reciente).
+  const valveSheetFields = {
+    fechaInstalacionValvulas: parsed.data.fechaInstalacion,
+    fechaFabricacionValvulaLlenado: parsed.data.fechaFabricacionValvulaLlenado,
+    fechaFabricacionValvulaNoRetroceso: parsed.data.fechaFabricacionValvulaNoRetroceso,
+    fechaFabricacionValvulaBypass: parsed.data.fechaFabricacionValvulaBypass,
+    fechaFabricacionValvulaRetornoVapores: parsed.data.fechaFabricacionValvulaRetornoVapores,
+    fechaFabricacionValvulaServicio: parsed.data.fechaFabricacionValvulaServicio,
+    fechaFabricacionValvulaMaximoLlenado: parsed.data.fechaFabricacionValvulaMaximoLlenado,
+    tieneValvulaMaximoLlenado85: parsed.data.tieneValvulaMaximoLlenado85,
+    fechaFabricacionValvulaMaximoLlenado85: parsed.data.fechaFabricacionValvulaMaximoLlenado85,
+    fechaFabricacionValvulaAlivio: parsed.data.fechaFabricacionValvulaAlivio,
+    fechaFabricacionValvulaDescargaEmergencia: parsed.data.fechaFabricacionValvulaDescargaEmergencia,
+  };
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
-    update: {
-      fechaInstalacionValvulas: parsed.data.fechaInstalacion,
-      fechaFabricacionValvulaLlenado: parsed.data.fechaFabricacionValvulaLlenado,
-      fechaFabricacionValvulaServicio: parsed.data.fechaFabricacionValvulaServicio,
-      fechaFabricacionValvulaMaximoLlenado: parsed.data.fechaFabricacionValvulaMaximoLlenado,
-      fechaFabricacionValvulaAlivio: parsed.data.fechaFabricacionValvulaAlivio,
-    },
-    create: {
-      vehicleRecordId: vehicleId,
-      fechaInstalacionValvulas: parsed.data.fechaInstalacion,
-      fechaFabricacionValvulaLlenado: parsed.data.fechaFabricacionValvulaLlenado,
-      fechaFabricacionValvulaServicio: parsed.data.fechaFabricacionValvulaServicio,
-      fechaFabricacionValvulaMaximoLlenado: parsed.data.fechaFabricacionValvulaMaximoLlenado,
-      fechaFabricacionValvulaAlivio: parsed.data.fechaFabricacionValvulaAlivio,
-    },
+    update: valveSheetFields,
+    create: { vehicleRecordId: vehicleId, ...valveSheetFields },
   });
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
@@ -141,9 +189,17 @@ export async function updateValveChangeLog(
     responsable: formData.get("responsable"),
     fechaInstalacion: formData.get("fechaInstalacion"),
     fechaFabricacionValvulaLlenado: formData.get("fechaFabricacionValvulaLlenado"),
+    fechaFabricacionValvulaNoRetroceso: formData.get("fechaFabricacionValvulaNoRetroceso"),
+    fechaFabricacionValvulaBypass: formData.get("fechaFabricacionValvulaBypass"),
+    fechaFabricacionValvulaRetornoVapores: formData.get("fechaFabricacionValvulaRetornoVapores"),
     fechaFabricacionValvulaServicio: formData.get("fechaFabricacionValvulaServicio"),
     fechaFabricacionValvulaMaximoLlenado: formData.get("fechaFabricacionValvulaMaximoLlenado"),
+    tieneValvulaMaximoLlenado85: formData.get("tieneValvulaMaximoLlenado85"),
+    fechaFabricacionValvulaMaximoLlenado85: formData.get("fechaFabricacionValvulaMaximoLlenado85"),
     fechaFabricacionValvulaAlivio: formData.get("fechaFabricacionValvulaAlivio"),
+    fechaFabricacionValvulaDescargaEmergencia: formData.get(
+      "fechaFabricacionValvulaDescargaEmergencia"
+    ),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };

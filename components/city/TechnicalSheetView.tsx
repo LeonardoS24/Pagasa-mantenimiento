@@ -108,9 +108,14 @@ export function TechnicalSheetView({
   const maintenanceAlertLevel = getMaintenanceAlertLevel(sheet.fechaProximoMantenimiento);
   const valveDates = {
     fechaFabricacionValvulaLlenado: sheet.fechaFabricacionValvulaLlenado,
+    fechaFabricacionValvulaNoRetroceso: sheet.fechaFabricacionValvulaNoRetroceso,
+    fechaFabricacionValvulaBypass: sheet.fechaFabricacionValvulaBypass,
+    fechaFabricacionValvulaRetornoVapores: sheet.fechaFabricacionValvulaRetornoVapores,
     fechaFabricacionValvulaServicio: sheet.fechaFabricacionValvulaServicio,
     fechaFabricacionValvulaMaximoLlenado: sheet.fechaFabricacionValvulaMaximoLlenado,
+    fechaFabricacionValvulaMaximoLlenado85: sheet.fechaFabricacionValvulaMaximoLlenado85,
     fechaFabricacionValvulaAlivio: sheet.fechaFabricacionValvulaAlivio,
+    fechaFabricacionValvulaDescargaEmergencia: sheet.fechaFabricacionValvulaDescargaEmergencia,
   };
   const valveAlertLevel = getValveAlertLevel(valveDates);
   const valveVencimiento = getValveVencimiento(valveDates);
@@ -302,16 +307,38 @@ export function TechnicalSheetView({
               value={formatDate(sheet.fechaFabricacionValvulaLlenado) || null}
             />
             <Item
-              label="Válvula de servicio"
+              label="Válvula de no retroceso (check)"
+              value={formatDate(sheet.fechaFabricacionValvulaNoRetroceso) || null}
+            />
+            <Item
+              label="Válvula de retroceso (bypass)"
+              value={formatDate(sheet.fechaFabricacionValvulaBypass) || null}
+            />
+            <Item
+              label="Válvula de retorno de vapores"
+              value={formatDate(sheet.fechaFabricacionValvulaRetornoVapores) || null}
+            />
+            <Item
+              label="Válvula de servicio de vapor"
               value={formatDate(sheet.fechaFabricacionValvulaServicio) || null}
             />
             <Item
-              label="Válvula de máximo llenado"
+              label="Válvula de máximo llenado 90%"
               value={formatDate(sheet.fechaFabricacionValvulaMaximoLlenado) || null}
             />
+            {sheet.tieneValvulaMaximoLlenado85 && (
+              <Item
+                label="Válvula de máximo llenado 85%"
+                value={formatDate(sheet.fechaFabricacionValvulaMaximoLlenado85) || null}
+              />
+            )}
             <Item
-              label="Válvula de alivio (seguridad)"
+              label="Válvula de seguridad"
               value={formatDate(sheet.fechaFabricacionValvulaAlivio) || null}
+            />
+            <Item
+              label="Válvula de descarga de emergencia"
+              value={formatDate(sheet.fechaFabricacionValvulaDescargaEmergencia) || null}
             />
           </dl>
         </div>

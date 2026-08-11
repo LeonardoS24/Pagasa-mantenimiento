@@ -27,6 +27,7 @@ import { InternalVisualInspectionLogTable } from "@/components/city/InternalVisu
 import { CreateHydrostaticTestLogForm } from "@/components/admin/CreateHydrostaticTestLogForm";
 import { HydrostaticTestLogTable } from "@/components/city/HydrostaticTestLogTable";
 import { CreateExtinguisherChangeLogForm } from "@/components/admin/CreateExtinguisherChangeLogForm";
+import { QuickCalidadExtintorForm } from "@/components/admin/QuickCalidadExtintorForm";
 import { ExtinguisherChangeLogTable } from "@/components/city/ExtinguisherChangeLogTable";
 import { CreateValveChangeLogForm } from "@/components/admin/CreateValveChangeLogForm";
 import { ValveChangeLogTable } from "@/components/city/ValveChangeLogTable";
@@ -238,9 +239,17 @@ export default async function VehicleDetailPage({
       : "none";
   const valveDates = {
     fechaFabricacionValvulaLlenado: vehicle.technicalSheet?.fechaFabricacionValvulaLlenado,
+    fechaFabricacionValvulaNoRetroceso: vehicle.technicalSheet?.fechaFabricacionValvulaNoRetroceso,
+    fechaFabricacionValvulaBypass: vehicle.technicalSheet?.fechaFabricacionValvulaBypass,
+    fechaFabricacionValvulaRetornoVapores:
+      vehicle.technicalSheet?.fechaFabricacionValvulaRetornoVapores,
     fechaFabricacionValvulaServicio: vehicle.technicalSheet?.fechaFabricacionValvulaServicio,
     fechaFabricacionValvulaMaximoLlenado: vehicle.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
+    fechaFabricacionValvulaMaximoLlenado85:
+      vehicle.technicalSheet?.fechaFabricacionValvulaMaximoLlenado85,
     fechaFabricacionValvulaAlivio: vehicle.technicalSheet?.fechaFabricacionValvulaAlivio,
+    fechaFabricacionValvulaDescargaEmergencia:
+      vehicle.technicalSheet?.fechaFabricacionValvulaDescargaEmergencia,
   };
   const valveAlertLevel =
     vehicle.activo && isAlertVisibleForSection("valvulas", vehicle.section.slug)
@@ -384,6 +393,7 @@ export default async function VehicleDetailPage({
             defaults={vehicle}
             submitLabel="Guardar cambios"
             isEstacion={isEstacionCarburacion}
+            lockable
           />
         ) : isEstacionCarburacion ? (
           <dl className="grid gap-4 sm:grid-cols-2">
@@ -428,16 +438,24 @@ export default async function VehicleDetailPage({
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Ficha técnica
         </h2>
+        {isAdmin && (
+          <div className="mb-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3">
+            <p className="mb-2 text-xs text-ink">
+              Cambio rápido, sin necesidad de editar toda la ficha técnica:
+            </p>
+            <QuickCalidadExtintorForm
+              vehicleId={vehicle.id}
+              calidadActual={vehicle.technicalSheet?.calidadExtintor ?? null}
+            />
+          </div>
+        )}
         {isAdmin ? (
           <TechnicalSheetForm
             vehicleId={vehicle.id}
             sheet={vehicle.technicalSheet}
             sectionSlug={vehicle.section.slug}
-            requireProximoUltrasonido={isAutoTanques || isEstacionCarburacion}
-            requireProximaInspeccionVisual={isAutoTanques || isEstacionCarburacion}
-            requireProximaPruebaHermeticidad={isAutoTanques || isEstacionCarburacion}
             useDeliveryFormat={useDeliveryFormat}
-            showValveSection={isTanqueCarburacion}
+            showValveSection={isTanqueCarburacion || isAutoTanques}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
             showInspeccionesSection={showInspeccionesSection}
@@ -450,7 +468,7 @@ export default async function VehicleDetailPage({
             sheet={vehicle.technicalSheet}
             sectionSlug={vehicle.section.slug}
             useDeliveryFormat={useDeliveryFormat}
-            showValveSection={isTanqueCarburacion}
+            showValveSection={isTanqueCarburacion || isAutoTanques}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection}
             showInspeccionesSection={showInspeccionesSection}
@@ -513,7 +531,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {isTanqueCarburacion && (
+      {(isTanqueCarburacion || isAutoTanques) && (
         <div id="valvulas" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Cambio de válvulas
@@ -525,7 +543,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {isTanqueCarburacion && (
+      {(isTanqueCarburacion || isAutoTanques) && (
         <div id="valvulas-correctivo" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Mantenimiento correctivo de válvulas

@@ -1,22 +1,34 @@
 import { daysUntil } from "./ultrasound-alerts";
 
 // Alerta de cambio de válvulas: vence a los 5 años de fabricación de la más
-// antigua de las 4 válvulas (llenado, servicio, máximo llenado, alivio).
-// Mismo esquema amarillo/rojo que el ultrasonido.
+// antigua de todo el juego. Mismo esquema amarillo/rojo que el ultrasonido.
+// fechaFabricacionValvulaMaximoLlenado85 solo aplica si tieneValvulaMaximoLlenado85
+// es true (no todas las unidades tienen esa válvula); si es null simplemente
+// no participa en el cálculo, igual que cualquier otra fecha vacía.
 export type ValveAlertLevel = "none" | "yellow" | "red";
 
 export type ValveDates = {
   fechaFabricacionValvulaLlenado: Date | null | undefined;
+  fechaFabricacionValvulaNoRetroceso: Date | null | undefined;
+  fechaFabricacionValvulaBypass: Date | null | undefined;
+  fechaFabricacionValvulaRetornoVapores: Date | null | undefined;
   fechaFabricacionValvulaServicio: Date | null | undefined;
   fechaFabricacionValvulaMaximoLlenado: Date | null | undefined;
+  fechaFabricacionValvulaMaximoLlenado85: Date | null | undefined;
   fechaFabricacionValvulaAlivio: Date | null | undefined;
+  fechaFabricacionValvulaDescargaEmergencia: Date | null | undefined;
 };
 
 export const valveLabels: Record<keyof ValveDates, string> = {
   fechaFabricacionValvulaLlenado: "Válvula de llenado",
-  fechaFabricacionValvulaServicio: "Válvula de servicio",
-  fechaFabricacionValvulaMaximoLlenado: "Válvula de máximo llenado",
-  fechaFabricacionValvulaAlivio: "Válvula de alivio (seguridad)",
+  fechaFabricacionValvulaNoRetroceso: "Válvula de no retroceso (check)",
+  fechaFabricacionValvulaBypass: "Válvula de retroceso (bypass)",
+  fechaFabricacionValvulaRetornoVapores: "Válvula de retorno de vapores",
+  fechaFabricacionValvulaServicio: "Válvula de servicio de vapor",
+  fechaFabricacionValvulaMaximoLlenado: "Válvula de máximo llenado 90%",
+  fechaFabricacionValvulaMaximoLlenado85: "Válvula de máximo llenado 85% (opcional)",
+  fechaFabricacionValvulaAlivio: "Válvula de seguridad",
+  fechaFabricacionValvulaDescargaEmergencia: "Válvula de descarga de emergencia",
 };
 
 function addYears(date: Date, years: number): Date {
@@ -80,15 +92,31 @@ export function valveAlertLabel(level: ValveAlertLevel, vencimiento: Date): stri
 }
 
 // Opciones de válvula afectada para el mantenimiento CORRECTIVO (ver
-// ValveCorrectiveMaintenanceLog): las mismas 4 válvulas más "GENERAL" para
-// reparaciones que no son de una válvula específica.
-export type ValvulaCorrectiva = "LLENADO" | "SERVICIO" | "MAXIMO_LLENADO" | "ALIVIO" | "GENERAL";
+// ValveCorrectiveMaintenanceLog): el mismo juego completo de válvulas (ver
+// ValveDates arriba) más "GENERAL" para reparaciones que no son de una
+// válvula específica.
+export type ValvulaCorrectiva =
+  | "LLENADO"
+  | "NO_RETROCESO"
+  | "BYPASS"
+  | "RETORNO_VAPORES"
+  | "SERVICIO"
+  | "MAXIMO_LLENADO"
+  | "MAXIMO_LLENADO_85"
+  | "ALIVIO"
+  | "DESCARGA_EMERGENCIA"
+  | "GENERAL";
 
 export const valvulaCorrectivaLabels: Record<ValvulaCorrectiva, string> = {
   LLENADO: "Válvula de llenado",
-  SERVICIO: "Válvula de servicio",
-  MAXIMO_LLENADO: "Válvula de máximo llenado",
-  ALIVIO: "Válvula de alivio (seguridad)",
+  NO_RETROCESO: "Válvula de no retroceso (check)",
+  BYPASS: "Válvula de retroceso (bypass)",
+  RETORNO_VAPORES: "Válvula de retorno de vapores",
+  SERVICIO: "Válvula de servicio de vapor",
+  MAXIMO_LLENADO: "Válvula de máximo llenado 90%",
+  MAXIMO_LLENADO_85: "Válvula de máximo llenado 85% (opcional)",
+  ALIVIO: "Válvula de seguridad",
+  DESCARGA_EMERGENCIA: "Válvula de descarga de emergencia",
   GENERAL: "General",
 };
 

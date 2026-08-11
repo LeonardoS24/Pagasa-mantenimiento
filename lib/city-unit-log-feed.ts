@@ -27,6 +27,23 @@ function dateFilter(range: MonthRange | undefined) {
   return range ? { gte: range.start, lt: range.end } : undefined;
 }
 
+// Quita duplicados por ciudad+número económico: el mismo camión físico
+// puede tener un VehicleRecord en Auto-Tanques y otro en Vehículo con
+// tanque de carburación (ver comentario donde se usa, más abajo).
+function dedupeBajas<T extends { numeroEconomico: string; section: { city: { slug: string } } }>(
+  bajas: T[]
+): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const v of bajas) {
+    const key = `${v.section.city.slug}::${v.numeroEconomico}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(v);
+  }
+  return result;
+}
+
 // Reúne los 10 tipos de bitácora de una unidad más el evento "Dado de baja"
 // en un solo feed cronológico a nivel ciudad. Cada tipo vive en su propio
 // modelo (ver prisma/schema.prisma), así que se consultan por separado y se
@@ -245,7 +262,13 @@ export async function getCityUnitLogFeed(
       cityName: log.vehicleRecord.section.city.name,
       detalle: "Manguera instalada",
     })),
-    ...bajas.map((v) => ({
+    // Auto-Tanques y Vehículo con tanque de carburación pueden repetir el
+    // mismo número económico como el mismo camión físico en dos apartados
+    // (ver setVehicleActive en actions/vehicle-actions.ts, que da de baja a
+    // ambos registros a la vez). Para el feed es la misma unidad, así que
+    // solo debe aparecer un evento "Dado de baja" por ciudad+número
+    // económico, no uno por cada registro.
+    ...dedupeBajas(bajas).map((v) => ({
       id: `baja-${v.id}`,
       fecha: v.fechaBaja!,
       tipo: "Dado de baja",

@@ -69,9 +69,6 @@ export function TechnicalSheetForm({
   vehicleId,
   sheet,
   sectionSlug,
-  requireProximoUltrasonido = false,
-  requireProximaInspeccionVisual = false,
-  requireProximaPruebaHermeticidad = false,
   useDeliveryFormat = false,
   showValveSection = false,
   showHoseSection = false,
@@ -87,9 +84,6 @@ export function TechnicalSheetForm({
   // misma unidad vive también en Vehículo con tanque de carburación (ver
   // lib/alert-visibility.ts).
   sectionSlug: string;
-  requireProximoUltrasonido?: boolean;
-  requireProximaInspeccionVisual?: boolean;
-  requireProximaPruebaHermeticidad?: boolean;
   // Formato para Vehículo de reparto y Vehículo con tanque de carburación:
   // "Peso" se reemplaza por dos pesos brutos y "Tanque" pasa a llamarse
   // "Tanque de carburación".
@@ -128,29 +122,32 @@ export function TechnicalSheetForm({
   // puede cambiar o borrar un valor sin querer con solo dar clic. Hay que
   // apretar "Editar" para poder tocar los campos.
   const [locked, setLocked] = useState(true);
+  const [tieneValvula85, setTieneValvula85] = useState(sheet?.tieneValvulaMaximoLlenado85 ?? false);
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleCancel() {
     formRef.current?.reset();
     setLocked(true);
+    setTieneValvula85(sheet?.tieneValvulaMaximoLlenado85 ?? false);
   }
   const extinguisherAlertLevel = getExtinguisherAlertLevel(
     sheet?.calidadExtintor,
     sheet?.fechaCalidadMalaExtintor
   );
   const maintenanceAlertLevel = getMaintenanceAlertLevel(sheet?.fechaProximoMantenimiento);
-  const valveAlertLevel = getValveAlertLevel({
+  const valveDatesForAlert = {
     fechaFabricacionValvulaLlenado: sheet?.fechaFabricacionValvulaLlenado,
+    fechaFabricacionValvulaNoRetroceso: sheet?.fechaFabricacionValvulaNoRetroceso,
+    fechaFabricacionValvulaBypass: sheet?.fechaFabricacionValvulaBypass,
+    fechaFabricacionValvulaRetornoVapores: sheet?.fechaFabricacionValvulaRetornoVapores,
     fechaFabricacionValvulaServicio: sheet?.fechaFabricacionValvulaServicio,
     fechaFabricacionValvulaMaximoLlenado: sheet?.fechaFabricacionValvulaMaximoLlenado,
+    fechaFabricacionValvulaMaximoLlenado85: sheet?.fechaFabricacionValvulaMaximoLlenado85,
     fechaFabricacionValvulaAlivio: sheet?.fechaFabricacionValvulaAlivio,
-  });
-  const valveVencimiento = getValveVencimiento({
-    fechaFabricacionValvulaLlenado: sheet?.fechaFabricacionValvulaLlenado,
-    fechaFabricacionValvulaServicio: sheet?.fechaFabricacionValvulaServicio,
-    fechaFabricacionValvulaMaximoLlenado: sheet?.fechaFabricacionValvulaMaximoLlenado,
-    fechaFabricacionValvulaAlivio: sheet?.fechaFabricacionValvulaAlivio,
-  });
+    fechaFabricacionValvulaDescargaEmergencia: sheet?.fechaFabricacionValvulaDescargaEmergencia,
+  };
+  const valveAlertLevel = getValveAlertLevel(valveDatesForAlert);
+  const valveVencimiento = getValveVencimiento(valveDatesForAlert);
   const hoseAlertLevel = getHoseAlertLevel(sheet?.fechaFabricacionManguera);
   const hoseVencimiento = getHoseVencimiento(sheet?.fechaFabricacionManguera);
 
@@ -438,27 +435,74 @@ export function TechnicalSheetForm({
               defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaLlenado)}
             />
             <Field
+              id="fechaFabricacionValvulaNoRetroceso"
+              label="Válvula de no retroceso (check)"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaNoRetroceso)}
+            />
+            <Field
+              id="fechaFabricacionValvulaBypass"
+              label="Válvula de retroceso (bypass)"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaBypass)}
+            />
+            <Field
+              id="fechaFabricacionValvulaRetornoVapores"
+              label="Válvula de retorno de vapores"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaRetornoVapores)}
+            />
+            <Field
               id="fechaFabricacionValvulaServicio"
-              label="Válvula de servicio"
+              label="Válvula de servicio de vapor"
               type="date"
               defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaServicio)}
             />
             <Field
               id="fechaFabricacionValvulaMaximoLlenado"
-              label="Válvula de máximo llenado"
+              label="Válvula de máximo llenado 90%"
               type="date"
               defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado)}
             />
             <Field
               id="fechaFabricacionValvulaAlivio"
-              label="Válvula de alivio (seguridad)"
+              label="Válvula de seguridad"
               type="date"
               defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaAlivio)}
             />
+            <Field
+              id="fechaFabricacionValvulaDescargaEmergencia"
+              label="Válvula de descarga de emergencia"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaDescargaEmergencia)}
+            />
+          </div>
+          <div className="mt-3 rounded-md border border-dashed border-gray-300 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneValvulaMaximoLlenado85">
+              <input
+                id="tieneValvulaMaximoLlenado85"
+                name="tieneValvulaMaximoLlenado85"
+                type="checkbox"
+                checked={tieneValvula85}
+                onChange={(event) => setTieneValvula85(event.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+              />
+              ¿Esta unidad tiene válvula de máximo llenado al 85%?
+            </label>
+            {tieneValvula85 && (
+              <div className="mt-3 max-w-xs">
+                <Field
+                  id="fechaFabricacionValvulaMaximoLlenado85"
+                  label="Fecha de fabricación de la válvula de máximo llenado 85%"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado85)}
+                />
+              </div>
+            )}
           </div>
           <p className="mt-2 text-xs text-ink">
             El cambio de válvulas debe hacerse cada 5 años. El aviso se calcula sobre la fecha de
-            fabricación más antigua de las 4 válvulas.
+            fabricación más antigua de todo el juego.
           </p>
         </div>
       )}
@@ -485,7 +529,6 @@ export function TechnicalSheetForm({
             id="fechaProximaInspeccionVisual"
             label="Fecha próxima de inspección visual externa"
             type="date"
-            required={requireProximaInspeccionVisual}
             defaultValue={toDateInputValue(sheet?.fechaProximaInspeccionVisual)}
           />
         </div>
@@ -493,12 +536,6 @@ export function TechnicalSheetForm({
           Cuando falte un mes para la fecha próxima de inspección visual externa, la unidad se
           marcará en amarillo; cuando falte una semana, se marcará en rojo con advertencias en el
           panel de alertas del inicio.
-          {requireProximaInspeccionVisual && (
-            <span className="block font-medium text-accent">
-              Este campo es obligatorio para Auto-Tanques y Estaciones de carburación: no se puede guardar la ficha técnica
-              sin la fecha próxima de inspección visual externa.
-            </span>
-          )}
         </p>
       </div>
 
@@ -522,7 +559,6 @@ export function TechnicalSheetForm({
             id="fechaProximaPruebaHermeticidad"
             label="Fecha próxima de prueba de hermeticidad"
             type="date"
-            required={requireProximaPruebaHermeticidad}
             defaultValue={toDateInputValue(sheet?.fechaProximaPruebaHermeticidad)}
           />
         </div>
@@ -530,12 +566,6 @@ export function TechnicalSheetForm({
           Se revisa típicamente cada año. Cuando falte un mes para la fecha próxima, la unidad se
           marcará en amarillo; cuando falte una semana, se marcará en rojo con advertencias en el
           panel de alertas del inicio.
-          {requireProximaPruebaHermeticidad && (
-            <span className="block font-medium text-accent">
-              Este campo es obligatorio para Auto-Tanques y Estaciones de carburación: no se puede guardar la ficha técnica
-              sin la fecha próxima de prueba de hermeticidad.
-            </span>
-          )}
         </p>
       </div>
 
@@ -590,7 +620,6 @@ export function TechnicalSheetForm({
             id="fechaProximoUltrasonido"
             label="Fecha próxima de ultrasonido"
             type="date"
-            required={requireProximoUltrasonido}
             defaultValue={toDateInputValue(sheet?.fechaProximoUltrasonido)}
           />
         </div>
@@ -598,12 +627,6 @@ export function TechnicalSheetForm({
           Cuando falte un mes para la fecha próxima de ultrasonido, la unidad se marcará en
           amarillo; cuando falte una semana, se marcará en rojo con advertencias en el panel de
           alertas del inicio.
-          {requireProximoUltrasonido && (
-            <span className="block font-medium text-accent">
-              Este campo es obligatorio para Auto-Tanques y Estaciones de carburación: no se puede guardar la ficha técnica
-              sin la fecha próxima de ultrasonido.
-            </span>
-          )}
         </p>
       </div>
 

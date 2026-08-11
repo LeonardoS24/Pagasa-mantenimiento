@@ -249,7 +249,7 @@ export default async function PrintVehiclePage({
                 sheet={record.technicalSheet}
                 sectionSlug={record.section.slug}
                 useDeliveryFormat={useDeliveryFormat}
-                showValveSection={isTanqueCarburacion}
+                showValveSection={isTanqueCarburacion || isAutoTanques}
                 showHoseSection={isTanqueCarburacion}
                 showTankSection={showTankSection}
                 showInspeccionesSection={showInspeccionesSection}
@@ -342,7 +342,7 @@ export default async function PrintVehiclePage({
               </Section>
             )}
 
-            {isTanqueCarburacion && (
+            {(isTanqueCarburacion || isAutoTanques) && (
               <Section title="Cambio de válvulas">
                 <LogList
                   emptyLabel="Sin cambios de válvulas registrados."
@@ -362,7 +362,7 @@ export default async function PrintVehiclePage({
               </Section>
             )}
 
-            {isTanqueCarburacion && (
+            {(isTanqueCarburacion || isAutoTanques) && (
               <Section title="Mantenimiento correctivo de válvulas">
                 <LogList
                   emptyLabel="Sin mantenimientos correctivos registrados."

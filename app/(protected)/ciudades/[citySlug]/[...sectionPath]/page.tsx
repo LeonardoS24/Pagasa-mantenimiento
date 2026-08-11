@@ -87,7 +87,14 @@ export default async function SectionPage({
   // (en cualquier ciudad) es un apartado de tipo unidades: muestra la tabla
   // de números económicos y el alta de nuevos, aunque todavía esté vacío.
   const isUnderUnidadDistribucion = chain.length >= 2 && chain[0].slug === "unidad-de-distribucion";
-  const isVehicleSection = children.length === 0 && !isBitacoraFeed && isUnderUnidadDistribucion;
+  // "Estaciones de carburación" es su propio apartado de nivel superior
+  // (igual que "Unidad de distribución"), no un sub-apartado — pero se
+  // comporta exactamente igual: tabla + alta de registros, ficha técnica del
+  // tanque, etc. (ver scripts/move-estaciones-de-carburacion-top-level.mjs y
+  // components/admin/VehicleForm.tsx: isEstacion).
+  const isEstacionTopLevelSection = chain.length === 1 && current.slug === "estaciones-de-carburacion";
+  const isVehicleSection =
+    (children.length === 0 && !isBitacoraFeed && isUnderUnidadDistribucion) || isEstacionTopLevelSection;
 
   // Administración no tiene flota propia: en vez de la tabla de su propio
   // apartado (siempre vacío), "Unidad de distribución" ahí muestra todas las
@@ -389,15 +396,15 @@ export default async function SectionPage({
             </>
           )}
         </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-ink">
-          <p className="text-lg font-medium text-primary">Próximamente</p>
-          <p className="mt-1 text-sm">Este apartado aún no tiene contenido disponible.</p>
-        </div>
-      )}
+      ) : null}
 
+      {/* Apartados como Manuales o Programa de mantenimiento no tienen otro
+          contenido que sus documentos: antes se veían con una caja
+          "Próximamente" arriba (aunque sí hubiera archivos) seguida de esta
+          misma lista, lo cual se veía como si el apartado no funcionara. Sin
+          esa caja, esta tarjeta ya es el contenido principal de la página. */}
       {!isVehicleSection && !isEquiposSection && (
-        <div className="mt-8">
+        <div className="mt-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             {allowsOfficeDocs ? "Documentos (PDF, imagen, Word, Excel, PowerPoint, CSV o TXT)" : "Documentos (PDF o imagen)"}
           </h2>

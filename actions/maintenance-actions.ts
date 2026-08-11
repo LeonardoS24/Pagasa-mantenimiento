@@ -259,6 +259,10 @@ export async function createMaintenanceLog(
           ? entry.descripcion.trim()
           : "Generado del checklist de mantenimiento preventivo.",
         fecha: parsed.data.fecha,
+        // Mismo kilometraje que el registro del que se generaron: es el
+        // mismo evento de mantenimiento, al mismo odómetro (el kilometraje
+        // es obligatorio en el registro padre, ver createLogSchema).
+        kilometraje: parsed.data.kilometraje,
         estatus: parsed.data.estatus,
       },
     });

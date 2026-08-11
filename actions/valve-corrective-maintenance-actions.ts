@@ -26,9 +26,21 @@ const requiredDate = (message: string) =>
   }, z.date({ required_error: message, invalid_type_error: "Fecha inválida" }));
 
 const createValveCorrectiveMaintenanceLogSchema = z.object({
-  valvula: z.enum(["LLENADO", "SERVICIO", "MAXIMO_LLENADO", "ALIVIO", "GENERAL"], {
-    required_error: "Selecciona la válvula afectada",
-  }),
+  valvula: z.enum(
+    [
+      "LLENADO",
+      "NO_RETROCESO",
+      "BYPASS",
+      "RETORNO_VAPORES",
+      "SERVICIO",
+      "MAXIMO_LLENADO",
+      "MAXIMO_LLENADO_85",
+      "ALIVIO",
+      "DESCARGA_EMERGENCIA",
+      "GENERAL",
+    ],
+    { required_error: "Selecciona la válvula afectada" }
+  ),
   descripcion: z.preprocess((value) => String(value ?? "").trim(), z.string().min(1, "La descripción es requerida").max(2000)),
   responsable: optionalText(150),
   fecha: requiredDate("La fecha es requerida"),

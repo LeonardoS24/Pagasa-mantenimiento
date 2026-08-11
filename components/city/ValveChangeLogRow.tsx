@@ -43,6 +43,7 @@ function SubmitButton() {
 function EditValveChangeLogForm({ log }: { log: ValveChangeLog }) {
   const action = updateValveChangeLog.bind(null, log.id);
   const [state, formAction] = useFormState(action, initialState);
+  const [tieneValvula85, setTieneValvula85] = useState(log.tieneValvulaMaximoLlenado85);
 
   return (
     <form action={formAction} className="mt-3 space-y-2 rounded-md bg-gray-50 p-3">
@@ -78,8 +79,44 @@ function EditValveChangeLogForm({ log }: { log: ValveChangeLog }) {
           />
         </div>
         <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionValvulaNoRetroceso-${log.id}`}>
+            Válvula de no retroceso (check)
+          </label>
+          <input
+            id={`fechaFabricacionValvulaNoRetroceso-${log.id}`}
+            name="fechaFabricacionValvulaNoRetroceso"
+            type="date"
+            defaultValue={toDateInputValue(log.fechaFabricacionValvulaNoRetroceso)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionValvulaBypass-${log.id}`}>
+            Válvula de retroceso (bypass)
+          </label>
+          <input
+            id={`fechaFabricacionValvulaBypass-${log.id}`}
+            name="fechaFabricacionValvulaBypass"
+            type="date"
+            defaultValue={toDateInputValue(log.fechaFabricacionValvulaBypass)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionValvulaRetornoVapores-${log.id}`}>
+            Válvula de retorno de vapores
+          </label>
+          <input
+            id={`fechaFabricacionValvulaRetornoVapores-${log.id}`}
+            name="fechaFabricacionValvulaRetornoVapores"
+            type="date"
+            defaultValue={toDateInputValue(log.fechaFabricacionValvulaRetornoVapores)}
+            className={inputClass}
+          />
+        </div>
+        <div>
           <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionValvulaServicio-${log.id}`}>
-            Válvula de servicio
+            Válvula de servicio de vapor
           </label>
           <input
             id={`fechaFabricacionValvulaServicio-${log.id}`}
@@ -91,7 +128,7 @@ function EditValveChangeLogForm({ log }: { log: ValveChangeLog }) {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionValvulaMaximoLlenado-${log.id}`}>
-            Válvula de máximo llenado
+            Válvula de máximo llenado 90%
           </label>
           <input
             id={`fechaFabricacionValvulaMaximoLlenado-${log.id}`}
@@ -103,7 +140,7 @@ function EditValveChangeLogForm({ log }: { log: ValveChangeLog }) {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionValvulaAlivio-${log.id}`}>
-            Válvula de alivio (seguridad)
+            Válvula de seguridad
           </label>
           <input
             id={`fechaFabricacionValvulaAlivio-${log.id}`}
@@ -113,6 +150,45 @@ function EditValveChangeLogForm({ log }: { log: ValveChangeLog }) {
             className={inputClass}
           />
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionValvulaDescargaEmergencia-${log.id}`}>
+            Válvula de descarga de emergencia
+          </label>
+          <input
+            id={`fechaFabricacionValvulaDescargaEmergencia-${log.id}`}
+            name="fechaFabricacionValvulaDescargaEmergencia"
+            type="date"
+            defaultValue={toDateInputValue(log.fechaFabricacionValvulaDescargaEmergencia)}
+            className={inputClass}
+          />
+        </div>
+      </div>
+      <div className="rounded-md border border-dashed border-gray-300 p-2">
+        <label className="flex items-center gap-2 text-xs font-medium text-ink" htmlFor={`tieneValvulaMaximoLlenado85-${log.id}`}>
+          <input
+            id={`tieneValvulaMaximoLlenado85-${log.id}`}
+            name="tieneValvulaMaximoLlenado85"
+            type="checkbox"
+            checked={tieneValvula85}
+            onChange={(event) => setTieneValvula85(event.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+          />
+          ¿Esta unidad tiene válvula de máximo llenado al 85%?
+        </label>
+        {tieneValvula85 && (
+          <div className="mt-2 max-w-xs">
+            <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionValvulaMaximoLlenado85-${log.id}`}>
+              Fecha de fabricación de la válvula de máximo llenado 85%
+            </label>
+            <input
+              id={`fechaFabricacionValvulaMaximoLlenado85-${log.id}`}
+              name="fechaFabricacionValvulaMaximoLlenado85"
+              type="date"
+              defaultValue={toDateInputValue(log.fechaFabricacionValvulaMaximoLlenado85)}
+              className={inputClass}
+            />
+          </div>
+        )}
       </div>
       <p className="text-xs text-gray-500">
         Esto solo corrige este registro; no vuelve a actualizar la ficha técnica.
@@ -159,16 +235,38 @@ export function ValveChangeLogRow({
               value={formatDate(log.fechaFabricacionValvulaLlenado)}
             />
             <Field
-              label="Válvula de servicio"
+              label="Válvula de no retroceso (check)"
+              value={formatDate(log.fechaFabricacionValvulaNoRetroceso)}
+            />
+            <Field
+              label="Válvula de retroceso (bypass)"
+              value={formatDate(log.fechaFabricacionValvulaBypass)}
+            />
+            <Field
+              label="Válvula de retorno de vapores"
+              value={formatDate(log.fechaFabricacionValvulaRetornoVapores)}
+            />
+            <Field
+              label="Válvula de servicio de vapor"
               value={formatDate(log.fechaFabricacionValvulaServicio)}
             />
             <Field
-              label="Válvula de máximo llenado"
+              label="Válvula de máximo llenado 90%"
               value={formatDate(log.fechaFabricacionValvulaMaximoLlenado)}
             />
+            {log.tieneValvulaMaximoLlenado85 && (
+              <Field
+                label="Válvula de máximo llenado 85%"
+                value={formatDate(log.fechaFabricacionValvulaMaximoLlenado85)}
+              />
+            )}
             <Field
-              label="Válvula de alivio (seguridad)"
+              label="Válvula de seguridad"
               value={formatDate(log.fechaFabricacionValvulaAlivio)}
+            />
+            <Field
+              label="Válvula de descarga de emergencia"
+              value={formatDate(log.fechaFabricacionValvulaDescargaEmergencia)}
             />
           </dl>
 

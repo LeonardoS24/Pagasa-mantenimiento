@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { createValveChangeLog } from "@/actions/valve-actions";
@@ -31,6 +31,7 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const searchParams = useSearchParams();
+  const [tieneValvula85, setTieneValvula85] = useState(false);
 
   // Id de la pieza de inventario que quedó esperando este registro para
   // amarrarse a él (ver vincularPiezaARegistro).
@@ -53,6 +54,7 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
         action={async (formData) => {
           await formAction(formData);
           formRef.current?.reset();
+          setTieneValvula85(false);
         }}
         className="mt-4 space-y-3"
       >
@@ -103,9 +105,54 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
           <div>
             <label
               className="mb-1 block text-sm font-medium text-ink"
+              htmlFor="valv-fechaFabricacionValvulaNoRetroceso"
+            >
+              Válvula de no retroceso (check)
+            </label>
+            <input
+              id="valv-fechaFabricacionValvulaNoRetroceso"
+              name="fechaFabricacionValvulaNoRetroceso"
+              type="date"
+              required
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label
+              className="mb-1 block text-sm font-medium text-ink"
+              htmlFor="valv-fechaFabricacionValvulaBypass"
+            >
+              Válvula de retroceso (bypass)
+            </label>
+            <input
+              id="valv-fechaFabricacionValvulaBypass"
+              name="fechaFabricacionValvulaBypass"
+              type="date"
+              required
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label
+              className="mb-1 block text-sm font-medium text-ink"
+              htmlFor="valv-fechaFabricacionValvulaRetornoVapores"
+            >
+              Válvula de retorno de vapores
+            </label>
+            <input
+              id="valv-fechaFabricacionValvulaRetornoVapores"
+              name="fechaFabricacionValvulaRetornoVapores"
+              type="date"
+              required
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label
+              className="mb-1 block text-sm font-medium text-ink"
               htmlFor="valv-fechaFabricacionValvulaServicio"
             >
-              Válvula de servicio
+              Válvula de servicio de vapor
             </label>
             <input
               id="valv-fechaFabricacionValvulaServicio"
@@ -120,7 +167,7 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
               className="mb-1 block text-sm font-medium text-ink"
               htmlFor="valv-fechaFabricacionValvulaMaximoLlenado"
             >
-              Válvula de máximo llenado
+              Válvula de máximo llenado 90%
             </label>
             <input
               id="valv-fechaFabricacionValvulaMaximoLlenado"
@@ -135,7 +182,7 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
               className="mb-1 block text-sm font-medium text-ink"
               htmlFor="valv-fechaFabricacionValvulaAlivio"
             >
-              Válvula de alivio (seguridad)
+              Válvula de seguridad
             </label>
             <input
               id="valv-fechaFabricacionValvulaAlivio"
@@ -145,6 +192,52 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
               className={inputClass}
             />
           </div>
+          <div>
+            <label
+              className="mb-1 block text-sm font-medium text-ink"
+              htmlFor="valv-fechaFabricacionValvulaDescargaEmergencia"
+            >
+              Válvula de descarga de emergencia
+            </label>
+            <input
+              id="valv-fechaFabricacionValvulaDescargaEmergencia"
+              name="fechaFabricacionValvulaDescargaEmergencia"
+              type="date"
+              required
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-md border border-dashed border-gray-300 p-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="valv-tieneValvulaMaximoLlenado85">
+            <input
+              id="valv-tieneValvulaMaximoLlenado85"
+              name="tieneValvulaMaximoLlenado85"
+              type="checkbox"
+              checked={tieneValvula85}
+              onChange={(event) => setTieneValvula85(event.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+            />
+            ¿Esta unidad tiene válvula de máximo llenado al 85%?
+          </label>
+          {tieneValvula85 && (
+            <div className="mt-3 max-w-xs">
+              <label
+                className="mb-1 block text-sm font-medium text-ink"
+                htmlFor="valv-fechaFabricacionValvulaMaximoLlenado85"
+              >
+                Fecha de fabricación de la válvula de máximo llenado 85%
+              </label>
+              <input
+                id="valv-fechaFabricacionValvulaMaximoLlenado85"
+                name="fechaFabricacionValvulaMaximoLlenado85"
+                type="date"
+                required
+                className={inputClass}
+              />
+            </div>
+          )}
         </div>
 
         <div>
@@ -162,9 +255,9 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
         </div>
 
         <p className="text-xs text-ink">
-          Al aceptar, la ficha técnica actualizará automáticamente las 4 fechas de fabricación y
-          la fecha de instalación. El aviso de cambio se calcula sobre la válvula con la fecha de
-          fabricación más antigua: vence a los 5 años.
+          Al aceptar, la ficha técnica actualizará automáticamente todo el juego de fechas de
+          fabricación y la fecha de instalación. El aviso de cambio se calcula sobre la válvula
+          con la fecha de fabricación más antigua: vence a los 5 años.
         </p>
 
         <FormMessage state={state} />

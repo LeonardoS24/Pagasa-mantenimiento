@@ -41,6 +41,7 @@ import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAl
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { calidadMantenimientoLabels, calidadMantenimientoStyles, type CalidadMantenimiento } from "@/lib/vehicle-enums";
+import { getVehicleSemaforoLevel, semaforoDotStyles, semaforoLabels } from "@/lib/vehicle-semaforo";
 
 function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
   if (levels.includes("red")) return ultrasoundAlertRowStyles.red;
@@ -86,6 +87,9 @@ export function VehicleTable({
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
           <tr>
+            <th className="whitespace-nowrap px-2 py-2" title="Semáforo de vencimientos próximos" aria-label="Semáforo">
+              <span className="sr-only">Estado</span>
+            </th>
             <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Nombre" : "Número económico"}</th>
             <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Dirección" : "Sucursal"}</th>
             {!isEstacion && (
@@ -130,10 +134,19 @@ export function VehicleTable({
               : "none";
             const valveDates = {
               fechaFabricacionValvulaLlenado: record.technicalSheet?.fechaFabricacionValvulaLlenado,
+              fechaFabricacionValvulaNoRetroceso:
+                record.technicalSheet?.fechaFabricacionValvulaNoRetroceso,
+              fechaFabricacionValvulaBypass: record.technicalSheet?.fechaFabricacionValvulaBypass,
+              fechaFabricacionValvulaRetornoVapores:
+                record.technicalSheet?.fechaFabricacionValvulaRetornoVapores,
               fechaFabricacionValvulaServicio: record.technicalSheet?.fechaFabricacionValvulaServicio,
               fechaFabricacionValvulaMaximoLlenado:
                 record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
+              fechaFabricacionValvulaMaximoLlenado85:
+                record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado85,
               fechaFabricacionValvulaAlivio: record.technicalSheet?.fechaFabricacionValvulaAlivio,
+              fechaFabricacionValvulaDescargaEmergencia:
+                record.technicalSheet?.fechaFabricacionValvulaDescargaEmergencia,
             };
             const valveAlertLevel =
               record.activo && isAlertVisibleForSection("valvulas", sectionSlug)
@@ -144,11 +157,14 @@ export function VehicleTable({
               ? getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera)
               : "none";
             const hoseVencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);
+            const semaforoLevel = record.activo
+              ? getVehicleSemaforoLevel(record.technicalSheet, sectionSlug)
+              : "none";
             return (
               <Fragment key={record.id}>
                 {isFirstInactive && (
                   <tr aria-hidden="true">
-                    <td colSpan={isEstacion ? 4 : 6} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
+                    <td colSpan={isEstacion ? 5 : 7} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
                       <span className="text-xs font-semibold uppercase text-gray-500">
                         Dadas de baja
                       </span>
@@ -172,6 +188,14 @@ export function VehicleTable({
                       )
                 }`}
               >
+                <td className="whitespace-nowrap px-2 py-2">
+                  {semaforoLevel !== "none" && (
+                    <span
+                      className={`inline-block h-3 w-3 rounded-full ${semaforoDotStyles[semaforoLevel]}`}
+                      title={semaforoLabels[semaforoLevel]}
+                    />
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-4 py-2 font-medium text-primary">
                   {/* Estira el link a toda la fila (no solo esta celda): "tr" es
                       "relative" y este link "absolute inset-0" toma su tamaño

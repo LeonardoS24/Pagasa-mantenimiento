@@ -164,6 +164,16 @@ export async function deleteVehicleRecord(
   redirect(basePath);
 }
 
+// Auto-Tanques y Vehículo con tanque de carburación pueden repetir el mismo
+// número económico como el mismo camión físico en dos apartados distintos,
+// cada uno con su propia ficha técnica (ver hasTanqueCarburacionMatch en la
+// página de detalle de vehículo). Dar de baja o reactivar debe reflejarse en
+// los dos registros a la vez: es la misma unidad física.
+const PAIRED_VEHICLE_SECTION_SLUGS: Record<string, string> = {
+  "auto-tanques": "vehiculo-con-tanque-de-carburacion",
+  "vehiculo-con-tanque-de-carburacion": "auto-tanques",
+};
+
 // Dar de baja NO elimina la unidad: solo cambia su estatus a inactiva. Sigue
 // visible en la tabla y conserva ficha técnica, bitácora y documentos.
 export async function setVehicleActive(vehicleId: string, activo: boolean) {
@@ -178,6 +188,27 @@ export async function setVehicleActive(vehicleId: string, activo: boolean) {
   const chain = await getSectionChain(vehicle.sectionId);
   revalidatePath(sectionBasePath(vehicle.section.city.slug, chain));
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
+
+  const pairedSlug = PAIRED_VEHICLE_SECTION_SLUGS[vehicle.section.slug];
+  if (pairedSlug) {
+    const paired = await prisma.vehicleRecord.findFirst({
+      where: {
+        numeroEconomico: vehicle.numeroEconomico,
+        id: { not: vehicle.id },
+        section: { cityId: vehicle.section.cityId, slug: pairedSlug },
+      },
+    });
+    if (paired) {
+      await prisma.vehicleRecord.update({
+        where: { id: paired.id },
+        data: { activo, fechaBaja: activo ? null : new Date() },
+      });
+      const pairedChain = await getSectionChain(paired.sectionId);
+      revalidatePath(sectionBasePath(vehicle.section.city.slug, pairedChain));
+      revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${paired.id}`);
+    }
+  }
+
   revalidatePath("/dashboard");
 }
 
@@ -195,33 +226,23 @@ const optionalDate = z.preprocess((value) => {
   return text.length > 0 ? new Date(text) : null;
 }, z.date().nullable());
 
-const requiredProximoUltrasonidoDate = z.preprocess((value) => {
-  const text = String(value ?? "").trim();
-  return text.length > 0 ? new Date(text) : undefined;
-}, z.date({
-  required_error: "La fecha próxima de ultrasonido es requerida para Auto-Tanques.",
-  invalid_type_error: "Fecha próxima de ultrasonido inválida.",
-}));
-
-const requiredProximaInspeccionVisualDate = z.preprocess((value) => {
-  const text = String(value ?? "").trim();
-  return text.length > 0 ? new Date(text) : undefined;
-}, z.date({
-  required_error: "La fecha próxima de inspección visual externa es requerida para Auto-Tanques.",
-  invalid_type_error: "Fecha próxima de inspección visual externa inválida.",
-}));
-
-const requiredProximaPruebaHermeticidadDate = z.preprocess((value) => {
-  const text = String(value ?? "").trim();
-  return text.length > 0 ? new Date(text) : undefined;
-}, z.date({
-  required_error: "La fecha próxima de prueba de hermeticidad es requerida para Auto-Tanques.",
-  invalid_type_error: "Fecha próxima de prueba de hermeticidad inválida.",
-}));
-
 // Suma 10 años a una fecha (UTC, sin desfase de zona horaria).
 function addTenYears(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + 10, date.getUTCMonth(), date.getUTCDate()));
+}
+
+// fechaCalidadMalaExtintor marca la primera vez que se detectó "MALA" (ancla
+// la alerta amarilla/roja, ver lib/extinguisher-alerts.ts). Si ya estaba en
+// MALA se conserva la fecha original; si deja de estar en MALA se limpia.
+// Compartida entre upsertTechnicalSheet y el cambio rápido
+// (updateCalidadExtintor) para no duplicar la transición.
+function nextFechaCalidadMalaExtintor(
+  nuevaCalidad: string | null,
+  calidadAnterior: string | null,
+  fechaAnterior: Date | null
+): Date | null {
+  if (nuevaCalidad !== "MALA") return null;
+  return calidadAnterior === "MALA" ? fechaAnterior : new Date();
 }
 
 const technicalSheetSchema = z.object({
@@ -271,9 +292,15 @@ const technicalSheetSchema = z.object({
   fechaCalidadMalaExtintor: optionalDate,
   fechaInstalacionValvulas: optionalDate,
   fechaFabricacionValvulaLlenado: optionalDate,
+  fechaFabricacionValvulaNoRetroceso: optionalDate,
+  fechaFabricacionValvulaBypass: optionalDate,
+  fechaFabricacionValvulaRetornoVapores: optionalDate,
   fechaFabricacionValvulaServicio: optionalDate,
   fechaFabricacionValvulaMaximoLlenado: optionalDate,
+  tieneValvulaMaximoLlenado85: z.preprocess((value) => value === "on" || value === "true", z.boolean()),
+  fechaFabricacionValvulaMaximoLlenado85: optionalDate,
   fechaFabricacionValvulaAlivio: optionalDate,
+  fechaFabricacionValvulaDescargaEmergencia: optionalDate,
   fechaInstalacionMangueras: optionalDate,
   fechaFabricacionManguera: optionalDate,
 });
@@ -296,21 +323,10 @@ export async function upsertTechnicalSheet(
     return { error: "El registro no existe." };
   }
 
-  // Auto-Tanques debe programar el próximo ultrasonido, inspección visual
-  // externa y prueba de hermeticidad antes de poder guardar la ficha
-  // técnica; los demás tipos de unidad lo dejan opcional. La inspección
-  // visual interna y la prueba hidrostática NO se piden aquí porque se
-  // calculan solas a partir de fechaFabricacionTanque (ver más abajo).
-  const schema =
-    vehicle.section.slug === "auto-tanques"
-      ? technicalSheetSchema.extend({
-          fechaProximoUltrasonido: requiredProximoUltrasonidoDate,
-          fechaProximaInspeccionVisual: requiredProximaInspeccionVisualDate,
-          fechaProximaPruebaHermeticidad: requiredProximaPruebaHermeticidadDate,
-        })
-      : technicalSheetSchema;
-
-  const parsed = schema.safeParse({
+  // La ficha técnica se puede guardar parcial, sin importar el tipo de
+  // unidad: nada aquí es obligatorio, para no bloquear el guardado mientras
+  // todavía no se tienen todos los datos (ver components/admin/TechnicalSheetForm.tsx).
+  const parsed = technicalSheetSchema.safeParse({
     fabricante: formData.get("fabricante"),
     marca: formData.get("marca"),
     linea: formData.get("linea"),
@@ -348,9 +364,15 @@ export async function upsertTechnicalSheet(
     calidadExtintor: formData.get("calidadExtintor"),
     fechaInstalacionValvulas: formData.get("fechaInstalacionValvulas"),
     fechaFabricacionValvulaLlenado: formData.get("fechaFabricacionValvulaLlenado"),
+    fechaFabricacionValvulaNoRetroceso: formData.get("fechaFabricacionValvulaNoRetroceso"),
+    fechaFabricacionValvulaBypass: formData.get("fechaFabricacionValvulaBypass"),
+    fechaFabricacionValvulaRetornoVapores: formData.get("fechaFabricacionValvulaRetornoVapores"),
     fechaFabricacionValvulaServicio: formData.get("fechaFabricacionValvulaServicio"),
     fechaFabricacionValvulaMaximoLlenado: formData.get("fechaFabricacionValvulaMaximoLlenado"),
+    tieneValvulaMaximoLlenado85: formData.get("tieneValvulaMaximoLlenado85"),
+    fechaFabricacionValvulaMaximoLlenado85: formData.get("fechaFabricacionValvulaMaximoLlenado85"),
     fechaFabricacionValvulaAlivio: formData.get("fechaFabricacionValvulaAlivio"),
+    fechaFabricacionValvulaDescargaEmergencia: formData.get("fechaFabricacionValvulaDescargaEmergencia"),
     fechaInstalacionMangueras: formData.get("fechaInstalacionMangueras"),
     fechaFabricacionManguera: formData.get("fechaFabricacionManguera"),
   });
@@ -370,15 +392,11 @@ export async function upsertTechnicalSheet(
     data.fechaProximaPruebaHidrostatica = addTenYears(data.fechaFabricacionTanque);
   }
 
-  // Extintor: fechaCalidadMalaExtintor marca la primera vez que se detectó
-  // "MALA" (ancla la alerta amarilla/roja). Si ya estaba en MALA se conserva
-  // la fecha original; si deja de estar en MALA se limpia.
-  data.fechaCalidadMalaExtintor =
-    data.calidadExtintor === "MALA"
-      ? vehicle.technicalSheet?.calidadExtintor === "MALA"
-        ? vehicle.technicalSheet.fechaCalidadMalaExtintor
-        : new Date()
-      : null;
+  data.fechaCalidadMalaExtintor = nextFechaCalidadMalaExtintor(
+    data.calidadExtintor,
+    vehicle.technicalSheet?.calidadExtintor ?? null,
+    vehicle.technicalSheet?.fechaCalidadMalaExtintor ?? null
+  );
 
   // Vehículo con tanque de carburación siempre usa gas LP y gasolina: se
   // fija en el servidor sin importar lo que llegue del formulario (el campo
@@ -434,4 +452,45 @@ export async function upsertTechnicalSheet(
   revalidatePath(sectionBasePath(vehicle.section.city.slug, chain));
   revalidatePath("/dashboard");
   return { success: "Ficha técnica guardada." };
+}
+
+// Cambio rápido de solo la calidad del extintor, sin desbloquear/editar toda
+// la ficha técnica (mismo espíritu que EditStatusForm para mantenimientos).
+// Reutiliza la acción principal por dentro para no duplicar la lógica de
+// upsert ni la transición de fechaCalidadMalaExtintor.
+export async function updateCalidadExtintor(
+  vehicleId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const parsed = calidadExtintorSchema.safeParse(formData.get("calidadExtintor"));
+  if (!parsed.success) {
+    return { error: "Calidad inválida." };
+  }
+
+  const vehicle = await prisma.vehicleRecord.findUnique({
+    where: { id: vehicleId },
+    include: { section: { include: { city: true } }, technicalSheet: true },
+  });
+  if (!vehicle) {
+    return { error: "El registro no existe." };
+  }
+
+  const fechaCalidadMalaExtintor = nextFechaCalidadMalaExtintor(
+    parsed.data,
+    vehicle.technicalSheet?.calidadExtintor ?? null,
+    vehicle.technicalSheet?.fechaCalidadMalaExtintor ?? null
+  );
+
+  await prisma.vehicleTechnicalSheet.upsert({
+    where: { vehicleRecordId: vehicleId },
+    update: { calidadExtintor: parsed.data, fechaCalidadMalaExtintor },
+    create: { vehicleRecordId: vehicleId, calidadExtintor: parsed.data, fechaCalidadMalaExtintor },
+  });
+
+  revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
+  revalidatePath("/dashboard");
+  return { success: "Calidad del extintor actualizada." };
 }

@@ -1,0 +1,65 @@
+import { prisma } from "@/lib/prisma";
+import { AGGREGATE_CITY_SLUG } from "@/lib/aggregate-city";
+import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
+import { UltrasoundAlertsPanel } from "@/components/dashboard/UltrasoundAlertsPanel";
+import { VisualInspectionAlertsPanel } from "@/components/dashboard/VisualInspectionAlertsPanel";
+import { TightnessTestAlertsPanel } from "@/components/dashboard/TightnessTestAlertsPanel";
+import { InternalVisualInspectionAlertsPanel } from "@/components/dashboard/InternalVisualInspectionAlertsPanel";
+import { HydrostaticTestAlertsPanel } from "@/components/dashboard/HydrostaticTestAlertsPanel";
+import { ExtinguisherAlertsPanel } from "@/components/dashboard/ExtinguisherAlertsPanel";
+import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlertsPanel";
+import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
+import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
+
+// Mismas 9 alertas que Inicio (ver lib/vehicle-alerts-summary.ts), pero de
+// TODAS las ciudades reales sin importar a cuáles tenga acceso asignado el
+// admin que esté viendo esta página: así no hace falta ir a Inicio para
+// ver el panorama completo de vencimientos.
+export default async function AdminAlertasPage() {
+  const cities = await prisma.city.findMany({
+    where: { slug: { not: AGGREGATE_CITY_SLUG } },
+    select: { id: true },
+  });
+
+  const {
+    alertVehicles,
+    visualAlertVehicles,
+    tightnessAlertVehicles,
+    internalVisualAlertVehicles,
+    hydrostaticAlertVehicles,
+    extinguisherAlertVehicles,
+    maintenanceAlertVehicles,
+    valveAlertVehicles,
+    hoseAlertVehicles,
+  } = await getAllVehicleAlerts(cities.map((city) => city.id));
+
+  const totalAlertas =
+    alertVehicles.length +
+    visualAlertVehicles.length +
+    tightnessAlertVehicles.length +
+    internalVisualAlertVehicles.length +
+    hydrostaticAlertVehicles.length +
+    extinguisherAlertVehicles.length +
+    maintenanceAlertVehicles.length +
+    valveAlertVehicles.length +
+    hoseAlertVehicles.length;
+
+  return (
+    <div>
+      <p className="mb-6 text-sm text-ink">
+        {totalAlertas > 0
+          ? `${totalAlertas} alerta(s) activa(s) en todas las ciudades.`
+          : "No hay alertas activas en ninguna ciudad."}
+      </p>
+      <UltrasoundAlertsPanel vehicles={alertVehicles} />
+      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
+      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} />
+      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} />
+      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} />
+      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
+      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
+      <ValveAlertsPanel vehicles={valveAlertVehicles} />
+      <HoseAlertsPanel vehicles={hoseAlertVehicles} />
+    </div>
+  );
+}
