@@ -12,12 +12,13 @@ import {
   calidadMantenimientoLabels,
   type MaintenanceType,
 } from "@/lib/vehicle-enums";
-import { PIECE_CATALOG, PIECE_CATEGORIES, PIECE_CATEGORY_OTRO, accionPiezaOptions } from "@/lib/piece-catalog";
+import { PIECE_CATALOG, getPieceCategories, PIECE_CATEGORY_OTRO, accionPiezaOptions } from "@/lib/piece-catalog";
 import { unidadAbreviatura } from "@/lib/inventory-enums";
 import {
   PREVENTIVE_CHECKLIST_ITEMS,
+  CARBURACION_CHECKLIST_ITEMS,
   OTHER_CHECKLIST_ITEM,
-  checklistEstadoOptions,
+  checklistEstadoOptionsFor,
   checklistRequiresCantidad,
   checklistCantidadLabel,
   checklistAllowsDescripcion,
@@ -29,12 +30,9 @@ import { FormMessage } from "./FormMessage";
 
 type ChecklistRowState = { estado: ChecklistEstado; cantidad: string; descripcion: string };
 
-function defaultChecklistState(): Record<string, ChecklistRowState> {
+function defaultChecklistState(items: readonly string[]): Record<string, ChecklistRowState> {
   return Object.fromEntries(
-    PREVENTIVE_CHECKLIST_ITEMS.map((item) => [
-      item,
-      { estado: DEFAULT_CHECKLIST_ESTADO, cantidad: "", descripcion: "" },
-    ])
+    items.map((item) => [item, { estado: DEFAULT_CHECKLIST_ESTADO, cantidad: "", descripcion: "" }])
   );
 }
 
@@ -60,15 +58,32 @@ export type InventoryOption = { id: string; nombre: string; cantidad: number; un
 
 export function CreateMaintenanceLogForm({
   vehicleId,
+  sectionSlug,
   availableInventory = [],
+  learnedPieces = [],
 }: {
   vehicleId: string;
+  // Determina si se ofrece la categoría "Tanque" (ver lib/piece-catalog.ts:
+  // getPieceCategories), solo aplica a unidades que de verdad tienen tanque.
+  sectionSlug: string;
   // Piezas EN_INVENTARIO de la ciudad de esta unidad, para elegirlas directo
   // aquí en vez de escribirlas a mano (ver actions/inventory-actions.ts: es
   // la dirección inversa del flujo que marca una pieza "Utilizada" desde
   // Inventarios y prellena este mismo formulario).
   availableInventory?: InventoryOption[];
+  // Piezas que ya se escribieron a mano suficientes veces (ver
+  // lib/learned-pieces.ts): se ofrecen como opción dentro de "Otro" en vez
+  // de tener que volver a escribirlas.
+  learnedPieces?: string[];
 }) {
+  const pieceCategories = getPieceCategories(sectionSlug);
+  // Vehículo con tanque de carburación tiene su propio checklist preventivo,
+  // solo de lo relacionado a su sistema de gas LP (ver
+  // lib/preventive-checklist.ts) — reemplaza al genérico, no lo complementa.
+  const isCarburacion = sectionSlug === "vehiculo-con-tanque-de-carburacion";
+  const checklistItems: readonly string[] = isCarburacion
+    ? CARBURACION_CHECKLIST_ITEMS
+    : PREVENTIVE_CHECKLIST_ITEMS;
   const action = createMaintenanceLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -89,6 +104,9 @@ export function CreateMaintenanceLogForm({
   // La pieza que llega prellenada desde Inventarios es texto libre (no se
   // sabe su categoría), así que se captura como "Otro" para no perderla.
   const [categoriaPieza, setCategoriaPieza] = useState(prefillPieza ? PIECE_CATEGORY_OTRO : "");
+  // Pieza aprendida elegida dentro de "Otro" (ver learnedPieces arriba); ""
+  // significa "sigue escribiéndose a mano".
+  const [otroPiezaAprendida, setOtroPiezaAprendida] = useState("");
   // Pieza elegida aquí mismo del inventario disponible (distinta del prefill
   // que llega por URL desde Inventarios): al guardar, esa pieza se marca
   // "Utilizada" y queda ligada a este registro (ver actions/maintenance-actions.ts).
@@ -98,8 +116,10 @@ export function CreateMaintenanceLogForm({
   // Checklist de mantenimiento preventivo: se llena solo cuando el tipo es
   // "Preventivo" (ver lib/preventive-checklist.ts). Reemplaza al selector de
   // una sola pieza para ese tipo, no lo complementa.
-  const [checklist, setChecklist] = useState<Record<string, ChecklistRowState>>(defaultChecklistState);
-  const checklistEntries: ChecklistEntry[] = PREVENTIVE_CHECKLIST_ITEMS.map((item) => {
+  const [checklist, setChecklist] = useState<Record<string, ChecklistRowState>>(() =>
+    defaultChecklistState(checklistItems)
+  );
+  const checklistEntries: ChecklistEntry[] = checklistItems.map((item) => {
     const row = checklist[item] ?? { estado: DEFAULT_CHECKLIST_ESTADO, cantidad: "", descripcion: "" };
     return {
       item,
@@ -123,9 +143,10 @@ export function CreateMaintenanceLogForm({
   useEffect(() => {
     if (state.success) {
       setCategoriaPieza(prefillPieza ? PIECE_CATEGORY_OTRO : "");
+      setOtroPiezaAprendida("");
       setSelectedInventoryItem(null);
       setTipo("");
-      setChecklist(defaultChecklistState());
+      setChecklist(defaultChecklistState(checklistItems));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.success]);
@@ -251,7 +272,7 @@ export function CreateMaintenanceLogForm({
                   className={inputClass}
                 >
                   <option value="">Sin pieza específica</option>
-                  {PIECE_CATEGORIES.map((categoria) => (
+                  {pieceCategories.map((categoria) => (
                     <option key={categoria} value={categoria}>
                       {categoria}
                     </option>
@@ -279,6 +300,34 @@ export function CreateMaintenanceLogForm({
                       </option>
                     ))}
                   </select>
+                ) : categoriaPieza === PIECE_CATEGORY_OTRO &&
+                  !selectedInventoryItem &&
+                  learnedPieces.length > 0 ? (
+                  <>
+                    <select
+                      id="mnt-pieza"
+                      value={otroPiezaAprendida}
+                      onChange={(e) => setOtroPiezaAprendida(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Escribir a mano...</option>
+                      {learnedPieces.map((pieza) => (
+                        <option key={pieza} value={pieza}>
+                          {pieza}
+                        </option>
+                      ))}
+                    </select>
+                    {otroPiezaAprendida ? (
+                      <input type="hidden" name="pieza" value={otroPiezaAprendida} />
+                    ) : (
+                      <input
+                        name="pieza"
+                        placeholder="Escribe la pieza..."
+                        defaultValue={prefillPieza}
+                        className={`mt-2 ${inputClass}`}
+                      />
+                    )}
+                  </>
                 ) : (
                   <input
                     key={selectedInventoryItem?.id ?? "manual"}
@@ -387,18 +436,31 @@ export function CreateMaintenanceLogForm({
               Checklist de mantenimiento preventivo
             </p>
             <p className="mb-3 text-xs text-gray-500">
-              Marca el estado de cada pieza. Buen estado no se documenta; Relleno,
-              Lubricación y Cambio sí quedan documentados cada uno como su propio
-              registro. Relleno pide la cantidad rellenada y Cambio el número de
-              piezas; cualquiera de los tres admite una descripción opcional. Usa
-              &quot;Otro&quot; para lo que no esté en la lista (en el gráfico se agrupa
-              como &quot;Otro&quot;, sin importar lo que escribas).
+              {isCarburacion ? (
+                <>
+                  Marca el estado de cada pieza. Buen estado no se documenta. Las
+                  válvulas, la manguera y las uniones solo se revisan por fugas
+                  (Con fugas queda documentado); el resto de las piezas admite
+                  Reparación o Sustitución. Cualquiera de esos estados admite una
+                  descripción opcional.
+                </>
+              ) : (
+                <>
+                  Marca el estado de cada pieza. Buen estado no se documenta; Relleno,
+                  Lubricación y Cambio sí quedan documentados cada uno como su propio
+                  registro. Relleno pide la cantidad rellenada y Cambio el número de
+                  piezas; cualquiera de los tres admite una descripción opcional. Usa
+                  &quot;Otro&quot; para lo que no esté en la lista (en el gráfico se agrupa
+                  como &quot;Otro&quot;, sin importar lo que escribas).
+                </>
+              )}
             </p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {PREVENTIVE_CHECKLIST_ITEMS.map((item) => {
+              {checklistItems.map((item) => {
                 const row = checklist[item] ?? { estado: DEFAULT_CHECKLIST_ESTADO, cantidad: "", descripcion: "" };
                 const needsCantidad = checklistRequiresCantidad(row.estado);
                 const allowsDescripcion = checklistAllowsDescripcion(row.estado);
+                const estadoOptions = checklistEstadoOptionsFor(item, isCarburacion);
                 return (
                   <div key={item} className="rounded-md bg-white px-2 py-1.5">
                     <div className="flex items-center justify-between gap-2">
@@ -413,7 +475,7 @@ export function CreateMaintenanceLogForm({
                         }
                         className="rounded-md border border-gray-300 px-1.5 py-1 text-xs text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                       >
-                        {checklistEstadoOptions.map((estado) => (
+                        {estadoOptions.map((estado) => (
                           <option key={estado} value={estado}>
                             {estado}
                           </option>

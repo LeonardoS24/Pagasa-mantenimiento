@@ -209,6 +209,7 @@ export default async function PrintVehiclePage({
         {!vehicle.activo && (
           <p className="text-sm font-medium text-orange-700">
             Dado de baja{vehicle.fechaBaja ? ` · ${formatDate(vehicle.fechaBaja)}` : ""}
+            {vehicle.motivoBaja ? ` · Motivo: ${vehicle.motivoBaja}` : ""}
           </p>
         )}
       </div>

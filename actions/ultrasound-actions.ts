@@ -29,7 +29,18 @@ const requiredProximaDate = z.preprocess((value) => {
   return text.length > 0 ? new Date(text) : undefined;
 }, z.date({ required_error: "La fecha del próximo ultrasonido es requerida", invalid_type_error: "Fecha inválida" }));
 
+// Al crear, la fecha próxima ya no se captura a mano: se calcula sola (ver
+// más abajo, addFiveYears). Al corregir un registro ya guardado sí se puede
+// ajustar manualmente (createUltrasoundLogSchema de abajo la sigue pidiendo).
 const createUltrasoundLogSchema = z.object({
+  compania: optionalText(150),
+  numeroUltrasonido: optionalText(100),
+  responsable: optionalText(150),
+  fechaUltimoUltrasonido: optionalDate,
+  fechaRealizacion: requiredDate,
+});
+
+const updateUltrasoundLogSchema = z.object({
   compania: optionalText(150),
   numeroUltrasonido: optionalText(100),
   responsable: optionalText(150),
@@ -37,6 +48,15 @@ const createUltrasoundLogSchema = z.object({
   fechaRealizacion: requiredDate,
   fechaProximoUltrasonido: requiredProximaDate,
 });
+
+// Medición ultrasónica de espesores: la primera se calcula a los 10 años de
+// la fecha de fabricación del tanque (ver upsertTechnicalSheet en
+// actions/vehicle-actions.ts); cada medición posterior recorre el ciclo
+// otros 5 años a partir de la fecha en que se realizó (más corto que el
+// resto de las pruebas del tanque, que son cada 10).
+function addFiveYears(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear() + 5, date.getUTCMonth(), date.getUTCDate()));
+}
 
 export async function createUltrasoundLog(
   vehicleId: string,
@@ -53,7 +73,6 @@ export async function createUltrasoundLog(
     responsable: formData.get("responsable"),
     fechaUltimoUltrasonido: formData.get("fechaUltimoUltrasonido"),
     fechaRealizacion: formData.get("fechaRealizacion"),
-    fechaProximoUltrasonido: formData.get("fechaProximoUltrasonido"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -70,11 +89,14 @@ export async function createUltrasoundLog(
     return { error: "El registro no existe." };
   }
 
+  const fechaProximoUltrasonido = addFiveYears(parsed.data.fechaRealizacion);
+
   const log = await prisma.ultrasoundLog.create({
     data: {
       vehicleRecordId: vehicleId,
       createdById: editor.userId,
       ...parsed.data,
+      fechaProximoUltrasonido,
     },
   });
 
@@ -101,13 +123,13 @@ export async function createUltrasoundLog(
     where: { vehicleRecordId: vehicleId },
     update: {
       ultimoUltrasonido: parsed.data.fechaRealizacion,
-      fechaProximoUltrasonido: parsed.data.fechaProximoUltrasonido,
+      fechaProximoUltrasonido,
       ...(parsed.data.numeroUltrasonido ? { numeroUltimoUltrasonido: parsed.data.numeroUltrasonido } : {}),
     },
     create: {
       vehicleRecordId: vehicleId,
       ultimoUltrasonido: parsed.data.fechaRealizacion,
-      fechaProximoUltrasonido: parsed.data.fechaProximoUltrasonido,
+      fechaProximoUltrasonido,
       numeroUltimoUltrasonido: parsed.data.numeroUltrasonido,
     },
   });
@@ -127,7 +149,7 @@ export async function updateUltrasoundLog(
 ): Promise<ActionState> {
   await requireElevatedEditor();
 
-  const parsed = createUltrasoundLogSchema.safeParse({
+  const parsed = updateUltrasoundLogSchema.safeParse({
     compania: formData.get("compania"),
     numeroUltrasonido: formData.get("numeroUltrasonido"),
     responsable: formData.get("responsable"),

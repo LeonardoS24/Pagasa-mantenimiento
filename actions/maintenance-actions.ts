@@ -6,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { maintenanceStatusSchema, maintenanceTypeSchema, calidadMantenimientoSchema } from "@/lib/vehicle-enums";
-import { accionPiezaSchema } from "@/lib/piece-catalog";
+import { accionPiezaSchema, PIECE_CATEGORY_OTRO } from "@/lib/piece-catalog";
+import { maybeLearnPiece } from "@/lib/learned-pieces";
+import { maybeSyncValvePieceReplacement } from "@/lib/valve-piece-sync";
+import { maybeSyncHosePieceReplacement } from "@/lib/hose-piece-sync";
 import {
   parseChecklistPreventivo,
   isChecklistDocumentable,
@@ -236,6 +239,40 @@ export async function createMaintenanceLog(
       ...parsed.data,
       checklistPreventivo: checklist ? parsed.data.checklistPreventivo : null,
     },
+  });
+
+  // Pieza escrita a mano (sin categoría específica o "Otro" — cualquier otra
+  // categoría viene de una lista fija, ver lib/piece-catalog.ts): si ya se
+  // escribió lo suficiente, se agrega sola al catálogo (ver
+  // lib/learned-pieces.ts). No aplica a las piezas generadas por el
+  // checklist preventivo (esas usan su propia categoría fija).
+  if (
+    parsed.data.pieza &&
+    (!parsed.data.categoriaPieza || parsed.data.categoriaPieza === PIECE_CATEGORY_OTRO)
+  ) {
+    await maybeLearnPiece(parsed.data.pieza);
+  }
+
+  // Si la pieza reemplazada es una de las 4 válvulas del sistema de
+  // carburación (categoría "Válvulas", ver lib/piece-catalog.ts), la ficha
+  // técnica refleja sola la nueva fecha de fabricación (ver
+  // lib/valve-piece-sync.ts).
+  await maybeSyncValvePieceReplacement({
+    vehicleRecordId: vehicleId,
+    categoriaPieza: parsed.data.categoriaPieza,
+    pieza: parsed.data.pieza,
+    accionPieza: parsed.data.accionPieza,
+    fecha: parsed.data.fecha,
+  });
+
+  // Mismo mecanismo para la manguera de alta presión (ver
+  // lib/hose-piece-sync.ts).
+  await maybeSyncHosePieceReplacement({
+    vehicleRecordId: vehicleId,
+    categoriaPieza: parsed.data.categoriaPieza,
+    pieza: parsed.data.pieza,
+    accionPieza: parsed.data.accionPieza,
+    fecha: parsed.data.fecha,
   });
 
   // Del checklist, todo lo que no quedó en "Buen estado" (Relleno,

@@ -159,11 +159,109 @@ export const PIECE_CATALOG: Record<string, string[]> = {
     "Seguros eléctricos",
     "Sistema de audio",
   ],
+  // Solo Auto-Tanques (ver getPieceCategories): son las piezas del tanque de
+  // carga que transporta, distintas del sistema de carburación propio del
+  // motor de Vehículo con tanque de carburación (ver categorías "Válvulas" y
+  // "Sistema de carburación" más abajo).
+  Tanque: [
+    "Motor de carrete",
+    "Manómetro",
+    "Termómetro",
+    "Trampa de vapor",
+    "Válvula de diferencial",
+    "Válvula solenoide",
+    "Codos giratorios (coplee rotatorio)",
+    "Manómetro bomba",
+    "Bomba",
+    "Manguera de descarga",
+    "Registro electrónico inteligente (Display)",
+    "Bridas",
+    "Empaques",
+    "Carrete",
+    "Magnatel (flotador de gas)",
+    "Medidor Neptuno",
+    "Actuador",
+    "Válvula de control",
+    "Filtro de gas",
+    "Toma de fuerza",
+    "Codo",
+    "Tubería \"T\"",
+    "Tubería flexible",
+    "Medidor",
+    "Conchas",
+    "Acoplador de líquido",
+    "Cinta estática (Tierra)",
+    "Amortiguador de madera",
+    // Solo una pieza más de mantenimiento del tanque de carga — no tiene
+    // relación con el registro "Cambio de válvulas" (lib/valve-alerts.ts)
+    // ni con su fecha de fabricación.
+    "Válvula interna",
+    "Registro pasa hombre",
+  ],
+  // Solo Vehículo con tanque de carburación (ver getPieceCategories): las
+  // únicas 4 válvulas de su sistema de gas LP para el motor (no las 9 del
+  // tanque de carga de Auto-Tanques, ver lib/valve-alerts.ts). El nombre
+  // entre paréntesis es como se conoce cada una en campo; el registro de
+  // esta misma sección de la ficha técnica usa el nombre "oficial" (ver
+  // VALVULA_PIEZA_A_CAMPO en lib/valve-piece-sync.ts: cuando se reemplaza
+  // una de estas 4 en un mantenimiento normal, su fecha de fabricación se
+  // actualiza sola ahí).
+  Válvulas: [
+    "Válvula de llenado (Doble check)",
+    "Válvula de máximo llenado (purgador)",
+    "Válvula de servicio (reguladora)",
+    "Válvula de seguridad",
+  ],
+  // Solo Vehículo con tanque de carburación: el resto del kit de conversión
+  // a gas LP para el motor (distinto de las válvulas de arriba). "Mangueras
+  // de alta presión" también dispara la actualización sola de la ficha
+  // técnica cuando se reemplaza aquí (ver lib/hose-piece-sync.ts), igual que
+  // las válvulas — no reemplaza al registro dedicado "Cambio de mangueras",
+  // que sigue existiendo para el historial completo con documentos.
+  "Sistema de carburación": [
+    "Mangueras de alta presión",
+    "Filtro de gas L.P.",
+    "Electroválvula",
+    "Evaporador",
+    "Mezclador",
+    "Interruptor (Switch) gas LP/Gasolina",
+  ],
 };
 
-// "Otro" siempre va al final y no tiene lista: la pieza se escribe a mano.
+// "Otro" siempre va al final y no tiene lista fija propia — pero si ya se
+// aprendieron piezas de tanto escribirlas a mano (ver lib/learned-pieces.ts),
+// esas sí se ofrecen como opciones ahí, con una opción para seguir
+// escribiendo libre lo que todavía no se haya aprendido.
 export const PIECE_CATEGORY_OTRO = "Otro";
-export const PIECE_CATEGORIES = [...Object.keys(PIECE_CATALOG), PIECE_CATEGORY_OTRO];
+
+const TANQUE_CATEGORY = "Tanque";
+const CARBURACION_CATEGORIES = ["Válvulas", "Sistema de carburación"];
+const SECTION_ONLY_CATEGORIES = [TANQUE_CATEGORY, ...CARBURACION_CATEGORIES];
+
+// "Tanque" (tanque de carga) solo en Auto-Tanques, además de las categorías
+// genéricas de cualquier vehículo. Vehículo con tanque de carburación es
+// distinto a propósito: solo ve "Válvulas" y "Sistema de carburación" — nada
+// de las categorías genéricas (Motor, Transmisión, Frenos...), porque en el
+// mantenimiento de esa unidad solo se registra lo relacionado a su sistema
+// de gas LP, no el vehículo completo.
+export function getPieceCategories(sectionSlug?: string): string[] {
+  if (sectionSlug === "vehiculo-con-tanque-de-carburacion") {
+    return [...CARBURACION_CATEGORIES, PIECE_CATEGORY_OTRO];
+  }
+  const base = Object.keys(PIECE_CATALOG).filter(
+    (categoria) => !SECTION_ONLY_CATEGORIES.includes(categoria)
+  );
+  const categorias = [...base];
+  if (sectionSlug === "auto-tanques") categorias.push(TANQUE_CATEGORY);
+  return [...categorias, PIECE_CATEGORY_OTRO];
+}
+
+// Todos los nombres de pieza ya conocidos por el catálogo fijo, sin importar
+// categoría (ver lib/learned-pieces.ts: para no volver a "aprender" algo que
+// ya está aquí).
+export function getAllStaticPieceNames(): string[] {
+  return Object.values(PIECE_CATALOG).flat();
+}
 
 export const accionPiezaSchema = z.enum(["Sustitución", "Reparación", "Mantenimiento preventivo"]);
 export type AccionPieza = z.infer<typeof accionPiezaSchema>;

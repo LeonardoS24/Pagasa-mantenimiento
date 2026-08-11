@@ -14,6 +14,11 @@ export interface UnitLogEvent {
   citySlug: string;
   cityName: string;
   detalle: string;
+  // Solo en eventos "Dado de baja" de una unidad que estaba repetida en más
+  // de un apartado (ver groupBajas más abajo): el link va a la hoja
+  // combinada (/imprimir) en vez de a un solo apartado, ya que ahí es donde
+  // se ve la unidad completa en un solo formato.
+  isMerged?: boolean;
 }
 
 const TAKE = 100;
@@ -27,21 +32,22 @@ function dateFilter(range: MonthRange | undefined) {
   return range ? { gte: range.start, lt: range.end } : undefined;
 }
 
-// Quita duplicados por ciudad+número económico: el mismo camión físico
-// puede tener un VehicleRecord en Auto-Tanques y otro en Vehículo con
-// tanque de carburación (ver comentario donde se usa, más abajo).
-function dedupeBajas<T extends { numeroEconomico: string; section: { city: { slug: string } } }>(
-  bajas: T[]
-): T[] {
-  const seen = new Set<string>();
-  const result: T[] = [];
+// Agrupa por ciudad+número económico: el mismo camión físico puede tener un
+// VehicleRecord en Auto-Tanques y otro en Vehículo con tanque de
+// carburación (ver comentario donde se usa, más abajo). Cada grupo trae
+// todos los registros pareados, para poder decir en qué apartados estaba en
+// vez de solo quedarse con el primero y perder esa información.
+function groupBajas<
+  T extends { numeroEconomico: string; section: { name: string; city: { slug: string } } },
+>(bajas: T[]): T[][] {
+  const groups = new Map<string, T[]>();
   for (const v of bajas) {
     const key = `${v.section.city.slug}::${v.numeroEconomico}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(v);
+    const group = groups.get(key);
+    if (group) group.push(v);
+    else groups.set(key, [v]);
   }
-  return result;
+  return Array.from(groups.values());
 }
 
 // Reúne los 10 tipos de bitácora de una unidad más el evento "Dado de baja"
@@ -147,7 +153,13 @@ export async function getCityUnitLogFeed(
       },
       orderBy: { fechaBaja: "desc" },
       take,
-      select: { id: true, numeroEconomico: true, fechaBaja: true, ...cityInclude },
+      select: {
+        id: true,
+        numeroEconomico: true,
+        fechaBaja: true,
+        motivoBaja: true,
+        section: { select: { slug: true, name: true, city: { select: { slug: true, name: true } } } },
+      },
     }),
   ]);
 
@@ -267,18 +279,29 @@ export async function getCityUnitLogFeed(
     // (ver setVehicleActive en actions/vehicle-actions.ts, que da de baja a
     // ambos registros a la vez). Para el feed es la misma unidad, así que
     // solo debe aparecer un evento "Dado de baja" por ciudad+número
-    // económico, no uno por cada registro.
-    ...dedupeBajas(bajas).map((v) => ({
-      id: `baja-${v.id}`,
-      fecha: v.fechaBaja!,
-      tipo: "Dado de baja",
-      colorKey: "baja" as const,
-      vehicleRecordId: v.id,
-      numeroEconomico: v.numeroEconomico,
-      citySlug: v.section.city.slug,
-      cityName: v.section.city.name,
-      detalle: "La unidad se dio de baja",
-    })),
+    // económico, no uno por cada registro — y ese evento menciona en qué
+    // apartados estaba, igual que se ve todo junto al imprimir la hoja de la
+    // unidad (ver unitLogEventHref: el link va a /imprimir, no a un solo
+    // apartado).
+    ...groupBajas(bajas).map((group) => {
+      const [primary, ...resto] = group;
+      const apartados = group.map((v) => v.section.name).join(" + ");
+      const motivo = group.find((v) => v.motivoBaja)?.motivoBaja;
+      let detalle = resto.length > 0 ? `La unidad se dio de baja (${apartados})` : "La unidad se dio de baja";
+      if (motivo) detalle += ` — Motivo: ${motivo}`;
+      return {
+        id: `baja-${primary.id}`,
+        fecha: primary.fechaBaja!,
+        tipo: "Dado de baja",
+        colorKey: "baja" as const,
+        vehicleRecordId: primary.id,
+        numeroEconomico: primary.numeroEconomico,
+        citySlug: primary.section.city.slug,
+        cityName: primary.section.city.name,
+        detalle,
+        isMerged: resto.length > 0,
+      };
+    }),
   ];
 
   events.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
@@ -314,6 +337,7 @@ const EVENT_PREFIXES = [
 // de mandar siempre a la parte superior de la página.
 export function unitLogEventHref(event: UnitLogEvent): string {
   const base = `/ciudades/${event.citySlug}/vehiculo/${event.vehicleRecordId}`;
+  if (event.isMerged) return `${base}/imprimir`;
   const prefix = EVENT_PREFIXES.find((p) => event.id.startsWith(`${p}-`));
   if (!prefix) return base;
   if (prefix === "mantenimiento") {

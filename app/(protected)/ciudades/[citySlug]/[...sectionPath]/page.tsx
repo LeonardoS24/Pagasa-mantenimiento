@@ -40,13 +40,13 @@ import { MaintenanceTypePieChart } from "@/components/city/MaintenanceTypePieCha
 import { getEquipmentMaintenanceTypeStats } from "@/lib/equipment-maintenance-type-stats";
 import { EquipmentMaintenanceTypePieChart } from "@/components/city/EquipmentMaintenanceTypePieChart";
 import {
-  getMonthRange,
   getCurrentMonthRange,
   currentMonthLabel,
-  monthLabel,
-  monthParamValue,
-  parseMonthParam,
-  listRecentMonths,
+  parseMesParam,
+  mesSelectionRange,
+  mesSelectionLabel,
+  mesSelectionParamValue,
+  listRecentMonthsWithYearOption,
 } from "@/lib/dates";
 import { MonthPicker } from "@/components/city/MonthPicker";
 
@@ -125,11 +125,12 @@ export default async function SectionPage({
       })()
     : [];
 
-  // Selector de mes: en la Bitácora de unidades y en Orden de pieza de
-  // Administración (ver lib/aggregate-city.ts). Las ciudades reales siguen
-  // mostrando "actividad reciente" sin acotar por mes, como siempre.
-  const { year: selectedYear, month: selectedMonth } = parseMonthParam(searchParams.mes);
-  const selectedMonthRange = getMonthRange(selectedYear, selectedMonth);
+  // Selector de mes (o de todo el año, ver lib/dates.ts: MesSelection): en
+  // la Bitácora de unidades y en Orden de pieza de Administración (ver
+  // lib/aggregate-city.ts). Las ciudades reales siguen mostrando "actividad
+  // reciente" sin acotar por mes, como siempre.
+  const selectedMes = parseMesParam(searchParams.mes);
+  const selectedMonthRange = mesSelectionRange(selectedMes);
   const showMonthPicker = isBitacoraFeed && isAggregateCity;
   const showOrderMonthPicker = isOrdenDePieza && isAggregateCity;
 
@@ -204,7 +205,7 @@ export default async function SectionPage({
   // desaparecía de la gráfica en cuanto cambiaba el mes sin forma de volver a
   // verla — eso es lo que se reportó como "no toma todas las órdenes".
   const pieceOrderRange = showOrderMonthPicker ? selectedMonthRange : getCurrentMonthRange();
-  const pieceOrderMonthLabel = showOrderMonthPicker ? monthLabel(selectedYear, selectedMonth) : currentMonthLabel();
+  const pieceOrderMonthLabel = showOrderMonthPicker ? mesSelectionLabel(selectedMes) : currentMonthLabel();
   // Gráficas de Administración sobre las órdenes que se realizan, por ciudad
   // (ver lib/piece-order-stats.ts); solo tienen sentido combinando ciudades.
   const pieceOrderStats =
@@ -285,12 +286,12 @@ export default async function SectionPage({
           {showMonthPicker && (
             <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3">
               <p className="text-sm text-ink">
-                Viendo <span className="font-medium">{monthLabel(selectedYear, selectedMonth)}</span>: la
-                bitácora y las gráficas de abajo son solo de ese mes.
+                Viendo <span className="font-medium">{mesSelectionLabel(selectedMes)}</span>: la
+                bitácora y las gráficas de abajo son solo de {selectedMes.type === "year" ? "ese año" : "ese mes"}.
               </p>
               <MonthPicker
-                months={listRecentMonths(12)}
-                selected={monthParamValue(selectedYear, selectedMonth)}
+                months={listRecentMonthsWithYearOption(12)}
+                selected={mesSelectionParamValue(selectedMes)}
               />
             </div>
           )}
@@ -299,7 +300,7 @@ export default async function SectionPage({
               <RecordTypeComparisonSection
                 stats={recordTypeStats}
                 range={selectedMonthRange}
-                monthLabel={monthLabel(selectedYear, selectedMonth)}
+                monthLabel={mesSelectionLabel(selectedMes)}
               />
               {recordTypeStats.map((stat) => (
                 <RecordCountByCityChart
@@ -308,7 +309,7 @@ export default async function SectionPage({
                   type={stat.type}
                   stats={stat.byCity}
                   range={selectedMonthRange}
-                  monthLabel={monthLabel(selectedYear, selectedMonth)}
+                  monthLabel={mesSelectionLabel(selectedMes)}
                   color={stat.color}
                 />
               ))}
@@ -318,13 +319,13 @@ export default async function SectionPage({
             stats={maintenanceTypeStats}
             scope={{ type: "city", cityId: isAggregateCity ? null : city.id }}
             range={pieceMaintenanceRange}
-            monthLabel={showMonthPicker ? monthLabel(selectedYear, selectedMonth) : currentMonthLabel()}
+            monthLabel={showMonthPicker ? mesSelectionLabel(selectedMes) : currentMonthLabel()}
           />
           <PieceMaintenanceChart
             stats={pieceMaintenanceStats}
             scope={{ type: "city", cityId: isAggregateCity ? null : city.id }}
             range={pieceMaintenanceRange}
-            monthLabel={showMonthPicker ? monthLabel(selectedYear, selectedMonth) : undefined}
+            monthLabel={showMonthPicker ? mesSelectionLabel(selectedMes) : undefined}
           />
           <CityMaintenanceFeed logs={cityMaintenanceLogs} showCity={isAggregateCity} />
         </div>
@@ -356,12 +357,12 @@ export default async function SectionPage({
           {showOrderMonthPicker && (
             <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3">
               <p className="text-sm text-ink">
-                Viendo <span className="font-medium">{monthLabel(selectedYear, selectedMonth)}</span>: las
-                gráficas de abajo son solo de ese mes.
+                Viendo <span className="font-medium">{mesSelectionLabel(selectedMes)}</span>: las
+                gráficas de abajo son solo de {selectedMes.type === "year" ? "ese año" : "ese mes"}.
               </p>
               <MonthPicker
-                months={listRecentMonths(12)}
-                selected={monthParamValue(selectedYear, selectedMonth)}
+                months={listRecentMonthsWithYearOption(12)}
+                selected={mesSelectionParamValue(selectedMes)}
               />
             </div>
           )}

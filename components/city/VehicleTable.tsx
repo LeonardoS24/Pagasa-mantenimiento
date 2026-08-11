@@ -215,7 +215,10 @@ export function VehicleTable({
                   </Link>
                   {anterior && <span className="ml-1 font-normal text-gray-400">({anterior})</span>}
                   {!record.activo && (
-                    <span className="ml-2 rounded-full border border-orange-400 bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">
+                    <span
+                      className="ml-2 rounded-full border border-orange-400 bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800"
+                      title={record.motivoBaja ? `Motivo: ${record.motivoBaja}` : undefined}
+                    >
                       Dado de baja
                     </span>
                   )}

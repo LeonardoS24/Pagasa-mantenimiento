@@ -16,6 +16,7 @@ import { CreateMaintenanceLogForm } from "@/components/admin/CreateMaintenanceLo
 import { MaintenanceLogTable } from "@/components/city/MaintenanceLogTable";
 import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
 import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
+import { getLearnedPieces } from "@/lib/learned-pieces";
 import { CreateUltrasoundLogForm } from "@/components/admin/CreateUltrasoundLogForm";
 import { UltrasoundLogTable } from "@/components/city/UltrasoundLogTable";
 import { CreateVisualInspectionLogForm } from "@/components/admin/CreateVisualInspectionLogForm";
@@ -27,7 +28,6 @@ import { InternalVisualInspectionLogTable } from "@/components/city/InternalVisu
 import { CreateHydrostaticTestLogForm } from "@/components/admin/CreateHydrostaticTestLogForm";
 import { HydrostaticTestLogTable } from "@/components/city/HydrostaticTestLogTable";
 import { CreateExtinguisherChangeLogForm } from "@/components/admin/CreateExtinguisherChangeLogForm";
-import { QuickCalidadExtintorForm } from "@/components/admin/QuickCalidadExtintorForm";
 import { ExtinguisherChangeLogTable } from "@/components/city/ExtinguisherChangeLogTable";
 import { CreateValveChangeLogForm } from "@/components/admin/CreateValveChangeLogForm";
 import { ValveChangeLogTable } from "@/components/city/ValveChangeLogTable";
@@ -172,6 +172,10 @@ export default async function VehicleDetailPage({
         select: { id: true, nombre: true, cantidad: true, unidad: true },
       })
     : [];
+  // Piezas ya "aprendidas" de tanto escribirse a mano (ver
+  // lib/learned-pieces.ts), para ofrecerlas como opción dentro de "Otro" en
+  // CreateMaintenanceLogForm en vez de tener que volver a escribirlas.
+  const learnedPieces = isEditor ? (await getLearnedPieces()).map((p) => p.nombre) : [];
   // Piezas con más mantenimiento de esta unidad en el año en curso (mismo
   // gráfico que Bitácora de unidades, pero acotado a una sola unidad y
   // reiniciado cada año en vez de cada mes — ver PieceMaintenanceChart).
@@ -282,7 +286,10 @@ export default async function VehicleDetailPage({
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold text-primary">{vehicle.numeroEconomico}</h1>
         {!vehicle.activo && (
-          <span className="rounded-full border border-orange-400 bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800">
+          <span
+            className="rounded-full border border-orange-400 bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800"
+            title={vehicle.motivoBaja ? `Motivo: ${vehicle.motivoBaja}` : undefined}
+          >
             Dado de baja{vehicle.fechaBaja ? ` · ${formatDate(vehicle.fechaBaja)}` : ""}
           </span>
         )}
@@ -438,17 +445,6 @@ export default async function VehicleDetailPage({
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Ficha técnica
         </h2>
-        {isAdmin && (
-          <div className="mb-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3">
-            <p className="mb-2 text-xs text-ink">
-              Cambio rápido, sin necesidad de editar toda la ficha técnica:
-            </p>
-            <QuickCalidadExtintorForm
-              vehicleId={vehicle.id}
-              calidadActual={vehicle.technicalSheet?.calidadExtintor ?? null}
-            />
-          </div>
-        )}
         {isAdmin ? (
           <TechnicalSheetForm
             vehicleId={vehicle.id}
@@ -499,7 +495,12 @@ export default async function VehicleDetailPage({
             periodo="año"
           />
           {isEditor && (
-            <CreateMaintenanceLogForm vehicleId={vehicle.id} availableInventory={availableInventory} />
+            <CreateMaintenanceLogForm
+              vehicleId={vehicle.id}
+              sectionSlug={vehicle.section.slug}
+              availableInventory={availableInventory}
+              learnedPieces={learnedPieces}
+            />
           )}
           <MaintenanceLogTable logs={vehicle.maintenanceLogs} canEdit={isEditor} isAdmin={isAdmin} />
         </div>
@@ -537,8 +538,15 @@ export default async function VehicleDetailPage({
             Cambio de válvulas
           </h2>
           <div className="space-y-3">
-            {isEditor && <CreateValveChangeLogForm vehicleId={vehicle.id} />}
-            <ValveChangeLogTable logs={vehicle.valveChangeLogs} canEdit={isEditor} isAdmin={isAdmin} />
+            {isEditor && (
+              <CreateValveChangeLogForm vehicleId={vehicle.id} sectionSlug={vehicle.section.slug} />
+            )}
+            <ValveChangeLogTable
+              logs={vehicle.valveChangeLogs}
+              canEdit={isEditor}
+              isAdmin={isAdmin}
+              sectionSlug={vehicle.section.slug}
+            />
           </div>
         </div>
       )}
@@ -549,11 +557,17 @@ export default async function VehicleDetailPage({
             Mantenimiento correctivo de válvulas
           </h2>
           <div className="space-y-3">
-            {isEditor && <CreateValveCorrectiveMaintenanceLogForm vehicleId={vehicle.id} />}
+            {isEditor && (
+              <CreateValveCorrectiveMaintenanceLogForm
+                vehicleId={vehicle.id}
+                sectionSlug={vehicle.section.slug}
+              />
+            )}
             <ValveCorrectiveMaintenanceLogTable
               logs={vehicle.valveCorrectiveMaintenanceLogs}
               canEdit={isEditor}
               isAdmin={isAdmin}
+              sectionSlug={vehicle.section.slug}
             />
           </div>
         </div>
@@ -683,6 +697,12 @@ export default async function VehicleDetailPage({
           <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             Estatus de la unidad
           </h2>
+          {!vehicle.activo && vehicle.motivoBaja && (
+            <p className="mb-3 rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-ink">
+              <span className="font-medium text-orange-800">Motivo de la baja: </span>
+              {vehicle.motivoBaja}
+            </p>
+          )}
           {vehicle.activo ? (
             <form action={setVehicleActive.bind(null, vehicle.id, false)}>
               <ConfirmSubmitButton
@@ -690,6 +710,21 @@ export default async function VehicleDetailPage({
                 confirmLabel="Sí, dar de baja"
                 pendingLabel="Guardando..."
                 className="rounded-md border border-orange-500 bg-orange-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-600"
+                extraContent={
+                  <div>
+                    <label htmlFor="motivo" className="mb-1 block text-sm font-medium text-ink">
+                      Motivo de la baja (opcional)
+                    </label>
+                    <textarea
+                      id="motivo"
+                      name="motivo"
+                      rows={3}
+                      maxLength={500}
+                      className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary focus:outline-none"
+                      placeholder="Describe por qué se da de baja esta unidad..."
+                    />
+                  </div>
+                }
               >
                 Dar de baja
               </ConfirmSubmitButton>

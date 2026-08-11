@@ -4,7 +4,10 @@ import { semaforoDotStyles, semaforoLabels } from "@/lib/vehicle-semaforo";
 
 function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEstacion: boolean }) {
   return (
-    <tr className={`relative border-t border-gray-100 hover:bg-gray-50 ${!record.activo ? "bg-orange-50" : ""}`}>
+    <tr
+      className={`relative border-t border-gray-100 hover:bg-gray-50 ${!record.activo ? "bg-orange-50" : ""}`}
+      title={!record.activo && record.motivoBaja ? `Motivo de la baja: ${record.motivoBaja}` : undefined}
+    >
       <td className="whitespace-nowrap px-2 py-2">
         {record.semaforoLevel !== "none" && (
           <span

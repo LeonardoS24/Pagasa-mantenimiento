@@ -114,3 +114,67 @@ export function listRecentMonths(count: number): { year: number; month: number; 
   }
   return months;
 }
+
+// Selección del selector de mes: un mes puntual o "todo el año" (ver
+// MesSelector.tsx). Mismo <select> que antes, solo que ahora también se
+// puede elegir "Todo <año>" en vez de un mes específico — se sigue viajando
+// en la misma URL ?mes=..., nada más que ahora acepta "YYYY" además de
+// "YYYY-MM".
+export type MesSelection = { type: "month"; year: number; month: number } | { type: "year"; year: number };
+
+export function getYearRange(year: number): { start: Date; end: Date } {
+  const start = new Date(Date.UTC(year, 0, 1));
+  const end = new Date(Date.UTC(year + 1, 0, 1));
+  return { start, end };
+}
+
+// Igual que parseMonthParam, pero también reconoce "YYYY" (solo el año) como
+// "todo el año". Nunca deja elegir un año futuro por la misma razón que
+// parseMonthParam no deja elegir un mes futuro.
+export function parseMesParam(value: string | undefined): MesSelection {
+  const now = new Date();
+  const fallback: MesSelection = { type: "month", year: now.getFullYear(), month: now.getMonth() };
+  if (!value) return fallback;
+
+  const yearOnlyMatch = /^(\d{4})$/.exec(value);
+  if (yearOnlyMatch) {
+    const year = Number(yearOnlyMatch[1]);
+    if (year > now.getFullYear()) return fallback;
+    return { type: "year", year };
+  }
+
+  const { year, month } = parseMonthParam(value);
+  return { type: "month", year, month };
+}
+
+export function mesSelectionRange(selection: MesSelection): { start: Date; end: Date } {
+  return selection.type === "year" ? getYearRange(selection.year) : getMonthRange(selection.year, selection.month);
+}
+
+export function mesSelectionLabel(selection: MesSelection): string {
+  return selection.type === "year" ? `Todo ${selection.year}` : monthLabel(selection.year, selection.month);
+}
+
+export function mesSelectionParamValue(selection: MesSelection): string {
+  return selection.type === "year" ? String(selection.year) : monthParamValue(selection.year, selection.month);
+}
+
+// Mismos `count` meses de listRecentMonths, pero con una opción "Todo <año>"
+// intercalada justo después del último mes de cada año que cubren (para
+// poder ver el año completo, no solo mes por mes, desde el mismo selector).
+export function listRecentMonthsWithYearOption(count: number): { value: string; label: string }[] {
+  const months = listRecentMonths(count);
+  const result: { value: string; label: string }[] = [];
+  let currentYear: number | null = null;
+  for (const m of months) {
+    if (currentYear !== null && currentYear !== m.year) {
+      result.push({ value: String(currentYear), label: `Todo ${currentYear}` });
+    }
+    result.push({ value: m.value, label: m.label });
+    currentYear = m.year;
+  }
+  if (currentYear !== null) {
+    result.push({ value: String(currentYear), label: `Todo ${currentYear}` });
+  }
+  return result;
+}

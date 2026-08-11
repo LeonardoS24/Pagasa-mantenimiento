@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { createValveCorrectiveMaintenanceLog } from "@/actions/valve-corrective-maintenance-actions";
 import type { ActionState } from "@/actions/user-actions";
-import { valvulaCorrectivaLabels } from "@/lib/valve-alerts";
+import { getValvulaCorrectivaOptions } from "@/lib/valve-alerts";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -26,12 +26,22 @@ function SubmitButton() {
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
-export function CreateValveCorrectiveMaintenanceLogForm({ vehicleId }: { vehicleId: string }) {
+export function CreateValveCorrectiveMaintenanceLogForm({
+  vehicleId,
+  sectionSlug,
+}: {
+  vehicleId: string;
+  // Vehículo con tanque de carburación solo tiene 4 válvulas (ver
+  // lib/valve-alerts.ts: getValvulaCorrectivaOptions). No afecta a ningún
+  // otro apartado.
+  sectionSlug: string;
+}) {
   const action = createValveCorrectiveMaintenanceLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const searchParams = useSearchParams();
+  const valvulaOptions = getValvulaCorrectivaOptions(sectionSlug);
 
   // Id de la pieza de inventario que quedó esperando este registro para
   // amarrarse a él (ver vincularPiezaARegistro).
@@ -64,7 +74,7 @@ export function CreateValveCorrectiveMaintenanceLogForm({ vehicleId }: { vehicle
               Válvula afectada
             </label>
             <select id="valvcorr-valvula" name="valvula" required className={inputClass}>
-              {Object.entries(valvulaCorrectivaLabels).map(([value, label]) => (
+              {valvulaOptions.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

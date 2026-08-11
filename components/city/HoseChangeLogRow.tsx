@@ -46,16 +46,16 @@ function EditHoseChangeLogForm({ log }: { log: HoseChangeLog }) {
 
   return (
     <form action={formAction} className="mt-3 space-y-2 rounded-md bg-gray-50 p-3">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`responsable-${log.id}`}>
             Responsable
           </label>
           <input id={`responsable-${log.id}`} name="responsable" defaultValue={log.responsable ?? ""} className={inputClass} />
         </div>
-        <div>
+        <div className="rounded-md border-2 border-primary/40 bg-primary/5 p-2">
           <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaInstalacion-${log.id}`}>
-            Fecha de instalación
+            Fecha de instalación de la manguera
           </label>
           <input
             id={`fechaInstalacion-${log.id}`}
@@ -65,18 +65,18 @@ function EditHoseChangeLogForm({ log }: { log: HoseChangeLog }) {
             className={inputClass}
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionManguera-${log.id}`}>
-            Fecha de fabricación de la manguera
-          </label>
-          <input
-            id={`fechaFabricacionManguera-${log.id}`}
-            name="fechaFabricacionManguera"
-            type="date"
-            defaultValue={toDateInputValue(log.fechaFabricacionManguera)}
-            className={inputClass}
-          />
-        </div>
+      </div>
+      <div className="max-w-xs">
+        <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaFabricacionManguera-${log.id}`}>
+          Fecha de fabricación de la manguera
+        </label>
+        <input
+          id={`fechaFabricacionManguera-${log.id}`}
+          name="fechaFabricacionManguera"
+          type="date"
+          defaultValue={toDateInputValue(log.fechaFabricacionManguera)}
+          className={inputClass}
+        />
       </div>
       <p className="text-xs text-gray-500">
         Esto solo corrige este registro; no vuelve a actualizar la ficha técnica.
@@ -115,9 +115,16 @@ export function HoseChangeLogRow({
 
       {expanded && (
         <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 text-sm text-ink">
-          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="grid gap-3 sm:grid-cols-2">
             <Field label="Responsable" value={log.responsable} />
-            <Field label="Fecha de instalación" value={formatDate(log.fechaInstalacion)} />
+          </dl>
+          <div className="mt-3 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
+            <dt className="text-xs font-semibold uppercase text-gray-500">
+              Fecha de instalación de la manguera
+            </dt>
+            <dd className="text-ink">{formatDate(log.fechaInstalacion)}</dd>
+          </div>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field
               label="Fecha de fabricación de la manguera"
               value={formatDate(log.fechaFabricacionManguera)}

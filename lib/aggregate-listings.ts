@@ -12,6 +12,7 @@ export interface AggregateVehicleRow {
   placas: string | null;
   serie: string | null;
   activo: boolean;
+  motivoBaja: string | null;
   citySlug: string;
   cityName: string;
   semaforoLevel: SemaforoLevel;
@@ -32,6 +33,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       anio: true,
       placas: true,
       activo: true,
+      motivoBaja: true,
       technicalSheet: true,
       section: { select: { slug: true, city: { select: { slug: true, name: true, order: true } } } },
     },
@@ -46,6 +48,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       placas: r.placas,
       serie: r.technicalSheet?.serie ?? null,
       activo: r.activo,
+      motivoBaja: r.motivoBaja,
       citySlug: r.section.city.slug,
       cityName: r.section.city.name,
       cityOrder: r.section.city.order,

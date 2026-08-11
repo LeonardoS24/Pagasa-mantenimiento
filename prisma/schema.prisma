@@ -124,6 +124,11 @@ model VehicleRecord {
   // ADMIN puede cambiar este estatus.
   activo    Boolean   @default(true)
   fechaBaja DateTime?
+  // Motivo escrito al dar de baja (opcional, ver actions/vehicle-actions.ts:
+  // setVehicleActive). Se borra al reactivar, igual que fechaBaja: no
+  // conserva historial de bajas/reactivaciones pasadas, solo el motivo de la
+  // baja actual si sigue inactiva.
+  motivoBaja String?
 
   // Calidad general de la unidad (ver lib/vehicle-enums.ts:
   // calidadMantenimientoSchema): se recalcula sola con cada mantenimiento
@@ -345,6 +350,23 @@ model MaintenanceLog {
   @@map("maintenance_logs")
 }
 
+// Piezas "aprendidas" de tanto escribirse a mano en el campo libre de
+// MaintenanceLog.pieza (categoría "Otro"/sin categoría): cuando el mismo
+// nombre (sin importar mayúsculas/minúsculas ni acentos, comparación hecha
+// en JS porque SQLite no soporta bien mayúsculas/minúsculas con acentos) se
+// escribe 3 veces o más, se agrega aquí para que a partir de entonces
+// aparezca como opción seleccionable en vez de tener que volver a escribirla
+// (ver lib/learned-pieces.ts).
+model LearnedPiece {
+  id        String   @id @default(cuid())
+  categoria String
+  nombre    String
+  createdAt DateTime @default(now())
+
+  @@unique([categoria, nombre])
+  @@map("learned_pieces")
+}
+
 // Registro de cada realización de ultrasonido de tanque (Auto-Tanques). Al
 // crearse, actualiza automáticamente ultimoUltrasonido/numeroUltimoUltrasonido
 // en la ficha técnica del vehículo (ver actions/ultrasound-actions.ts), de
@@ -550,16 +572,22 @@ model ValveChangeLog {
   fechaInstalacion DateTime
 
   fechaFabricacionValvulaLlenado       DateTime
-  fechaFabricacionValvulaNoRetroceso   DateTime
-  fechaFabricacionValvulaBypass        DateTime
-  fechaFabricacionValvulaRetornoVapores DateTime
   fechaFabricacionValvulaServicio      DateTime
   fechaFabricacionValvulaMaximoLlenado DateTime
-  // Única opcional del juego: no todos los tanques la tienen.
+  fechaFabricacionValvulaAlivio        DateTime
+  // Las 4 de arriba aplican a Auto-Tanques y a Vehículo con tanque de
+  // carburación (con otros nombres ahí: Doble check/purgador/reguladora/
+  // seguridad, ver TechnicalSheetForm). Las 4 de abajo (más la opcional del
+  // 85%) son propias del tanque de carga y solo aplican a Auto-Tanques —
+  // nulas en Vehículo con tanque de carburación (ver actions/valve-actions.ts).
+  fechaFabricacionValvulaNoRetroceso        DateTime?
+  fechaFabricacionValvulaBypass             DateTime?
+  fechaFabricacionValvulaRetornoVapores     DateTime?
+  fechaFabricacionValvulaDescargaEmergencia DateTime?
+  // Única opcional del juego para Auto-Tanques: no todos los tanques de
+  // carga la tienen.
   tieneValvulaMaximoLlenado85            Boolean   @default(false)
   fechaFabricacionValvulaMaximoLlenado85 DateTime?
-  fechaFabricacionValvulaAlivio             DateTime
-  fechaFabricacionValvulaDescargaEmergencia DateTime
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)

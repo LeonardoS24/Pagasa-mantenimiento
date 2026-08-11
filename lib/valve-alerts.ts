@@ -120,6 +120,42 @@ export const valvulaCorrectivaLabels: Record<ValvulaCorrectiva, string> = {
   GENERAL: "General",
 };
 
+// Vehículo con tanque de carburación solo tiene 4 de estas válvulas (ver
+// lib/piece-catalog.ts, categoría "Válvulas", y TechnicalSheetForm.tsx):
+// esta lista filtra y relabela las opciones solo para ese caso. Auto-Tanques
+// y cualquier otro tipo de unidad siguen viendo el juego completo de 10
+// (valvulaCorrectivaLabels de arriba, sin cambios).
+const CARBURACION_VALVULAS_CORRECTIVAS: Partial<Record<ValvulaCorrectiva, string>> = {
+  LLENADO: "Válvula de llenado (Doble check)",
+  MAXIMO_LLENADO: "Válvula de máximo llenado (purgador)",
+  SERVICIO: "Válvula de servicio (reguladora)",
+  ALIVIO: "Válvula de seguridad",
+  GENERAL: "General",
+};
+
+export function getValvulaCorrectivaOptions(sectionSlug?: string): [ValvulaCorrectiva, string][] {
+  const source =
+    sectionSlug === "vehiculo-con-tanque-de-carburacion"
+      ? CARBURACION_VALVULAS_CORRECTIVAS
+      : valvulaCorrectivaLabels;
+  return Object.entries(source) as [ValvulaCorrectiva, string][];
+}
+
+// Para mostrar la etiqueta de un registro ya guardado (ver
+// ValveCorrectiveMaintenanceLogRow.tsx): usa el nombre "de campo" si la
+// unidad es de carburación y esa válvula tiene uno, si no cae al nombre de
+// siempre.
+export function getValvulaCorrectivaLabel(
+  valvula: ValvulaCorrectiva | string,
+  sectionSlug?: string
+): string {
+  if (sectionSlug === "vehiculo-con-tanque-de-carburacion") {
+    const carburacionLabel = CARBURACION_VALVULAS_CORRECTIVAS[valvula as ValvulaCorrectiva];
+    if (carburacionLabel) return carburacionLabel;
+  }
+  return valvulaCorrectivaLabels[valvula as ValvulaCorrectiva] ?? valvula;
+}
+
 export function valveAlertMessage(
   level: ValveAlertLevel,
   vencimiento: Date,

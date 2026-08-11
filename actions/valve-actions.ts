@@ -26,6 +26,12 @@ const optionalDate = z.preprocess((value) => {
   return text.length > 0 ? new Date(text) : null;
 }, z.date().nullable());
 
+// Vehículo con tanque de carburación solo tiene 4 de estas 9 válvulas (las
+// otras 4 son propias del tanque de carga de Auto-Tanques, ver
+// prisma/schema.prisma): esas 4 quedan opcionales aquí y se exigen a mano
+// más abajo (requireValvulasCompletas) solo cuando la unidad no es de
+// carburación — depende de a qué vehículo pertenece el registro, algo que
+// zod no puede saber por sí solo al momento de parsear.
 const createValveChangeLogSchema = z
   .object({
     responsable: optionalText(150),
@@ -33,23 +39,18 @@ const createValveChangeLogSchema = z
     fechaFabricacionValvulaLlenado: requiredDate(
       "La fecha de fabricación de la válvula de llenado es requerida"
     ),
-    fechaFabricacionValvulaNoRetroceso: requiredDate(
-      "La fecha de fabricación de la válvula de no retroceso (check) es requerida"
-    ),
-    fechaFabricacionValvulaBypass: requiredDate(
-      "La fecha de fabricación de la válvula de retroceso (bypass) es requerida"
-    ),
-    fechaFabricacionValvulaRetornoVapores: requiredDate(
-      "La fecha de fabricación de la válvula de retorno de vapores es requerida"
-    ),
+    fechaFabricacionValvulaNoRetroceso: optionalDate,
+    fechaFabricacionValvulaBypass: optionalDate,
+    fechaFabricacionValvulaRetornoVapores: optionalDate,
     fechaFabricacionValvulaServicio: requiredDate(
-      "La fecha de fabricación de la válvula de servicio de vapor es requerida"
+      "La fecha de fabricación de la válvula de servicio es requerida"
     ),
     fechaFabricacionValvulaMaximoLlenado: requiredDate(
-      "La fecha de fabricación de la válvula de máximo llenado 90% es requerida"
+      "La fecha de fabricación de la válvula de máximo llenado es requerida"
     ),
-    // Única opcional del juego (ver lib/valve-alerts.ts): no todos los
-    // tanques tienen esta válvula. Solo se pide la fecha si se marca que sí.
+    // Única opcional del juego completo (ver lib/valve-alerts.ts): no todos
+    // los tanques de carga tienen esta válvula. Solo se pide la fecha si se
+    // marca que sí. No aplica a Vehículo con tanque de carburación.
     tieneValvulaMaximoLlenado85: z.preprocess(
       (value) => value === "on" || value === "true",
       z.boolean()
@@ -58,9 +59,7 @@ const createValveChangeLogSchema = z
     fechaFabricacionValvulaAlivio: requiredDate(
       "La fecha de fabricación de la válvula de seguridad es requerida"
     ),
-    fechaFabricacionValvulaDescargaEmergencia: requiredDate(
-      "La fecha de fabricación de la válvula de descarga de emergencia es requerida"
-    ),
+    fechaFabricacionValvulaDescargaEmergencia: optionalDate,
   })
   .superRefine((data, ctx) => {
     if (data.tieneValvulaMaximoLlenado85 && !data.fechaFabricacionValvulaMaximoLlenado85) {
@@ -77,6 +76,27 @@ const createValveChangeLogSchema = z
       ? data.fechaFabricacionValvulaMaximoLlenado85
       : null,
   }));
+
+// Las 4 válvulas propias del tanque de carga (no aplican a Vehículo con
+// tanque de carburación, ver CreateValveChangeLogForm.tsx/ValveChangeLogRow.tsx)
+// solo son obligatorias fuera de esa sección.
+function requireValvulasCompletas(
+  data: z.infer<typeof createValveChangeLogSchema>
+): string | null {
+  if (!data.fechaFabricacionValvulaNoRetroceso) {
+    return "La fecha de fabricación de la válvula de no retroceso (check) es requerida.";
+  }
+  if (!data.fechaFabricacionValvulaBypass) {
+    return "La fecha de fabricación de la válvula de retroceso (bypass) es requerida.";
+  }
+  if (!data.fechaFabricacionValvulaRetornoVapores) {
+    return "La fecha de fabricación de la válvula de retorno de vapores es requerida.";
+  }
+  if (!data.fechaFabricacionValvulaDescargaEmergencia) {
+    return "La fecha de fabricación de la válvula de descarga de emergencia es requerida.";
+  }
+  return null;
+}
 
 export async function createValveChangeLog(
   vehicleId: string,
@@ -116,6 +136,11 @@ export async function createValveChangeLog(
   });
   if (!vehicle) {
     return { error: "El registro no existe." };
+  }
+
+  if (vehicle.section.slug !== "vehiculo-con-tanque-de-carburacion") {
+    const error = requireValvulasCompletas(parsed.data);
+    if (error) return { error };
   }
 
   const log = await prisma.valveChangeLog.create({
@@ -211,6 +236,11 @@ export async function updateValveChangeLog(
   });
   if (!log) {
     return { error: "El registro no existe." };
+  }
+
+  if (log.vehicleRecord.section.slug !== "vehiculo-con-tanque-de-carburacion") {
+    const error = requireValvulasCompletas(parsed.data);
+    if (error) return { error };
   }
 
   await prisma.valveChangeLog.update({ where: { id: logId }, data: parsed.data });

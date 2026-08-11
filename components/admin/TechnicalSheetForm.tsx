@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { VehicleTechnicalSheet } from "@prisma/client";
-import { upsertTechnicalSheet } from "@/actions/vehicle-actions";
+import { upsertTechnicalSheet, updateCalidadExtintor } from "@/actions/vehicle-actions";
 import type { ActionState } from "@/actions/user-actions";
 import { combustibleLabels, calidadExtintorLabels } from "@/lib/vehicle-enums";
 import { toDateInputValue, formatDate } from "@/lib/dates";
@@ -27,12 +27,14 @@ function Field({
   defaultValue,
   type = "text",
   required = false,
+  disabled = false,
 }: {
   id: string;
   label: string;
   defaultValue?: string | null;
   type?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -45,8 +47,9 @@ function Field({
         name={id}
         type={type}
         required={required}
+        disabled={disabled}
         defaultValue={defaultValue ?? ""}
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
       />
     </div>
   );
@@ -130,6 +133,29 @@ export function TechnicalSheetForm({
     setLocked(true);
     setTieneValvula85(sheet?.tieneValvulaMaximoLlenado85 ?? false);
   }
+
+  // Calidad del extintor: se puede cambiar sin desbloquear toda la ficha
+  // técnica (ver Extintor más abajo, este select vive fuera del <fieldset>
+  // bloqueado). Llama directo a la server action, sin <form> propio, para no
+  // anidar un <form> dentro de este.
+  const [calidadPending, startCalidadTransition] = useTransition();
+  const [calidadMessage, setCalidadMessage] = useState<ActionState>({});
+  function handleCalidadChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const formData = new FormData();
+    formData.set("calidadExtintor", event.target.value);
+    startCalidadTransition(async () => {
+      const result = await updateCalidadExtintor(vehicleId, {}, formData);
+      setCalidadMessage(result);
+    });
+  }
+  // Vehículo con tanque de carburación tiene su propio sistema de gas LP
+  // para el motor, con solo 4 de las 9 válvulas de Auto-Tanques (que son las
+  // del tanque de carga que transporta, un sistema físico distinto) y con
+  // otros nombres de campo: llenado = "Doble check", máximo llenado 90% =
+  // "purgador", servicio = "reguladora" (ver también lib/piece-catalog.ts y
+  // lib/valve-piece-sync.ts, que usan estos mismos 4 nombres al reemplazar
+  // una de estas válvulas desde un mantenimiento normal).
+  const isCarburacionValves = sectionSlug === "vehiculo-con-tanque-de-carburacion";
   const extinguisherAlertLevel = getExtinguisherAlertLevel(
     sheet?.calidadExtintor,
     sheet?.fechaCalidadMalaExtintor
@@ -324,6 +350,8 @@ export function TechnicalSheetForm({
         </div>
       )}
 
+      </fieldset>
+
       <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase text-primary-bright">Extintor</h3>
@@ -336,27 +364,34 @@ export function TechnicalSheetForm({
           )}
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Field
-            id="fechaInstalacionExtintor"
-            label="Fecha de instalación"
-            type="date"
-            defaultValue={toDateInputValue(sheet?.fechaInstalacionExtintor)}
-          />
-          <Field
-            id="fechaVencimientoExtintor"
-            label="Fecha de vencimiento"
-            type="date"
-            defaultValue={toDateInputValue(sheet?.fechaVencimientoExtintor)}
-          />
+          <fieldset disabled={locked} className="contents">
+            <Field
+              id="fechaInstalacionExtintor"
+              label="Fecha de instalación"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaInstalacionExtintor)}
+            />
+            <Field
+              id="fechaVencimientoExtintor"
+              label="Fecha de vencimiento"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaVencimientoExtintor)}
+            />
+          </fieldset>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="calidadExtintor">
               Calidad
             </label>
+            {/* Fuera del <fieldset> bloqueado a propósito: se guarda solo al
+                cambiar, sin necesidad de apretar "Editar" en toda la ficha
+                técnica (ver handleCalidadChange arriba). */}
             <select
               id="calidadExtintor"
               name="calidadExtintor"
               defaultValue={sheet?.calidadExtintor ?? ""}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              onChange={handleCalidadChange}
+              disabled={calidadPending}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
             >
               <option value="">Selecciona...</option>
               {Object.entries(calidadExtintorLabels).map(([value, label]) => (
@@ -365,6 +400,15 @@ export function TechnicalSheetForm({
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-ink">
+              {calidadPending
+                ? "Guardando…"
+                : calidadMessage.error
+                  ? calidadMessage.error
+                  : calidadMessage.success
+                    ? calidadMessage.success
+                    : "Se guarda automáticamente al cambiar."}
+            </p>
           </div>
         </div>
         <p className="mt-2 text-xs text-ink">
@@ -372,6 +416,8 @@ export function TechnicalSheetForm({
           extintor: amarilla los primeros 2 días, roja a partir del día 2.
         </p>
       </div>
+
+      <fieldset disabled={locked} className="space-y-6">
 
       {showHoseSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.mangueras}`}>
@@ -421,85 +467,121 @@ export function TechnicalSheetForm({
               </span>
             )}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mb-3 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
             <Field
               id="fechaInstalacionValvulas"
-              label="Fecha de instalación"
+              label="Fecha de instalación del juego de válvulas"
               type="date"
               defaultValue={toDateInputValue(sheet?.fechaInstalacionValvulas)}
             />
-            <Field
-              id="fechaFabricacionValvulaLlenado"
-              label="Válvula de llenado"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaLlenado)}
-            />
-            <Field
-              id="fechaFabricacionValvulaNoRetroceso"
-              label="Válvula de no retroceso (check)"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaNoRetroceso)}
-            />
-            <Field
-              id="fechaFabricacionValvulaBypass"
-              label="Válvula de retroceso (bypass)"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaBypass)}
-            />
-            <Field
-              id="fechaFabricacionValvulaRetornoVapores"
-              label="Válvula de retorno de vapores"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaRetornoVapores)}
-            />
-            <Field
-              id="fechaFabricacionValvulaServicio"
-              label="Válvula de servicio de vapor"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaServicio)}
-            />
-            <Field
-              id="fechaFabricacionValvulaMaximoLlenado"
-              label="Válvula de máximo llenado 90%"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado)}
-            />
-            <Field
-              id="fechaFabricacionValvulaAlivio"
-              label="Válvula de seguridad"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaAlivio)}
-            />
-            <Field
-              id="fechaFabricacionValvulaDescargaEmergencia"
-              label="Válvula de descarga de emergencia"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaDescargaEmergencia)}
-            />
           </div>
-          <div className="mt-3 rounded-md border border-dashed border-gray-300 p-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneValvulaMaximoLlenado85">
-              <input
-                id="tieneValvulaMaximoLlenado85"
-                name="tieneValvulaMaximoLlenado85"
-                type="checkbox"
-                checked={tieneValvula85}
-                onChange={(event) => setTieneValvula85(event.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+          <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
+            Fecha de fabricación de cada válvula
+          </p>
+          {isCarburacionValves ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Field
+                id="fechaFabricacionValvulaLlenado"
+                label="Válvula de llenado (Doble check)"
+                type="date"
+                defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaLlenado)}
               />
-              ¿Esta unidad tiene válvula de máximo llenado al 85%?
-            </label>
-            {tieneValvula85 && (
-              <div className="mt-3 max-w-xs">
+              <Field
+                id="fechaFabricacionValvulaMaximoLlenado"
+                label="Válvula de máximo llenado (purgador)"
+                type="date"
+                defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado)}
+              />
+              <Field
+                id="fechaFabricacionValvulaServicio"
+                label="Válvula de servicio (reguladora)"
+                type="date"
+                defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaServicio)}
+              />
+              <Field
+                id="fechaFabricacionValvulaAlivio"
+                label="Válvula de seguridad"
+                type="date"
+                defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaAlivio)}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Field
-                  id="fechaFabricacionValvulaMaximoLlenado85"
-                  label="Fecha de fabricación de la válvula de máximo llenado 85%"
+                  id="fechaFabricacionValvulaLlenado"
+                  label="Válvula de llenado"
                   type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado85)}
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaLlenado)}
+                />
+                <Field
+                  id="fechaFabricacionValvulaNoRetroceso"
+                  label="Válvula de no retroceso (check)"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaNoRetroceso)}
+                />
+                <Field
+                  id="fechaFabricacionValvulaBypass"
+                  label="Válvula de retroceso (bypass)"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaBypass)}
+                />
+                <Field
+                  id="fechaFabricacionValvulaRetornoVapores"
+                  label="Válvula de retorno de vapores"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaRetornoVapores)}
+                />
+                <Field
+                  id="fechaFabricacionValvulaServicio"
+                  label="Válvula de servicio de vapor"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaServicio)}
+                />
+                <Field
+                  id="fechaFabricacionValvulaMaximoLlenado"
+                  label="Válvula de máximo llenado 90%"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado)}
+                />
+                <Field
+                  id="fechaFabricacionValvulaAlivio"
+                  label="Válvula de seguridad"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaAlivio)}
+                />
+                <Field
+                  id="fechaFabricacionValvulaDescargaEmergencia"
+                  label="Válvula de descarga de emergencia"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaDescargaEmergencia)}
                 />
               </div>
-            )}
-          </div>
+              <div className="mt-3 rounded-md border border-dashed border-gray-300 p-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneValvulaMaximoLlenado85">
+                  <input
+                    id="tieneValvulaMaximoLlenado85"
+                    name="tieneValvulaMaximoLlenado85"
+                    type="checkbox"
+                    checked={tieneValvula85}
+                    onChange={(event) => setTieneValvula85(event.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+                  />
+                  ¿Esta unidad tiene válvula de máximo llenado al 85%?
+                </label>
+                {tieneValvula85 && (
+                  <div className="mt-3 max-w-xs">
+                    <Field
+                      id="fechaFabricacionValvulaMaximoLlenado85"
+                      label="Fecha de fabricación de la válvula de máximo llenado 85%"
+                      type="date"
+                      defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado85)}
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           <p className="mt-2 text-xs text-ink">
             El cambio de válvulas debe hacerse cada 5 años. El aviso se calcula sobre la fecha de
             fabricación más antigua de todo el juego.

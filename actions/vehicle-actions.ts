@@ -176,12 +176,18 @@ const PAIRED_VEHICLE_SECTION_SLUGS: Record<string, string> = {
 
 // Dar de baja NO elimina la unidad: solo cambia su estatus a inactiva. Sigue
 // visible en la tabla y conserva ficha técnica, bitácora y documentos.
-export async function setVehicleActive(vehicleId: string, activo: boolean) {
+// motivo (opcional, solo tiene efecto al dar de baja, no al reactivar) queda
+// documentado en motivoBaja — ver dónde se muestra: VehicleTable,
+// AggregateVehicleTable, la página de la unidad, /imprimir y el feed de
+// Bitácora de unidades (lib/city-unit-log-feed.ts).
+export async function setVehicleActive(vehicleId: string, activo: boolean, formData?: FormData) {
   await requireElevatedEditor();
+
+  const motivo = activo ? null : optionalText(500).parse(formData?.get("motivo"));
 
   const vehicle = await prisma.vehicleRecord.update({
     where: { id: vehicleId },
-    data: { activo, fechaBaja: activo ? null : new Date() },
+    data: { activo, fechaBaja: activo ? null : new Date(), motivoBaja: motivo },
     include: { section: { include: { city: true } } },
   });
 
@@ -201,7 +207,7 @@ export async function setVehicleActive(vehicleId: string, activo: boolean) {
     if (paired) {
       await prisma.vehicleRecord.update({
         where: { id: paired.id },
-        data: { activo, fechaBaja: activo ? null : new Date() },
+        data: { activo, fechaBaja: activo ? null : new Date(), motivoBaja: motivo },
       });
       const pairedChain = await getSectionChain(paired.sectionId);
       revalidatePath(sectionBasePath(vehicle.section.city.slug, pairedChain));
@@ -313,7 +319,7 @@ export async function upsertTechnicalSheet(
   // Solo ADMIN puede editar la ficha técnica: USUARIO puede registrar
   // bitácoras/cambios y descargar/subir documentos, pero no modificar los
   // valores de la ficha técnica directamente.
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },
@@ -381,15 +387,22 @@ export async function upsertTechnicalSheet(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
-  // Inspección visual interna y prueba hidrostática: si hay fecha de
-  // fabricación y el campo de fecha próxima quedó vacío, se calcula sola
-  // como fabricación + 10 años (primer ciclo antes de cualquier registro).
+  // Inspección visual interna, prueba hidrostática y ultrasonido: si hay
+  // fecha de fabricación y el campo de fecha próxima quedó vacío, se calcula
+  // sola como fabricación + 10 años (primer ciclo antes de cualquier
+  // registro). Las dos primeras vencen cada 10 años siempre; el ultrasonido
+  // es distinto — su primer vencimiento también es a los 10 años de
+  // fabricación, pero cada medición posterior recorre el ciclo solo 5 años
+  // (ver addFiveYears en actions/ultrasound-actions.ts).
   const data = { ...parsed.data };
   if (data.fechaFabricacionTanque && !data.fechaProximaInspeccionVisualInterna) {
     data.fechaProximaInspeccionVisualInterna = addTenYears(data.fechaFabricacionTanque);
   }
   if (data.fechaFabricacionTanque && !data.fechaProximaPruebaHidrostatica) {
     data.fechaProximaPruebaHidrostatica = addTenYears(data.fechaFabricacionTanque);
+  }
+  if (data.fechaFabricacionTanque && !data.fechaProximoUltrasonido) {
+    data.fechaProximoUltrasonido = addTenYears(data.fechaFabricacionTanque);
   }
 
   data.fechaCalidadMalaExtintor = nextFechaCalidadMalaExtintor(
@@ -421,10 +434,12 @@ export async function upsertTechnicalSheet(
 
   // La Serie del vehículo y el Número de serie del tanque identifican una
   // unidad física de forma única: no pueden repetirse entre dos números
-  // económicos distintos.
+  // económicos distintos. Excepto contra una unidad ya dada de baja: ese
+  // número de serie quedó libre (p.ej. el mismo tanque físico se pasó a una
+  // unidad nueva), así que no cuenta como conflicto.
   if (data.serie) {
     const duplicate = await prisma.vehicleTechnicalSheet.findFirst({
-      where: { serie: data.serie, vehicleRecordId: { not: vehicleId } },
+      where: { serie: data.serie, vehicleRecordId: { not: vehicleId }, vehicleRecord: { activo: true } },
     });
     if (duplicate) {
       return { error: `Ya existe otra unidad registrada con la Serie "${data.serie}".` };
@@ -432,7 +447,11 @@ export async function upsertTechnicalSheet(
   }
   if (data.numeroSerieTanque) {
     const duplicate = await prisma.vehicleTechnicalSheet.findFirst({
-      where: { numeroSerieTanque: data.numeroSerieTanque, vehicleRecordId: { not: vehicleId } },
+      where: {
+        numeroSerieTanque: data.numeroSerieTanque,
+        vehicleRecordId: { not: vehicleId },
+        vehicleRecord: { activo: true },
+      },
     });
     if (duplicate) {
       return {
@@ -446,6 +465,49 @@ export async function upsertTechnicalSheet(
     update: data,
     create: { vehicleRecordId: vehicleId, ...data },
   });
+
+  // Si esta unidad (en cualquier apartado de Unidad de distribución, menos
+  // Vehículo con tanque de carburación mismo y Estaciones de carburación,
+  // que no es un vehículo) queda con combustible Gas LP/Gasolina, es porque
+  // tiene sistema dual y también debe existir como registro en Vehículo con
+  // tanque de carburación (ver hasTanqueCarburacionMatch en la página de
+  // detalle, que ya asumía este pareo). No es normal crear unidades ahí a
+  // mano, así que se crea sola si todavía no existe.
+  if (
+    data.combustible === "GAS_LP_GASOLINA" &&
+    vehicle.section.slug !== "vehiculo-con-tanque-de-carburacion" &&
+    vehicle.section.slug !== ESTACION_SECTION_SLUG
+  ) {
+    const tanqueSection = await prisma.section.findFirst({
+      where: { slug: "vehiculo-con-tanque-de-carburacion", cityId: vehicle.section.cityId },
+    });
+    if (tanqueSection) {
+      const existingPair = await prisma.vehicleRecord.findFirst({
+        where: { numeroEconomico: vehicle.numeroEconomico, sectionId: tanqueSection.id },
+      });
+      if (!existingPair) {
+        const maxOrder = await prisma.vehicleRecord.aggregate({
+          where: { sectionId: tanqueSection.id },
+          _max: { order: true },
+        });
+        await prisma.vehicleRecord.create({
+          data: {
+            sectionId: tanqueSection.id,
+            order: (maxOrder._max.order ?? -1) + 1,
+            createdById: editor.userId,
+            numeroEconomico: vehicle.numeroEconomico,
+            sucursal: vehicle.sucursal,
+            anio: vehicle.anio,
+            placas: vehicle.placas,
+            numeroAnterior: vehicle.numeroAnterior,
+            localidadAnterior: vehicle.localidadAnterior,
+          },
+        });
+        const tanqueChain = await getSectionChain(tanqueSection.id);
+        revalidatePath(sectionBasePath(vehicle.section.city.slug, tanqueChain));
+      }
+    }
+  }
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
   const chain = await getSectionChain(vehicle.sectionId);

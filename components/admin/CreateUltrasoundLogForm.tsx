@@ -95,21 +95,6 @@ export function CreateUltrasoundLogForm({
               className={inputClass}
             />
           </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="us-fechaProximoUltrasonido"
-            >
-              Fecha del próximo ultrasonido
-            </label>
-            <input
-              id="us-fechaProximoUltrasonido"
-              name="fechaProximoUltrasonido"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
         </div>
 
         <div>
@@ -128,7 +113,8 @@ export function CreateUltrasoundLogForm({
 
         <p className="text-xs text-ink">
           Al aceptar, la ficha técnica actualizará automáticamente su “último ultrasonido” con la
-          fecha de realización, y su “próximo ultrasonido” (la alerta) con la fecha del próximo.
+          fecha de realización, y la fecha próxima (la que dispara la alerta) se recorrerá 5 años
+          a partir de esta fecha.
         </p>
 
         <FormMessage state={state} />

@@ -43,43 +43,43 @@ export function CreateHoseChangeLogForm({ vehicleId }: { vehicleId: string }) {
         }}
         className="mt-4 space-y-3"
       >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="hose-responsable">
-              Responsable
-            </label>
-            <input id="hose-responsable" name="responsable" className={inputClass} />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="hose-fechaInstalacion"
-            >
-              Fecha de instalación
-            </label>
-            <input
-              id="hose-fechaInstalacion"
-              name="fechaInstalacion"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="hose-fechaFabricacionManguera"
-            >
-              Fecha de fabricación de la manguera
-            </label>
-            <input
-              id="hose-fechaFabricacionManguera"
-              name="fechaFabricacionManguera"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="hose-responsable">
+            Responsable
+          </label>
+          <input id="hose-responsable" name="responsable" className={`max-w-xs ${inputClass}`} />
+        </div>
+
+        <div className="max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
+          <label
+            className="mb-1 block text-sm font-medium text-ink"
+            htmlFor="hose-fechaInstalacion"
+          >
+            Fecha de instalación de la manguera
+          </label>
+          <input
+            id="hose-fechaInstalacion"
+            name="fechaInstalacion"
+            type="date"
+            required
+            className={inputClass}
+          />
+        </div>
+
+        <div className="max-w-xs">
+          <label
+            className="mb-1 block text-sm font-medium text-ink"
+            htmlFor="hose-fechaFabricacionManguera"
+          >
+            Fecha de fabricación de la manguera
+          </label>
+          <input
+            id="hose-fechaFabricacionManguera"
+            name="fechaFabricacionManguera"
+            type="date"
+            required
+            className={inputClass}
+          />
         </div>
 
         <div>

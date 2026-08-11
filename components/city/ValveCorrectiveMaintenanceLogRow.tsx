@@ -9,7 +9,7 @@ import {
 } from "@/actions/valve-corrective-maintenance-actions";
 import type { ActionState } from "@/actions/user-actions";
 import { formatDate, toDateInputValue } from "@/lib/dates";
-import { valvulaCorrectivaLabels, type ValvulaCorrectiva } from "@/lib/valve-alerts";
+import { getValvulaCorrectivaOptions, getValvulaCorrectivaLabel } from "@/lib/valve-alerts";
 import { DocumentList } from "./DocumentList";
 import { UploadValveCorrectiveMaintenanceLogDocumentForm } from "@/components/admin/UploadValveCorrectiveMaintenanceLogDocumentForm";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
@@ -46,9 +46,16 @@ function SubmitButton() {
   );
 }
 
-function EditValveCorrectiveMaintenanceLogForm({ log }: { log: ValveCorrectiveMaintenanceLog }) {
+function EditValveCorrectiveMaintenanceLogForm({
+  log,
+  sectionSlug,
+}: {
+  log: ValveCorrectiveMaintenanceLog;
+  sectionSlug: string;
+}) {
   const action = updateValveCorrectiveMaintenanceLog.bind(null, log.id);
   const [state, formAction] = useFormState(action, initialState);
+  const valvulaOptions = getValvulaCorrectivaOptions(sectionSlug);
 
   return (
     <form action={formAction} className="mt-3 space-y-2 rounded-md bg-gray-50 p-3">
@@ -58,7 +65,7 @@ function EditValveCorrectiveMaintenanceLogForm({ log }: { log: ValveCorrectiveMa
             Válvula afectada
           </label>
           <select id={`valvula-${log.id}`} name="valvula" defaultValue={log.valvula} className={inputClass}>
-            {Object.entries(valvulaCorrectivaLabels).map(([value, label]) => (
+            {valvulaOptions.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -108,13 +115,15 @@ export function ValveCorrectiveMaintenanceLogRow({
   log,
   canEdit,
   isAdmin,
+  sectionSlug,
 }: {
   log: ValveCorrectiveMaintenanceLogWithDocuments;
   canEdit: boolean;
   isAdmin: boolean;
+  sectionSlug: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const valvulaLabel = valvulaCorrectivaLabels[log.valvula as ValvulaCorrectiva] ?? log.valvula;
+  const valvulaLabel = getValvulaCorrectivaLabel(log.valvula, sectionSlug);
 
   return (
     <li className="px-4 py-3">
@@ -145,7 +154,9 @@ export function ValveCorrectiveMaintenanceLogRow({
             <dd className="text-ink">{log.descripcion}</dd>
           </div>
 
-          {isAdmin && <EditValveCorrectiveMaintenanceLogForm log={log} />}
+          {isAdmin && (
+            <EditValveCorrectiveMaintenanceLogForm log={log} sectionSlug={sectionSlug} />
+          )}
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase text-gray-500">

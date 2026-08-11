@@ -25,7 +25,16 @@ function SubmitButton() {
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
-export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
+export function CreateValveChangeLogForm({
+  vehicleId,
+  sectionSlug,
+}: {
+  vehicleId: string;
+  // Vehículo con tanque de carburación solo tiene 4 de las 9 válvulas (ver
+  // lib/piece-catalog.ts y actions/valve-actions.ts: requireValvulasCompletas).
+  sectionSlug: string;
+}) {
+  const isCarburacion = sectionSlug === "vehiculo-con-tanque-de-carburacion";
   const action = createValveChangeLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -59,186 +68,252 @@ export function CreateValveChangeLogForm({ vehicleId }: { vehicleId: string }) {
         className="mt-4 space-y-3"
       >
         {vincularPieza && <input type="hidden" name="vincularPieza" value={vincularPieza} />}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="valv-responsable">
-              Responsable
-            </label>
-            <input id="valv-responsable" name="responsable" className={inputClass} />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaInstalacion"
-            >
-              Fecha de instalación
-            </label>
-            <input
-              id="valv-fechaInstalacion"
-              name="fechaInstalacion"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="valv-responsable">
+            Responsable
+          </label>
+          <input id="valv-responsable" name="responsable" className={`max-w-xs ${inputClass}`} />
+        </div>
+
+        <div className="max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
+          <label
+            className="mb-1 block text-sm font-medium text-ink"
+            htmlFor="valv-fechaInstalacion"
+          >
+            Fecha de instalación del juego de válvulas
+          </label>
+          <input
+            id="valv-fechaInstalacion"
+            name="fechaInstalacion"
+            type="date"
+            required
+            className={inputClass}
+          />
         </div>
 
         <p className="text-xs font-semibold uppercase text-gray-500">
           Fecha de fabricación de cada válvula
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaFabricacionValvulaLlenado"
-            >
-              Válvula de llenado
-            </label>
-            <input
-              id="valv-fechaFabricacionValvulaLlenado"
-              name="fechaFabricacionValvulaLlenado"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaFabricacionValvulaNoRetroceso"
-            >
-              Válvula de no retroceso (check)
-            </label>
-            <input
-              id="valv-fechaFabricacionValvulaNoRetroceso"
-              name="fechaFabricacionValvulaNoRetroceso"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaFabricacionValvulaBypass"
-            >
-              Válvula de retroceso (bypass)
-            </label>
-            <input
-              id="valv-fechaFabricacionValvulaBypass"
-              name="fechaFabricacionValvulaBypass"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaFabricacionValvulaRetornoVapores"
-            >
-              Válvula de retorno de vapores
-            </label>
-            <input
-              id="valv-fechaFabricacionValvulaRetornoVapores"
-              name="fechaFabricacionValvulaRetornoVapores"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaFabricacionValvulaServicio"
-            >
-              Válvula de servicio de vapor
-            </label>
-            <input
-              id="valv-fechaFabricacionValvulaServicio"
-              name="fechaFabricacionValvulaServicio"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaFabricacionValvulaMaximoLlenado"
-            >
-              Válvula de máximo llenado 90%
-            </label>
-            <input
-              id="valv-fechaFabricacionValvulaMaximoLlenado"
-              name="fechaFabricacionValvulaMaximoLlenado"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaFabricacionValvulaAlivio"
-            >
-              Válvula de seguridad
-            </label>
-            <input
-              id="valv-fechaFabricacionValvulaAlivio"
-              name="fechaFabricacionValvulaAlivio"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="valv-fechaFabricacionValvulaDescargaEmergencia"
-            >
-              Válvula de descarga de emergencia
-            </label>
-            <input
-              id="valv-fechaFabricacionValvulaDescargaEmergencia"
-              name="fechaFabricacionValvulaDescargaEmergencia"
-              type="date"
-              required
-              className={inputClass}
-            />
-          </div>
-        </div>
-
-        <div className="rounded-md border border-dashed border-gray-300 p-3">
-          <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="valv-tieneValvulaMaximoLlenado85">
-            <input
-              id="valv-tieneValvulaMaximoLlenado85"
-              name="tieneValvulaMaximoLlenado85"
-              type="checkbox"
-              checked={tieneValvula85}
-              onChange={(event) => setTieneValvula85(event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
-            />
-            ¿Esta unidad tiene válvula de máximo llenado al 85%?
-          </label>
-          {tieneValvula85 && (
-            <div className="mt-3 max-w-xs">
+        {isCarburacion ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
               <label
                 className="mb-1 block text-sm font-medium text-ink"
-                htmlFor="valv-fechaFabricacionValvulaMaximoLlenado85"
+                htmlFor="valv-fechaFabricacionValvulaLlenado"
               >
-                Fecha de fabricación de la válvula de máximo llenado 85%
+                Válvula de llenado (Doble check)
               </label>
               <input
-                id="valv-fechaFabricacionValvulaMaximoLlenado85"
-                name="fechaFabricacionValvulaMaximoLlenado85"
+                id="valv-fechaFabricacionValvulaLlenado"
+                name="fechaFabricacionValvulaLlenado"
                 type="date"
                 required
                 className={inputClass}
               />
             </div>
-          )}
-        </div>
+            <div>
+              <label
+                className="mb-1 block text-sm font-medium text-ink"
+                htmlFor="valv-fechaFabricacionValvulaMaximoLlenado"
+              >
+                Válvula de máximo llenado (purgador)
+              </label>
+              <input
+                id="valv-fechaFabricacionValvulaMaximoLlenado"
+                name="fechaFabricacionValvulaMaximoLlenado"
+                type="date"
+                required
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label
+                className="mb-1 block text-sm font-medium text-ink"
+                htmlFor="valv-fechaFabricacionValvulaServicio"
+              >
+                Válvula de servicio (reguladora)
+              </label>
+              <input
+                id="valv-fechaFabricacionValvulaServicio"
+                name="fechaFabricacionValvulaServicio"
+                type="date"
+                required
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label
+                className="mb-1 block text-sm font-medium text-ink"
+                htmlFor="valv-fechaFabricacionValvulaAlivio"
+              >
+                Válvula de seguridad
+              </label>
+              <input
+                id="valv-fechaFabricacionValvulaAlivio"
+                name="fechaFabricacionValvulaAlivio"
+                type="date"
+                required
+                className={inputClass}
+              />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaLlenado"
+                >
+                  Válvula de llenado
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaLlenado"
+                  name="fechaFabricacionValvulaLlenado"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaNoRetroceso"
+                >
+                  Válvula de no retroceso (check)
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaNoRetroceso"
+                  name="fechaFabricacionValvulaNoRetroceso"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaBypass"
+                >
+                  Válvula de retroceso (bypass)
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaBypass"
+                  name="fechaFabricacionValvulaBypass"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaRetornoVapores"
+                >
+                  Válvula de retorno de vapores
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaRetornoVapores"
+                  name="fechaFabricacionValvulaRetornoVapores"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaServicio"
+                >
+                  Válvula de servicio de vapor
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaServicio"
+                  name="fechaFabricacionValvulaServicio"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaMaximoLlenado"
+                >
+                  Válvula de máximo llenado 90%
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaMaximoLlenado"
+                  name="fechaFabricacionValvulaMaximoLlenado"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaAlivio"
+                >
+                  Válvula de seguridad
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaAlivio"
+                  name="fechaFabricacionValvulaAlivio"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaDescargaEmergencia"
+                >
+                  Válvula de descarga de emergencia
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaDescargaEmergencia"
+                  name="fechaFabricacionValvulaDescargaEmergencia"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-md border border-dashed border-gray-300 p-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="valv-tieneValvulaMaximoLlenado85">
+                <input
+                  id="valv-tieneValvulaMaximoLlenado85"
+                  name="tieneValvulaMaximoLlenado85"
+                  type="checkbox"
+                  checked={tieneValvula85}
+                  onChange={(event) => setTieneValvula85(event.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+                />
+                ¿Esta unidad tiene válvula de máximo llenado al 85%?
+              </label>
+              {tieneValvula85 && (
+                <div className="mt-3 max-w-xs">
+                  <label
+                    className="mb-1 block text-sm font-medium text-ink"
+                    htmlFor="valv-fechaFabricacionValvulaMaximoLlenado85"
+                  >
+                    Fecha de fabricación de la válvula de máximo llenado 85%
+                  </label>
+                  <input
+                    id="valv-fechaFabricacionValvulaMaximoLlenado85"
+                    name="fechaFabricacionValvulaMaximoLlenado85"
+                    type="date"
+                    required
+                    className={inputClass}
+                  />
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         <div>
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="valv-files">
