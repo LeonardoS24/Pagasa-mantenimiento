@@ -49,14 +49,9 @@ function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
   return "";
 }
 
-type VehicleRecordWithSheet = VehicleRecord & { technicalSheet: VehicleTechnicalSheet | null };
-
-function formatAnterior(record: VehicleRecord): string | null {
-  const parts = [record.numeroAnterior, record.localidadAnterior].filter(
-    (value): value is string => Boolean(value)
-  );
-  return parts.length > 0 ? parts.join(", ") : null;
-}
+type VehicleRecordWithSheet = VehicleRecord & {
+  technicalSheet: VehicleTechnicalSheet | null;
+};
 
 export function VehicleTable({
   records,
@@ -67,10 +62,12 @@ export function VehicleTable({
   citySlug: string;
   sectionSlug: string;
 }) {
-  // "Estaciones de carburación" (ver scripts/add-estaciones-de-carburacion.mjs)
-  // no es un vehículo: reutiliza numeroEconomico/sucursal como
-  // "Nombre"/"Dirección" y no tiene año/placas (ver components/admin/VehicleForm.tsx).
-  const isEstacion = sectionSlug === "estaciones-de-carburacion";
+  // "Estaciones de carburación" y "Planta" (ver
+  // scripts/add-estaciones-de-carburacion.mjs y
+  // scripts/restructure-planta-section.mjs) no son vehículos: reutilizan
+  // numeroEconomico/sucursal como "Nombre"/"Dirección" y no tienen año/placas
+  // (ver components/admin/VehicleForm.tsx).
+  const isEstacion = sectionSlug === "estaciones-de-carburacion" || sectionSlug === "planta-ficha-tecnica";
 
   if (records.length === 0) {
     return (
@@ -91,21 +88,26 @@ export function VehicleTable({
               <span className="sr-only">Estado</span>
             </th>
             <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Nombre" : "Número económico"}</th>
-            <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Dirección" : "Sucursal"}</th>
-            {!isEstacion && (
+            {isEstacion ? (
               <>
+                <th className="whitespace-nowrap px-4 py-2">Permisionaria</th>
+                <th className="whitespace-nowrap px-4 py-2">Permiso</th>
+                <th className="whitespace-nowrap px-4 py-2">Dirección</th>
+              </>
+            ) : (
+              <>
+                <th className="whitespace-nowrap px-4 py-2">Marca</th>
                 <th className="whitespace-nowrap px-4 py-2">Año</th>
                 <th className="whitespace-nowrap px-4 py-2">Placas</th>
+                <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
+                <th className="whitespace-nowrap px-4 py-2">Calidad</th>
               </>
             )}
-            <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
-            <th className="whitespace-nowrap px-4 py-2">Calidad</th>
           </tr>
         </thead>
         <tbody>
           {records.map((record, index) => {
             const isFirstInactive = !record.activo && (index === 0 || records[index - 1].activo);
-            const anterior = formatAnterior(record);
             const alertLevel = record.activo && isAlertVisibleForSection("ultrasonido", sectionSlug)
               ? getUltrasoundAlertLevel(record.technicalSheet?.fechaProximoUltrasonido)
               : "none";
@@ -213,7 +215,6 @@ export function VehicleTable({
                   >
                     {record.numeroEconomico}
                   </Link>
-                  {anterior && <span className="ml-1 font-normal text-gray-400">({anterior})</span>}
                   {!record.activo && (
                     <span
                       className="ml-2 rounded-full border border-orange-400 bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800"
@@ -308,23 +309,29 @@ export function VehicleTable({
                     </span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
-                {!isEstacion && (
+                {isEstacion ? (
                   <>
+                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.permisionaria || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.permiso || "—"}</td>
+                    <td className="max-w-xs whitespace-pre-wrap px-4 py-2 text-ink">{record.sucursal || "—"}</td>
+                  </>
+                ) : (
+                  <>
+                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
                     <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
                     <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.technicalSheet?.serie || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-2">
+                      {record.calidad && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${calidadMantenimientoStyles[record.calidad as CalidadMantenimiento]}`}
+                        >
+                          {calidadMantenimientoLabels[record.calidad as CalidadMantenimiento]}
+                        </span>
+                      )}
+                    </td>
                   </>
                 )}
-                <td className="whitespace-nowrap px-4 py-2 text-ink">{record.technicalSheet?.serie || "—"}</td>
-                <td className="whitespace-nowrap px-4 py-2">
-                  {record.calidad && (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${calidadMantenimientoStyles[record.calidad as CalidadMantenimiento]}`}
-                    >
-                      {calidadMantenimientoLabels[record.calidad as CalidadMantenimiento]}
-                    </span>
-                  )}
-                </td>
                 </tr>
               </Fragment>
             );

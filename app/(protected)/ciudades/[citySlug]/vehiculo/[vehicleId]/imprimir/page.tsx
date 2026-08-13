@@ -4,16 +4,25 @@ import { getSession } from "@/lib/auth";
 import { assertCityAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { TechnicalSheetView } from "@/components/city/TechnicalSheetView";
+import { StationTankTechnicalSheetView } from "@/components/city/StationTankTechnicalSheetView";
 import { DocumentList } from "@/components/city/DocumentList";
 import { MaintenancePhotos } from "@/components/city/MaintenancePhotos";
 import { PrintButton } from "@/components/city/PrintButton";
 import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
 import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { formatDate, getCurrentYearRange, currentYearLabel } from "@/lib/dates";
-import { maintenanceStatusLabels, calidadExtintorLabels, type MaintenanceStatus, type CalidadExtintor } from "@/lib/vehicle-enums";
+import {
+  maintenanceStatusLabels,
+  calidadExtintorLabels,
+  calidadMantenimientoLabels,
+  type MaintenanceStatus,
+  type CalidadExtintor,
+  type CalidadMantenimiento,
+} from "@/lib/vehicle-enums";
 import { valvulaCorrectivaLabels, type ValvulaCorrectiva } from "@/lib/valve-alerts";
 import { parseChecklistPreventivo } from "@/lib/preventive-checklist";
-import type { Document } from "@prisma/client";
+import { formatCantidad } from "@/lib/inventory-enums";
+import type { Document, MaintenanceLog, InventoryItem } from "@prisma/client";
 
 // Vista de solo lectura pensada para imprimirse completa de una sola vez:
 // a diferencia de la página normal de la unidad, aquí cada registro se
@@ -25,9 +34,13 @@ const vehiclePrintInclude = {
   section: { include: { city: true } },
   documents: { orderBy: { createdAt: "desc" as const } },
   technicalSheet: true,
+  stationTankTechnicalSheet: true,
   maintenanceLogs: {
     orderBy: { fecha: "desc" as const },
-    include: { documents: { orderBy: { createdAt: "desc" as const } } },
+    include: {
+      documents: { orderBy: { createdAt: "desc" as const } },
+      piezasUtilizadas: true,
+    },
   },
   ultrasoundLogs: {
     orderBy: { fechaRealizacion: "desc" as const },
@@ -78,8 +91,14 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  // Sin break-inside-avoid: en tarjetas grandes (ficha técnica, tanque,
+  // etc.) esa regla hacía que el navegador, al no caber la tarjeta completa
+  // en lo que quedaba de la hoja, empujara TODA la tarjeta a la siguiente
+  // página — dejando un hueco en blanco enorme donde debía seguir la
+  // información. Mejor dejar que el contenido fluya y, si acaso, se corte
+  // justo en el salto de página.
   return (
-    <section className="mb-6 break-inside-avoid rounded-lg border border-gray-200 bg-white p-5 print:border-gray-300">
+    <section className="mb-6 rounded-lg border border-gray-200 bg-white p-5 print:border-gray-300">
       <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">{title}</h2>
       {children}
     </section>
@@ -121,6 +140,114 @@ function LogList({
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+type MaintenanceLogWithExtras = MaintenanceLog & { documents: Document[]; piezasUtilizadas: InventoryItem[] };
+
+// Mismo estilo que el detalle expandido de un mantenimiento en la página
+// normal de la unidad (ver components/city/MaintenanceLogRow.tsx): el
+// checklist de mantenimiento preventivo como su propia cuadrícula con cada
+// ítem coloreado, no como una sola línea de texto amontonada — eso era lo
+// que se veía mal al imprimir.
+function MaintenanceLogPrintList({ logs }: { logs: MaintenanceLogWithExtras[] }) {
+  if (logs.length === 0) {
+    return <p className="text-sm text-ink">Sin mantenimientos registrados.</p>;
+  }
+  return (
+    <div className="space-y-4">
+      {logs.map((log) => {
+        const checklist = parseChecklistPreventivo(log.checklistPreventivo);
+        return (
+          <div key={log.id} className="break-inside-avoid rounded-md border border-gray-100 p-3">
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Fecha" value={formatDate(log.fecha)} />
+              <Field label="Tipo de mantenimiento" value={log.tipoMantenimiento} />
+              <Field label="Tipo de servicio" value={log.tipoServicio} />
+              <Field
+                label="Kilometraje"
+                value={log.kilometraje != null ? `${log.kilometraje.toLocaleString("es-MX")} km` : null}
+              />
+              <Field
+                label="Calidad general reportada"
+                value={log.calidad ? calidadMantenimientoLabels[log.calidad as CalidadMantenimiento] : null}
+              />
+              <Field label="Categoría de la pieza" value={log.categoriaPieza} />
+              <Field label="Pieza" value={log.pieza} />
+              <Field label="Acción realizada en la pieza" value={log.accionPieza} />
+              <Field label="Cantidad" value={log.cantidad} />
+              <Field label="Unidad" value={log.unidad} />
+              <Field
+                label="Estatus"
+                value={maintenanceStatusLabels[log.estatus as MaintenanceStatus] ?? log.estatus}
+              />
+              <Field label="Nombre del operador" value={log.nombreOperador} />
+              <Field label="Auxiliar técnico" value={log.auxiliarTecnico} />
+              <Field label="Responsable del trabajo mecánico" value={log.responsableTrabajoMecanico} />
+            </dl>
+
+            {log.piezasUtilizadas.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-xs font-semibold uppercase text-gray-500">Pieza de inventario</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {log.piezasUtilizadas.map((item) => (
+                    <span
+                      key={item.id}
+                      className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700"
+                    >
+                      {item.nombre} · {formatCantidad(item.cantidad, item.unidad)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3 space-y-3">
+              <Field label="Descripción" value={log.descripcion} />
+              <Field label="Observación" value={log.observacion} />
+            </div>
+
+            {checklist && checklist.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
+                  Checklist de mantenimiento preventivo
+                </p>
+                <dl className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {checklist.map((entry) => (
+                    <div key={entry.item} className="text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <dt className="text-ink">{entry.item}</dt>
+                        <dd
+                          className={
+                            entry.estado === "Buen estado" ? "text-gray-500" : "font-medium text-accent"
+                          }
+                        >
+                          {entry.estado}
+                          {entry.cantidad && ` (${entry.cantidad})`}
+                        </dd>
+                      </div>
+                      {entry.descripcion && <dd className="mt-0.5 text-gray-500">{entry.descripcion}</dd>}
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
+            <div className="mt-3">
+              <MaintenancePhotos documents={log.documents} isAdmin={false} />
+            </div>
+            {log.documents.filter((d) => d.kind === "ADJUNTO").length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
+                  Documentos (PDF o imagen)
+                </p>
+                <DocumentList documents={log.documents.filter((d) => d.kind === "ADJUNTO")} isAdmin={false} />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -175,6 +302,12 @@ export default async function PrintVehiclePage({
   // impresa (mismo gráfico que la página normal de la unidad, ver
   // components/city/PieceMaintenanceChart.tsx). Se calcula aquí, fuera del
   // .map() de abajo, porque ese es JSX síncrono y esto necesita await.
+  // El apartado general "Documentos" puede acumular años de PDF/imágenes;
+  // más allá de 3 años ya no se descargan al imprimir (a diferencia de los
+  // documentos propios de cada bitácora, que sí siguen apareciendo siempre).
+  const documentsCutoff = new Date();
+  documentsCutoff.setFullYear(documentsCutoff.getFullYear() - 3);
+
   const yearRange = getCurrentYearRange();
   const pieceStatsByRecordId = new Map(
     await Promise.all(
@@ -206,6 +339,29 @@ export default async function PrintVehiclePage({
         </p>
         <h1 className="text-2xl font-semibold text-primary">{vehicle.numeroEconomico}</h1>
         <p className="text-xs text-gray-500">Impreso/descargado el {formatDate(generatedAt)}</p>
+        {/* "Datos generales" ya no es su propia sección con recuadro: para no
+            gastar una hoja completa solo en unos datos cortos al imprimir,
+            pero sí en cuadrícula de etiqueta/valor (como el resto de la
+            hoja) en vez de una sola línea corrida. Para una Estación de
+            carburación son los mismos datos que su "ficha técnica de la
+            estación" (ver la página de detalle: Nombre/Permisionaria/
+            Permiso/Dirección juntos, sin separar Dirección a otro lado). */}
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+          {vehicle.section.slug === "estaciones-de-carburacion" || vehicle.section.slug === "planta-ficha-tecnica" ? (
+            <>
+              <Field label="Permisionaria" value={vehicle.permisionaria} />
+              <Field label="Permiso" value={vehicle.permiso} />
+              <Field label="Dirección" value={vehicle.sucursal} />
+            </>
+          ) : (
+            <>
+              <Field label="Marca" value={vehicle.sucursal} />
+              <Field label="Año" value={vehicle.anio != null ? String(vehicle.anio) : null} />
+              <Field label="Placas" value={vehicle.placas} />
+              <Field label="Observaciones" value={vehicle.observaciones} />
+            </>
+          )}
+        </dl>
         {!vehicle.activo && (
           <p className="text-sm font-medium text-orange-700">
             Dado de baja{vehicle.fechaBaja ? ` · ${formatDate(vehicle.fechaBaja)}` : ""}
@@ -217,31 +373,40 @@ export default async function PrintVehiclePage({
       {printRecords.map((record, index) => {
         const isTanqueCarburacion = record.section.slug === "vehiculo-con-tanque-de-carburacion";
         const isAutoTanques = record.section.slug === "auto-tanques";
+        const isEstacionLike =
+          record.section.slug === "estaciones-de-carburacion" || record.section.slug === "planta-ficha-tecnica";
         const useDeliveryFormat =
           record.section.slug === "vehiculo-de-reparto" ||
           record.section.slug === "vehiculo-con-tanque-de-carburacion";
-        const showTankSection = record.section.slug !== "vehiculo-de-reparto";
-        const showInspeccionesSection = isAutoTanques || isTanqueCarburacion;
+        const showTankSection = record.section.slug !== "vehiculo-de-reparto" && !isEstacionLike;
+        const showInspeccionesSection = isAutoTanques || isTanqueCarburacion || isEstacionLike;
+
+        const sectionLabel = isAutoTanques
+          ? "Auto-Tanques (tanque de carga)"
+          : "Vehículo con tanque de carburación";
+        const previousSectionLabel =
+          index > 0
+            ? printRecords[index - 1].section.slug === "auto-tanques"
+              ? "Auto-Tanques (tanque de carga)"
+              : "Vehículo con tanque de carburación"
+            : null;
 
         return (
           <div key={record.id}>
             {isMerged && (
-              <p className="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-gray-400 first:mt-0">
-                {record.section.name}
-              </p>
+              <div className="mb-4 mt-6 flex items-center gap-3 first:mt-0">
+                <div className="h-0.5 flex-1 bg-primary/40" />
+                <p className="whitespace-nowrap rounded-full bg-primary px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white print:bg-primary print:text-white">
+                  {previousSectionLabel ? `Termina ${previousSectionLabel} — ` : ""}
+                  Inicia {sectionLabel}
+                </p>
+                <div className="h-0.5 flex-1 bg-primary/40" />
+              </div>
             )}
 
-            {index === 0 && (
-              <Section title="Datos generales">
-                <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="Sucursal" value={record.sucursal} />
-                  <Field label="Año" value={record.anio} />
-                  <Field label="Placas" value={record.placas} />
-                  <Field
-                    label="Anterior"
-                    value={[record.numeroAnterior, record.localidadAnterior].filter(Boolean).join(", ") || null}
-                  />
-                </dl>
+            {isEstacionLike && (
+              <Section title="Ficha técnica del tanque">
+                <StationTankTechnicalSheetView sheet={record.stationTankTechnicalSheet} />
               </Section>
             )}
 
@@ -254,8 +419,9 @@ export default async function PrintVehiclePage({
                 showHoseSection={isTanqueCarburacion}
                 showTankSection={showTankSection}
                 showInspeccionesSection={showInspeccionesSection}
-                showMaintenancePreventiveSection={!isTanqueCarburacion}
-                showAutomovilSection={index === 0}
+                showMaintenancePreventiveSection={!isTanqueCarburacion || !isMerged}
+                showAutomovilSection={index === 0 && !isEstacionLike}
+                showExtintorSection={!isTanqueCarburacion || !isMerged}
               />
             </Section>
 
@@ -270,61 +436,26 @@ export default async function PrintVehiclePage({
             </Section>
 
             <Section title="Bitácora de mantenimiento">
-              <LogList
-                emptyLabel="Sin mantenimientos registrados."
-                entries={record.maintenanceLogs.map((log) => ({
-                  key: log.id,
-                  documents: log.documents,
-                  fields: [
-                    { label: "Fecha", value: formatDate(log.fecha) },
-                    { label: "Tipo de mantenimiento", value: log.tipoMantenimiento },
-                    { label: "Tipo de servicio", value: log.tipoServicio },
-                    { label: "Kilometraje", value: log.kilometraje != null ? `${log.kilometraje.toLocaleString("es-MX")} km` : null },
-                    { label: "Categoría de la pieza", value: log.categoriaPieza },
-                    { label: "Pieza", value: log.pieza },
-                    { label: "Acción realizada en la pieza", value: log.accionPieza },
-                    { label: "Cantidad", value: log.cantidad },
-                    { label: "Unidad", value: log.unidad },
-                    { label: "Estatus", value: maintenanceStatusLabels[log.estatus as MaintenanceStatus] ?? log.estatus },
-                    { label: "Nombre del operador", value: log.nombreOperador },
-                    { label: "Auxiliar técnico", value: log.auxiliarTecnico },
-                    { label: "Responsable del trabajo mecánico", value: log.responsableTrabajoMecanico },
-                    { label: "Descripción", value: log.descripcion },
-                    { label: "Observación", value: log.observacion },
-                    {
-                      label: "Checklist de mantenimiento preventivo",
-                      value: (() => {
-                        const checklist = parseChecklistPreventivo(log.checklistPreventivo);
-                        return checklist && checklist.length > 0
-                          ? checklist
-                              .map(
-                                (entry) =>
-                                  `${entry.item}: ${entry.estado}${entry.cantidad ? ` (${entry.cantidad})` : ""}${entry.descripcion ? ` — ${entry.descripcion}` : ""}`
-                              )
-                              .join(" · ")
-                          : null;
-                      })(),
-                    },
-                  ],
-                }))}
-              />
+              <MaintenanceLogPrintList logs={record.maintenanceLogs} />
             </Section>
 
-            <Section title="Cambio de extintor">
-              <LogList
-                emptyLabel="Sin cambios de extintor registrados."
-                entries={record.extinguisherChangeLogs.map((log) => ({
-                  key: log.id,
-                  documents: log.documents,
-                  fields: [
-                    { label: "Responsable", value: log.responsable },
-                    { label: "Fecha de instalación", value: formatDate(log.fechaInstalacion) },
-                    { label: "Fecha de vencimiento", value: formatDate(log.fechaVencimiento) },
-                    { label: "Calidad", value: calidadExtintorLabels[log.calidad as CalidadExtintor] ?? log.calidad },
-                  ],
-                }))}
-              />
-            </Section>
+            {(!isTanqueCarburacion || !isMerged) && (
+              <Section title="Cambio de extintor">
+                <LogList
+                  emptyLabel="Sin cambios de extintor registrados."
+                  entries={record.extinguisherChangeLogs.map((log) => ({
+                    key: log.id,
+                    documents: log.documents,
+                    fields: [
+                      { label: "Responsable", value: log.responsable },
+                      { label: "Fecha de instalación", value: formatDate(log.fechaInstalacion) },
+                      { label: "Fecha de vencimiento", value: formatDate(log.fechaVencimiento) },
+                      { label: "Calidad", value: calidadExtintorLabels[log.calidad as CalidadExtintor] ?? log.calidad },
+                    ],
+                  }))}
+                />
+              </Section>
+            )}
 
             {isTanqueCarburacion && (
               <Section title="Cambio de mangueras">
@@ -480,8 +611,21 @@ export default async function PrintVehiclePage({
             )}
 
             <Section title="Documentos (PDF o imagen)">
-              <DocumentList documents={record.documents} isAdmin={false} />
+              <DocumentList
+                documents={record.documents.filter((d) => d.kind !== "PERMISO" && d.createdAt >= documentsCutoff)}
+                isAdmin={false}
+              />
             </Section>
+
+            {isMerged && index === printRecords.length - 1 && (
+              <div className="mb-4 mt-10 flex items-center gap-3 break-inside-avoid">
+                <div className="h-0.5 flex-1 bg-primary/40" />
+                <p className="whitespace-nowrap rounded-full bg-primary px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white print:bg-primary print:text-white">
+                  Termina {sectionLabel}
+                </p>
+                <div className="h-0.5 flex-1 bg-primary/40" />
+              </div>
+            )}
           </div>
         );
       })}

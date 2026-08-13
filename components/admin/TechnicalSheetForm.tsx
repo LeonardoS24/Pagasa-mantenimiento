@@ -18,6 +18,7 @@ import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertL
 import { FormMessage } from "./FormMessage";
 import { SECTION_STYLES } from "@/lib/section-colors";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
+import { VEHICLE_BRAND_CATALOG, findBrandOption } from "@/lib/vehicle-brand-catalog";
 
 const initialState: ActionState = {};
 
@@ -52,6 +53,204 @@ function Field({
         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
       />
     </div>
+  );
+}
+
+const CATALOG_INPUT_CLASS =
+  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100";
+
+// Busca sin importar mayúsculas/minúsculas ni espacios de sobra, para
+// preseleccionar en un <select> un valor que ya estaba escrito a mano en
+// la BD antes de que existiera el catálogo (p.ej. si ya dice "RAM", se
+// selecciona la opción "RAM" en vez de dejarlo como texto suelto).
+function findInOptions(options: string[], value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  return options.find((o) => o.toLowerCase() === normalized);
+}
+
+// Estado inicial de un campo (Línea o Modelo) dado el catálogo de la marca
+// ya detectada: si el valor guardado calza con una opción, se preselecciona;
+// si no calza pero hay algo escrito, se manda a "Otro" con ese texto; si no
+// hay nada guardado y la marca solo tiene una opción posible, se
+// autorellena sola (nada que elegir); si tiene varias, se deja en blanco
+// para que la persona escoja (p.ej. Chevrolet: 1500 o 2500).
+function initCatalogField(
+  hasBrand: boolean,
+  options: string[],
+  defaultValue?: string | null
+): { sel: string; text: string } {
+  if (!hasBrand || options.length === 0) return { sel: "", text: defaultValue ?? "" };
+  const match = findInOptions(options, defaultValue);
+  if (match) return { sel: match, text: "" };
+  if (defaultValue) return { sel: OTRO, text: defaultValue };
+  if (options.length === 1) return { sel: options[0], text: "" };
+  return { sel: "", text: "" };
+}
+
+const OTRO = "__OTRO__";
+
+// Marca/Línea/Modelo con catálogo (ver lib/vehicle-brand-catalog.ts). Al
+// elegir una marca conocida, Línea y Modelo se vuelven selects con las
+// opciones de esa marca: si solo hay una, se autorellena sola; si hay
+// varias (p.ej. Chevrolet: 1500 o 2500) la persona elige entre ellas. Si la
+// marca no tiene catálogo para ese campo (p.ej. Nissan no tiene líneas
+// listadas), o se elige "Otro" en cualquiera de los tres, queda como texto
+// libre para lo que no esté en la lista.
+function VehicleBrandFields({
+  defaultMarca,
+  defaultLinea,
+  defaultModelo,
+}: {
+  defaultMarca?: string | null;
+  defaultLinea?: string | null;
+  defaultModelo?: string | null;
+}) {
+  const initialOption = findBrandOption(defaultMarca);
+  const [marca, setMarca] = useState<string>(initialOption ? initialOption.marca : defaultMarca ? OTRO : "");
+  const [otraMarca, setOtraMarca] = useState(initialOption ? "" : defaultMarca ?? "");
+
+  const lineaInit = initCatalogField(!!initialOption, initialOption?.lineas ?? [], defaultLinea);
+  const [linea, setLinea] = useState(lineaInit.sel);
+  const [otraLinea, setOtraLinea] = useState(lineaInit.text);
+
+  const modeloInit = initCatalogField(!!initialOption, initialOption?.modelos ?? [], defaultModelo);
+  const [modelo, setModelo] = useState(modeloInit.sel);
+  const [otraModelo, setOtraModelo] = useState(modeloInit.text);
+
+  const option = marca === OTRO || marca === "" ? undefined : VEHICLE_BRAND_CATALOG.find((o) => o.marca === marca);
+
+  function handleMarcaChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const value = event.target.value;
+    setMarca(value);
+    const nextOption =
+      value === OTRO || value === "" ? undefined : VEHICLE_BRAND_CATALOG.find((o) => o.marca === value);
+    setLinea(nextOption && nextOption.lineas.length === 1 ? nextOption.lineas[0] : "");
+    setOtraLinea("");
+    setModelo(nextOption && nextOption.modelos.length === 1 ? nextOption.modelos[0] : "");
+    setOtraModelo("");
+  }
+
+  return (
+    <>
+      <div>
+        <label className="mb-1 block text-sm font-medium text-ink" htmlFor="marcaCatalogo">
+          Marca
+        </label>
+        <select id="marcaCatalogo" value={marca} onChange={handleMarcaChange} className={CATALOG_INPUT_CLASS}>
+          <option value="">Selecciona...</option>
+          {VEHICLE_BRAND_CATALOG.map((o) => (
+            <option key={o.marca} value={o.marca}>
+              {o.marca}
+            </option>
+          ))}
+          <option value={OTRO}>Otro</option>
+        </select>
+        {marca === OTRO ? (
+          <input
+            name="marca"
+            value={otraMarca}
+            onChange={(e) => setOtraMarca(e.target.value)}
+            placeholder="Escribe la marca"
+            className={`mt-2 ${CATALOG_INPUT_CLASS}`}
+          />
+        ) : (
+          <input type="hidden" name="marca" value={marca} />
+        )}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-ink" htmlFor="lineaCatalogo">
+          Línea
+        </label>
+        {option && option.lineas.length > 0 ? (
+          <>
+            <select
+              id="lineaCatalogo"
+              value={linea}
+              onChange={(e) => {
+                setLinea(e.target.value);
+                setOtraLinea("");
+              }}
+              className={CATALOG_INPUT_CLASS}
+            >
+              <option value="">Selecciona...</option>
+              {option.lineas.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+              <option value={OTRO}>Otro</option>
+            </select>
+            {linea === OTRO ? (
+              <input
+                name="linea"
+                value={otraLinea}
+                onChange={(e) => setOtraLinea(e.target.value)}
+                placeholder="Escribe la línea"
+                className={`mt-2 ${CATALOG_INPUT_CLASS}`}
+              />
+            ) : (
+              <input type="hidden" name="linea" value={linea} />
+            )}
+          </>
+        ) : (
+          <input
+            id="lineaCatalogo"
+            name="linea"
+            value={otraLinea}
+            onChange={(e) => setOtraLinea(e.target.value)}
+            className={CATALOG_INPUT_CLASS}
+          />
+        )}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-ink" htmlFor="modeloCatalogo">
+          Modelo
+        </label>
+        {option && option.modelos.length > 0 ? (
+          <>
+            <select
+              id="modeloCatalogo"
+              value={modelo}
+              onChange={(e) => {
+                setModelo(e.target.value);
+                setOtraModelo("");
+              }}
+              className={CATALOG_INPUT_CLASS}
+            >
+              <option value="">Selecciona...</option>
+              {option.modelos.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+              <option value={OTRO}>Otro</option>
+            </select>
+            {modelo === OTRO ? (
+              <input
+                name="modelo"
+                value={otraModelo}
+                onChange={(e) => setOtraModelo(e.target.value)}
+                placeholder="Escribe el modelo"
+                className={`mt-2 ${CATALOG_INPUT_CLASS}`}
+              />
+            ) : (
+              <input type="hidden" name="modelo" value={modelo} />
+            )}
+          </>
+        ) : (
+          <input
+            id="modeloCatalogo"
+            name="modelo"
+            value={otraModelo}
+            onChange={(e) => setOtraModelo(e.target.value)}
+            className={CATALOG_INPUT_CLASS}
+          />
+        )}
+      </div>
+    </>
   );
 }
 
@@ -140,13 +339,49 @@ export function TechnicalSheetForm({
   // anidar un <form> dentro de este.
   const [calidadPending, startCalidadTransition] = useTransition();
   const [calidadMessage, setCalidadMessage] = useState<ActionState>({});
-  function handleCalidadChange(event: React.ChangeEvent<HTMLSelectElement>) {
+  const calidadSelectRef = useRef<HTMLSelectElement>(null);
+  // Al elegir "Mala" no se guarda de inmediato: primero se pide una
+  // observación explicando por qué (aplica a todas las unidades, no solo a
+  // Estaciones de carburación). El resto de los cambios se sigue guardando
+  // al instante, como antes.
+  const [pidiendoObservacion, setPidiendoObservacion] = useState(false);
+  const [observacionMala, setObservacionMala] = useState("");
+
+  function submitCalidad(value: string, observacion?: string) {
     const formData = new FormData();
-    formData.set("calidadExtintor", event.target.value);
+    formData.set("calidadExtintor", value);
+    if (observacion) formData.set("observacion", observacion);
     startCalidadTransition(async () => {
       const result = await updateCalidadExtintor(vehicleId, {}, formData);
       setCalidadMessage(result);
+      if (result.error && calidadSelectRef.current) {
+        calidadSelectRef.current.value = sheet?.calidadExtintor ?? "";
+      }
     });
+  }
+
+  function handleCalidadChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const value = event.target.value;
+    if (value === "MALA") {
+      setObservacionMala("");
+      setPidiendoObservacion(true);
+      return;
+    }
+    setPidiendoObservacion(false);
+    submitCalidad(value);
+  }
+
+  function confirmarObservacionMala() {
+    if (!observacionMala.trim()) return;
+    submitCalidad("MALA", observacionMala.trim());
+    setPidiendoObservacion(false);
+  }
+
+  function cancelarCambioAMala() {
+    if (calidadSelectRef.current) {
+      calidadSelectRef.current.value = sheet?.calidadExtintor ?? "";
+    }
+    setPidiendoObservacion(false);
   }
   // Vehículo con tanque de carburación tiene su propio sistema de gas LP
   // para el motor, con solo 4 de las 9 válvulas de Auto-Tanques (que son las
@@ -207,10 +442,11 @@ export function TechnicalSheetForm({
           Automóvil
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Field id="fabricante" label="Fabricante" defaultValue={sheet?.fabricante} />
-          <Field id="marca" label="Marca" defaultValue={sheet?.marca} />
-          <Field id="linea" label="Línea" defaultValue={sheet?.linea} />
-          <Field id="modelo" label="Modelo" defaultValue={sheet?.modelo} />
+          <VehicleBrandFields
+            defaultMarca={sheet?.marca}
+            defaultLinea={sheet?.linea}
+            defaultModelo={sheet?.modelo}
+          />
           {useDeliveryFormat ? (
             <>
               <Field
@@ -235,7 +471,9 @@ export function TechnicalSheetForm({
             <select
               id="combustible"
               name="combustible"
-              defaultValue={lockCombustibleGasLpGasolina ? "GAS_LP_GASOLINA" : sheet?.combustible ?? ""}
+              defaultValue={
+                lockCombustibleGasLpGasolina ? (sheet?.combustible ?? "GAS_LP_GASOLINA") : sheet?.combustible ?? ""
+              }
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="">Selecciona...</option>
@@ -247,8 +485,8 @@ export function TechnicalSheetForm({
             </select>
             {lockCombustibleGasLpGasolina && (
               <p className="mt-1 text-xs text-gray-500">
-                Fijo en Gas LP/Gasolina (Vehículo con tanque de carburación o mismo número
-                económico repetido ahí).
+                Debe ser Gas LP o Gas LP/Gasolina (Vehículo con tanque de carburación o mismo
+                número económico repetido ahí). Cualquier otro valor se guarda como Gas LP/Gasolina.
               </p>
             )}
           </div>
@@ -273,6 +511,19 @@ export function TechnicalSheetForm({
           />
         </div>
       </div>
+      )}
+
+      {showAutomovilSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+            Chofer y póliza
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Field id="chofer" label="Chofer" defaultValue={sheet?.chofer} />
+            <Field id="numeroPoliza" label="Número de póliza" defaultValue={sheet?.numeroPoliza} />
+            <Field id="inciso" label="Inciso" defaultValue={sheet?.inciso} />
+          </div>
+        </div>
       )}
 
       {showTankSection && (
@@ -388,9 +639,10 @@ export function TechnicalSheetForm({
             <select
               id="calidadExtintor"
               name="calidadExtintor"
+              ref={calidadSelectRef}
               defaultValue={sheet?.calidadExtintor ?? ""}
               onChange={handleCalidadChange}
-              disabled={calidadPending}
+              disabled={calidadPending || pidiendoObservacion}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
             >
               <option value="">Selecciona...</option>
@@ -400,15 +652,47 @@ export function TechnicalSheetForm({
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-ink">
-              {calidadPending
-                ? "Guardando…"
-                : calidadMessage.error
-                  ? calidadMessage.error
-                  : calidadMessage.success
-                    ? calidadMessage.success
-                    : "Se guarda automáticamente al cambiar."}
-            </p>
+            {pidiendoObservacion ? (
+              <div className="mt-2 flex flex-col gap-2 rounded-md border border-orange-300 bg-orange-50 p-3">
+                <label className="text-xs font-medium text-orange-900" htmlFor="observacionExtintorMala">
+                  Explica por qué el extintor está en mal estado
+                </label>
+                <textarea
+                  id="observacionExtintorMala"
+                  value={observacionMala}
+                  onChange={(e) => setObservacionMala(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={confirmarObservacionMala}
+                    disabled={!observacionMala.trim() || calidadPending}
+                    className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-60"
+                  >
+                    {calidadPending ? "Guardando…" : "Guardar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelarCambioAMala}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-ink hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-ink">
+                {calidadPending
+                  ? "Guardando…"
+                  : calidadMessage.error
+                    ? calidadMessage.error
+                    : calidadMessage.success
+                      ? calidadMessage.success
+                      : "Se guarda automáticamente al cambiar."}
+              </p>
+            )}
           </div>
         </div>
         <p className="mt-2 text-xs text-ink">

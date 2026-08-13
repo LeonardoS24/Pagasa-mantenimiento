@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 import {
   saveDocumentFile,
   deleteDocumentFile,
@@ -140,6 +142,61 @@ export async function uploadVehicleDocument(
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleRecordId}`);
   return { success: "PDF subido correctamente." };
+}
+
+// Registro de permisos de una Estación de carburación: a diferencia de
+// uploadVehicleDocument (documentos generales, sin fecha propia), aquí se
+// exige también la fecha en que se realizó/emitió el permiso — se guarda
+// como Document con kind "PERMISO" para que quede aparte de la lista
+// general de "Documentos" (ver DocumentList y el filtro por kind en la
+// hoja de impresión).
+export async function uploadStationPermit(
+  vehicleRecordId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const fechaTexto = String(formData.get("fecha") ?? "").trim();
+  if (!fechaTexto) {
+    return { error: "La fecha del permiso es requerida." };
+  }
+  const fecha = new Date(fechaTexto);
+  if (Number.isNaN(fecha.getTime())) {
+    return { error: "Fecha inválida." };
+  }
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const vehicle = await prisma.vehicleRecord.findUnique({
+    where: { id: vehicleRecordId },
+    include: { section: { include: { city: true } } },
+  });
+  if (!vehicle) {
+    return { error: "El registro no existe." };
+  }
+
+  const { storedName } = await saveDocumentFile(vehicleOwnerKey(vehicleRecordId), file);
+
+  await prisma.document.create({
+    data: {
+      sectionId: vehicle.sectionId,
+      vehicleRecordId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+      kind: "PERMISO",
+      fecha,
+    },
+  });
+
+  revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleRecordId}`);
+  return { success: "Permiso subido correctamente." };
 }
 
 export async function uploadMaintenanceLogDocument(
@@ -633,8 +690,17 @@ export async function uploadEquipmentLogDocument(
   return { success: "PDF subido correctamente." };
 }
 
-export async function deleteDocument(documentId: string) {
-  await requireElevatedEditor();
+export async function deleteDocument(
+  documentId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireElevatedEditor();
+
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
 
   const document = await prisma.document.findUnique({
     where: { id: documentId },
@@ -674,7 +740,17 @@ export async function deleteDocument(documentId: string) {
       equipmentLog: { include: { equipo: { include: { section: { include: { city: true } } } } } },
     },
   });
-  if (!document) return;
+  if (!document) {
+    return { error: "El documento ya no existe." };
+  }
+
+  await logActivity({
+    user: admin,
+    accion: "ELIMINAR",
+    entidad: "Documento",
+    resumen: document.fileName,
+    citySlug: document.section.city.slug,
+  });
 
   const ownerKey = document.maintenanceLogId
     ? maintenanceLogOwnerKey(document.maintenanceLogId)
@@ -747,4 +823,5 @@ export async function deleteDocument(documentId: string) {
     const chain = await getSectionChain(document.sectionId);
     revalidatePath(sectionBasePath(document.section.city.slug, chain));
   }
+  return { success: "Documento eliminado." };
 }

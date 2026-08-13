@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { SessionData } from "@/lib/session";
 
 export interface ActivityEvent {
   id: string;
@@ -8,7 +9,34 @@ export interface ActivityEvent {
   cityName: string;
   createdAt: Date;
   createdByUsername: string | null;
-  href: string;
+  href: string | null;
+}
+
+// Registro de auditoría para eliminaciones y ediciones importantes: a
+// diferencia de getSystemActivityFeed (que deriva "qué hay" leyendo las
+// tablas de negocio), esto es la única fuente para "qué ya no está" — hay
+// que llamarlo ANTES de borrar, mientras el registro todavía se puede leer
+// para describirlo. citySlug es opcional porque algunas acciones (borrar un
+// usuario) no pertenecen a ninguna ciudad.
+export async function logActivity(params: {
+  user: SessionData;
+  accion: "ELIMINAR" | "EDITAR";
+  entidad: string;
+  resumen: string;
+  detalle?: string;
+  citySlug?: string;
+}): Promise<void> {
+  await prisma.activityLog.create({
+    data: {
+      accion: params.accion,
+      entidad: params.entidad,
+      resumen: params.resumen,
+      detalle: params.detalle,
+      citySlug: params.citySlug,
+      userId: params.user.userId,
+      username: params.user.username,
+    },
+  });
 }
 
 // Cuántos de cada tipo se traen antes de combinar y recortar al total: sin
@@ -39,6 +67,7 @@ export async function getSystemActivityFeed(limit = 200): Promise<ActivityEvent[
     valvulasCorrectivo,
     mangueras,
     equipmentLogs,
+    auditoria,
   ] = await Promise.all([
     prisma.vehicleRecord.findMany({
       orderBy: { createdAt: "desc" },
@@ -108,7 +137,11 @@ export async function getSystemActivityFeed(limit = 200): Promise<ActivityEvent[
         equipo: { select: { nombre: true, codigo: true, ...cityInclude } },
       },
     }),
+    prisma.activityLog.findMany({ orderBy: { createdAt: "desc" }, take: TAKE }),
   ]);
+
+  const ciudades = await prisma.city.findMany({ select: { slug: true, name: true } });
+  const nombreCiudad = new Map(ciudades.map((c) => [c.slug, c.name]));
 
   const events: ActivityEvent[] = [
     ...vehicles.map((v) => ({
@@ -240,6 +273,16 @@ export async function getSystemActivityFeed(limit = 200): Promise<ActivityEvent[
       createdAt: log.createdAt,
       createdByUsername: log.createdBy?.username ?? null,
       href: `/ciudades/${log.equipo.section.city.slug}/equipo/${log.equipoId}`,
+    })),
+    ...auditoria.map((a) => ({
+      id: `auditoria-${a.id}`,
+      tipo: a.accion === "ELIMINAR" ? "Eliminado" : "Editado",
+      detalle: `${a.entidad} — ${a.resumen}`,
+      citySlug: a.citySlug ?? "",
+      cityName: a.citySlug ? (nombreCiudad.get(a.citySlug) ?? a.citySlug) : "",
+      createdAt: a.createdAt,
+      createdByUsername: a.username,
+      href: null,
     })),
   ];
 

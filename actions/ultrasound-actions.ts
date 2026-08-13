@@ -4,6 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 import { saveDocumentFile, ultrasoundLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
@@ -175,14 +177,33 @@ export async function updateUltrasoundLog(
   return { success: "Registro actualizado." };
 }
 
-export async function deleteUltrasoundLog(logId: string) {
-  await requireElevatedEditor();
+export async function deleteUltrasoundLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireElevatedEditor();
+
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
 
   const log = await prisma.ultrasoundLog.findUnique({
     where: { id: logId },
     include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
   });
-  if (!log) return;
+  if (!log) {
+    return { error: "El registro ya no existe." };
+  }
+
+  await logActivity({
+    user: admin,
+    accion: "ELIMINAR",
+    entidad: "Registro de ultrasonido",
+    resumen: `${log.vehicleRecord.numeroEconomico}${log.numeroUltrasonido ? ` — No. ${log.numeroUltrasonido}` : ""}`,
+    citySlug: log.vehicleRecord.section.city.slug,
+  });
 
   // Los PDF de la bitácora se van con ella en la base, pero el archivo en
   // disco hay que borrarlo aparte y antes, mientras el registro existe.
@@ -192,4 +213,5 @@ export async function deleteUltrasoundLog(logId: string) {
   revalidatePath(
     `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
   );
+  return { success: "Registro eliminado." };
 }

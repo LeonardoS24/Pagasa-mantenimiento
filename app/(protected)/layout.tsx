@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { getAccessibleCities } from "@/lib/access";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { InProgressAlertToast } from "@/components/layout/InProgressAlertToast";
+import { LoginAlertToasts } from "@/components/layout/LoginAlertToasts";
 
 export default async function ProtectedLayout({
   children,
@@ -16,7 +16,7 @@ export default async function ProtectedLayout({
 
   return (
     <div className="flex h-screen flex-col print:block print:h-auto">
-      <InProgressAlertToast />
+      <LoginAlertToasts />
       <Header user={user} />
       <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
         <Sidebar cities={cities} isAdmin={user.role === "ADMIN"} />

@@ -10,6 +10,13 @@ export interface SessionData {
   // vez para mostrar el aviso y lo borra de inmediato, así solo aparece justo
   // después de iniciar sesión y no en cada navegación.
   pendingInProgressCount?: number;
+  // Mismo mecanismo transitorio que pendingInProgressCount, pero para
+  // órdenes de prioridad ALTA sin resolver (ver lib/login-alerts.ts y
+  // components/layout/HighPriorityOrderAlertToast.tsx).
+  pendingHighPriorityOrderCount?: number;
+  // Mismo mecanismo, para unidades con la alerta de cambio de válvulas en
+  // rojo (ver components/layout/ValveRedAlertToast.tsx).
+  pendingValveRedAlertCount?: number;
 }
 
 export const sessionOptions: SessionOptions = {

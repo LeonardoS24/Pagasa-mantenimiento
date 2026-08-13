@@ -33,14 +33,20 @@ function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEst
         </Link>
       </td>
       <td className="whitespace-nowrap px-4 py-2 text-ink">{record.cityName}</td>
-      <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
-      {!isEstacion && (
+      {isEstacion ? (
         <>
+          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.permisionaria || "—"}</td>
+          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.permiso || "—"}</td>
+          <td className="max-w-xs whitespace-pre-wrap px-4 py-2 text-ink">{record.sucursal || "—"}</td>
+        </>
+      ) : (
+        <>
+          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
           <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
           <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
+          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.serie || "—"}</td>
         </>
       )}
-      <td className="whitespace-nowrap px-4 py-2 text-ink">{record.serie || "—"}</td>
     </tr>
   );
 }
@@ -54,14 +60,20 @@ function VehicleTableHead({ isEstacion }: { isEstacion: boolean }) {
         </th>
         <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Nombre" : "Número económico"}</th>
         <th className="whitespace-nowrap px-4 py-2">Ciudad</th>
-        <th className="whitespace-nowrap px-4 py-2">{isEstacion ? "Dirección" : "Sucursal"}</th>
-        {!isEstacion && (
+        {isEstacion ? (
           <>
+            <th className="whitespace-nowrap px-4 py-2">Permisionaria</th>
+            <th className="whitespace-nowrap px-4 py-2">Permiso</th>
+            <th className="whitespace-nowrap px-4 py-2">Dirección</th>
+          </>
+        ) : (
+          <>
+            <th className="whitespace-nowrap px-4 py-2">Marca</th>
             <th className="whitespace-nowrap px-4 py-2">Año</th>
             <th className="whitespace-nowrap px-4 py-2">Placas</th>
+            <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
           </>
         )}
-        <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
       </tr>
     </thead>
   );
@@ -79,9 +91,10 @@ export function AggregateVehicleTable({
   records: AggregateVehicleRow[];
   sectionSlug: string;
 }) {
-  // "Estaciones de carburación" reutiliza numeroEconomico/sucursal como
-  // "Nombre"/"Dirección" (ver components/city/VehicleTable.tsx, mismo criterio).
-  const isEstacion = sectionSlug === "estaciones-de-carburacion";
+  // "Estaciones de carburación" y "Planta" (su hijo "planta-ficha-tecnica")
+  // reutilizan numeroEconomico/sucursal como "Nombre"/"Dirección" (ver
+  // components/city/VehicleTable.tsx, mismo criterio).
+  const isEstacion = sectionSlug === "estaciones-de-carburacion" || sectionSlug === "planta-ficha-tecnica";
 
   if (records.length === 0) {
     return (

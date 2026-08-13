@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { requireAdmin, requireUser, getSession } from "@/lib/auth";
 import { roleSchema } from "@/lib/roles";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 
 export interface ActionState {
   error?: string;
@@ -57,11 +59,33 @@ export async function createUser(
   return { success: "Usuario creado correctamente." };
 }
 
-export async function deleteUser(userId: string) {
+export async function deleteUser(
+  userId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
   const admin = await requireAdmin();
   if (admin.userId === userId) {
-    throw new Error("No puedes eliminar tu propia cuenta.");
+    return { error: "No puedes eliminar tu propia cuenta." };
   }
+
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    return { error: "El usuario ya no existe." };
+  }
+
+  await logActivity({
+    user: admin,
+    accion: "ELIMINAR",
+    entidad: "Usuario",
+    resumen: `${user.username} (${user.role})`,
+  });
+
   await prisma.user.delete({ where: { id: userId } });
   revalidatePath("/admin/usuarios");
   redirect("/admin/usuarios");
@@ -243,6 +267,31 @@ export async function consumePendingInProgressAlert(): Promise<number | null> {
   if (count === undefined) return null;
 
   session.pendingInProgressCount = undefined;
+  await session.save();
+  return count;
+}
+
+// Mismo patrón que consumePendingInProgressAlert, para el aviso de órdenes
+// de prioridad ALTA (ver lib/login-alerts.ts y
+// components/layout/HighPriorityOrderAlertToast.tsx).
+export async function consumePendingHighPriorityOrderAlert(): Promise<number | null> {
+  const session = await getSession();
+  const count = session.pendingHighPriorityOrderCount;
+  if (count === undefined) return null;
+
+  session.pendingHighPriorityOrderCount = undefined;
+  await session.save();
+  return count;
+}
+
+// Mismo patrón, para el aviso de válvulas con la alerta en rojo (ver
+// components/layout/ValveRedAlertToast.tsx).
+export async function consumePendingValveRedAlert(): Promise<number | null> {
+  const session = await getSession();
+  const count = session.pendingValveRedAlertCount;
+  if (count === undefined) return null;
+
+  session.pendingValveRedAlertCount = undefined;
   await session.save();
   return count;
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { User } from "@prisma/client";
 import { deleteUser } from "@/actions/user-actions";
 import { roleLabels, type Role } from "@/lib/roles";
-import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "./ConfirmDeleteRecordWithPassword";
 
 export function UserTable({ users, currentUserId }: { users: User[]; currentUserId: string }) {
   return (
@@ -31,14 +31,13 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
               <td className="px-4 py-2 text-ink">{roleLabels[user.role as Role]}</td>
               <td className="relative px-4 py-2 text-right">
                 {user.id !== currentUserId && (
-                  <form action={deleteUser.bind(null, user.id)}>
-                    <ConfirmSubmitButton
-                      confirmMessage={`¿Eliminar al usuario “${user.username}”? Perderá el acceso de inmediato, aunque tenga la sesión abierta. Las bitácoras y documentos que registró se conservan. Esta acción no se puede deshacer.`}
-                      className="text-sm text-accent hover:underline"
-                    >
-                      Eliminar
-                    </ConfirmSubmitButton>
-                  </form>
+                  <ConfirmDeleteRecordWithPassword
+                    mensaje={`¿Eliminar al usuario "${user.username}"? Perderá el acceso de inmediato, aunque tenga la sesión abierta. Las bitácoras y documentos que registró se conservan. Esta acción no se puede deshacer.`}
+                    action={deleteUser.bind(null, user.id)}
+                    className="text-sm text-accent hover:underline"
+                  >
+                    Eliminar
+                  </ConfirmDeleteRecordWithPassword>
                 )}
               </td>
             </tr>

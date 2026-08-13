@@ -8,7 +8,7 @@ import type { ActionState } from "@/actions/user-actions";
 import { formatDate, toDateInputValue } from "@/lib/dates";
 import { DocumentList } from "./DocumentList";
 import { UploadUltrasoundLogDocumentForm } from "@/components/admin/UploadUltrasoundLogDocumentForm";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 const initialState: ActionState = {};
 
@@ -169,14 +169,13 @@ export function UltrasoundLogRow({
           </div>
 
           {isAdmin && (
-            <form action={deleteUltrasoundLog.bind(null, log.id)}>
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar este registro de ultrasonido (${formatDate(log.fechaRealizacion)})? También se eliminarán sus documentos.`}
-                className="text-sm text-accent hover:underline"
-              >
-                Eliminar registro
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteRecordWithPassword
+              mensaje={`¿Eliminar este registro de ultrasonido (${formatDate(log.fechaRealizacion)})? También se eliminarán sus documentos.`}
+              action={deleteUltrasoundLog.bind(null, log.id)}
+              className="text-sm text-accent hover:underline"
+            >
+              Eliminar registro
+            </ConfirmDeleteRecordWithPassword>
           )}
         </div>
       )}

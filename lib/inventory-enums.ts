@@ -17,6 +17,27 @@ export const pieceOrderStatusStyles: Record<PieceOrderStatus, string> = {
   EN_INVENTARIO: "bg-blue-100 text-blue-700",
 };
 
+// Se fija sola al crear la orden cuando la unidad destino tiene calidad
+// "MALA" (ver createPieceOrder en actions/piece-order-actions.ts); no es
+// editable a mano.
+export const pieceOrderPrioridadSchema = z.enum(["ALTA", "NORMAL"]);
+export type PieceOrderPrioridad = z.infer<typeof pieceOrderPrioridadSchema>;
+
+export const pieceOrderPrioridadLabels: Record<PieceOrderPrioridad, string> = {
+  ALTA: "Alta",
+  NORMAL: "Normal",
+};
+
+export const pieceOrderPrioridadStyles: Record<PieceOrderPrioridad, string> = {
+  ALTA: "bg-red-100 text-red-700 border border-red-300 font-semibold",
+  NORMAL: "",
+};
+
+// Estados en los que una orden de prioridad ALTA sigue "sin resolver" para
+// efectos del aviso de inicio de sesión: una vez aceptada o pasada a
+// inventario ya está en marcha, y rechazada ya no aplica.
+export const PIECE_ORDER_UNRESOLVED_STATES: PieceOrderStatus[] = ["PENDIENTE"];
+
 // Si una orden se queda ACEPTADA (ver PieceOrder.fechaAceptada) sin que
 // alguien la pase a mano a EN_INVENTARIO, se hace sola al cumplirse este
 // plazo (ver sweepExpiredAcceptedOrders en actions/piece-order-actions.ts).

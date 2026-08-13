@@ -21,7 +21,7 @@ import { parseChecklistPreventivo } from "@/lib/preventive-checklist";
 import { DocumentList } from "./DocumentList";
 import { MaintenancePhotos } from "./MaintenancePhotos";
 import { UploadMaintenanceLogDocumentForm } from "@/components/admin/UploadMaintenanceLogDocumentForm";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 const initialState: ActionState = {};
 
@@ -483,14 +483,13 @@ export function MaintenanceLogRow({
           </div>
 
           {isAdmin && (
-            <form action={deleteMaintenanceLog.bind(null, log.id)}>
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar este mantenimiento (${log.tipoMantenimiento} — ${log.tipoServicio})? También se eliminarán sus documentos.`}
-                className="text-sm text-accent hover:underline"
-              >
-                Eliminar mantenimiento
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteRecordWithPassword
+              mensaje={`¿Eliminar este mantenimiento (${log.tipoMantenimiento} — ${log.tipoServicio})? También se eliminarán sus documentos.`}
+              action={deleteMaintenanceLog.bind(null, log.id)}
+              className="text-sm text-accent hover:underline"
+            >
+              Eliminar mantenimiento
+            </ConfirmDeleteRecordWithPassword>
           )}
         </div>
       )}

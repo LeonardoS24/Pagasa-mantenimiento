@@ -102,7 +102,7 @@ async function impactoDeApartados(
 // cuenta (es parte de la unidad), pero sí sus bitácoras y documentos.
 export async function getVehicleDeleteImpact(vehicleId: string): Promise<DeleteImpact> {
   const where = { vehicleRecordId: vehicleId };
-  const [documentos, bitacoras] = await Promise.all([
+  const [documentos, bitacoras, equipos] = await Promise.all([
     prisma.document.count({
       where: {
         OR: [
@@ -132,9 +132,12 @@ export async function getVehicleDeleteImpact(vehicleId: string): Promise<DeleteI
       prisma.valveCorrectiveMaintenanceLog.count({ where }),
       prisma.hoseChangeLog.count({ where }),
     ]).then((c) => c.reduce((a, b) => a + b, 0)),
+    // Solo distinto de 0 para una Estación de carburación (ver
+    // Equipo.vehicleRecordId): sus equipos propios se van con ella.
+    prisma.equipo.count({ where }),
   ]);
 
-  return { unidades: 0, equipos: 0, bitacoras, documentos, apartados: 0, ordenes: 0, inventario: 0 };
+  return { unidades: 0, equipos, bitacoras, documentos, apartados: 0, ordenes: 0, inventario: 0 };
 }
 
 // Lo que se lleva por delante borrar un solo Equipo: su bitácora y documentos.

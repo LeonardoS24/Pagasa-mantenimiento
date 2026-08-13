@@ -61,6 +61,7 @@ export function TechnicalSheetView({
   showInspeccionesSection = true,
   showMaintenancePreventiveSection = true,
   showAutomovilSection = true,
+  showExtintorSection = true,
 }: {
   sheet: VehicleTechnicalSheet | null;
   // Para no repetir la alerta de extintor/mantenimiento preventivo cuando la
@@ -89,6 +90,12 @@ export function TechnicalSheetView({
   // económico): los datos del automóvil son el mismo vehículo físico, así
   // que solo se imprimen una vez (ver imprimir/page.tsx).
   showAutomovilSection?: boolean;
+  // false solo para Vehículo con tanque de carburación cuando se imprime
+  // junto con su pareja Auto-Tanques: es la misma unidad física, así que el
+  // extintor (igual que el mantenimiento preventivo) solo se imprime una vez,
+  // desde Auto-Tanques (ver imprimir/page.tsx y lib/alert-visibility.ts, que
+  // ya trata a Auto-Tanques como el dueño del extintor en ese par).
+  showExtintorSection?: boolean;
 }) {
   if (!sheet) {
     return <p className="text-sm text-ink">Sin ficha técnica registrada.</p>;
@@ -130,7 +137,6 @@ export function TechnicalSheetView({
             Automóvil
           </h3>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Item label="Fabricante" value={sheet.fabricante} />
             <Item label="Marca" value={sheet.marca} />
             <Item label="Línea" value={sheet.linea} />
             <Item label="Modelo" value={sheet.modelo} />
@@ -158,6 +164,19 @@ export function TechnicalSheetView({
               <p className="text-ink">{sheet.caracteristicas}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {showAutomovilSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+            Chofer y póliza
+          </h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Item label="Chofer" value={sheet.chofer} />
+            <Item label="Número de póliza" value={sheet.numeroPoliza} />
+            <Item label="Inciso" value={sheet.inciso} />
+          </dl>
         </div>
       )}
 
@@ -225,36 +244,38 @@ export function TechnicalSheetView({
         </div>
       )}
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold uppercase text-primary-bright">Extintor</h3>
-          {extinguisherAlertLevel !== "none" && isAlertVisibleForSection("extintor", sectionSlug) && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${extinguisherAlertBadgeStyles[extinguisherAlertLevel]}`}
-            >
-              {extinguisherAlertLabel(extinguisherAlertLevel, sheet.fechaCalidadMalaExtintor)}
-            </span>
-          )}
+      {showExtintorSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase text-primary-bright">Extintor</h3>
+            {extinguisherAlertLevel !== "none" && isAlertVisibleForSection("extintor", sectionSlug) && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${extinguisherAlertBadgeStyles[extinguisherAlertLevel]}`}
+              >
+                {extinguisherAlertLabel(extinguisherAlertLevel, sheet.fechaCalidadMalaExtintor)}
+              </span>
+            )}
+          </div>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Item
+              label="Fecha de instalación"
+              value={formatDate(sheet.fechaInstalacionExtintor) || null}
+            />
+            <Item
+              label="Fecha de vencimiento"
+              value={formatDate(sheet.fechaVencimientoExtintor) || null}
+            />
+            <Item
+              label="Calidad"
+              value={
+                sheet.calidadExtintor
+                  ? calidadExtintorLabels[sheet.calidadExtintor as CalidadExtintor]
+                  : null
+              }
+            />
+          </dl>
         </div>
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Item
-            label="Fecha de instalación"
-            value={formatDate(sheet.fechaInstalacionExtintor) || null}
-          />
-          <Item
-            label="Fecha de vencimiento"
-            value={formatDate(sheet.fechaVencimientoExtintor) || null}
-          />
-          <Item
-            label="Calidad"
-            value={
-              sheet.calidadExtintor
-                ? calidadExtintorLabels[sheet.calidadExtintor as CalidadExtintor]
-                : null
-            }
-          />
-        </dl>
-      </div>
+      )}
 
       {showHoseSection && (
         <div className={`rounded-md p-4 ${SECTION_STYLES.mangueras}`}>

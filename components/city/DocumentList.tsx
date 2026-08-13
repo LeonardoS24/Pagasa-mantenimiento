@@ -1,6 +1,6 @@
 import type { Document } from "@prisma/client";
 import { deleteDocument } from "@/actions/document-actions";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -52,14 +52,13 @@ export function DocumentList({
           </a>
           <span className="shrink-0 text-xs text-gray-400">{formatSize(document.size)}</span>
           {isAdmin && (
-            <form action={deleteDocument.bind(null, document.id)}>
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar el archivo "${document.fileName}"?`}
-                className="shrink-0 text-sm text-accent hover:underline"
-              >
-                Eliminar
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteRecordWithPassword
+              mensaje={`¿Eliminar el archivo "${document.fileName}"?`}
+              action={deleteDocument.bind(null, document.id)}
+              className="shrink-0 text-sm text-accent hover:underline"
+            >
+              Eliminar
+            </ConfirmDeleteRecordWithPassword>
           )}
         </li>
         );

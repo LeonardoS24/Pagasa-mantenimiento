@@ -49,13 +49,14 @@ import {
   listRecentMonthsWithYearOption,
 } from "@/lib/dates";
 import { MonthPicker } from "@/components/city/MonthPicker";
+import { ResumenPanel } from "@/components/admin/ResumenPanel";
 
 export default async function SectionPage({
   params,
   searchParams,
 }: {
   params: { citySlug: string; sectionPath: string[] };
-  searchParams: { mes?: string };
+  searchParams: { mes?: string; tab?: string };
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
@@ -72,8 +73,13 @@ export default async function SectionPage({
   const isBitacoraFeed = chain.length === 1 && current.slug === "bitacoras-de-unidades";
   const isOrdenDePieza = chain.length === 1 && current.slug === "orden-de-pieza";
   const isInventarios = chain.length === 1 && current.slug === "inventarios";
-  const isEquiposSection = chain.length === 1 && current.slug === "equipos";
+  // "Equipos de planta" (ver scripts/restructure-planta-section.mjs) vive
+  // anidado dentro de "Planta" (chain.length 2), a diferencia de como
+  // vivía antes a nivel superior — el slug "equipos" no se usa en ningún
+  // otro lado, así que basta con el slug sin fijarse en la profundidad.
+  const isEquiposSection = current.slug === "equipos";
   const isBitacoraEquiposFeed = chain.length === 1 && current.slug === "bitacora-de-equipos";
+  const isResumenSection = chain.length === 1 && current.slug === "resumen";
   // "Administración" (ver lib/aggregate-city.ts): su Bitácora de
   // unidades combina el feed y los gráficos de todas las ciudades reales.
   const isAggregateCity = isAggregateCitySlug(city.slug);
@@ -93,8 +99,18 @@ export default async function SectionPage({
   // tanque, etc. (ver scripts/move-estaciones-de-carburacion-top-level.mjs y
   // components/admin/VehicleForm.tsx: isEstacion).
   const isEstacionTopLevelSection = chain.length === 1 && current.slug === "estaciones-de-carburacion";
+  // "Planta" (ver scripts/restructure-planta-section.mjs): su hijo
+  // "planta-ficha-tecnica" se comporta igual que Estaciones de carburación
+  // (ficha técnica de tanque + 5 registros + permisos), pero anidado un
+  // nivel (dentro de "Planta") en vez de a nivel superior, y sin su propio
+  // sub-listado de equipos — esos viven en el apartado hermano "Equipos de
+  // planta" (ver isEquiposSection arriba).
+  const isPlantaFichaTecnicaSection =
+    chain.length === 2 && chain[0].slug === "planta" && current.slug === "planta-ficha-tecnica";
   const isVehicleSection =
-    (children.length === 0 && !isBitacoraFeed && isUnderUnidadDistribucion) || isEstacionTopLevelSection;
+    (children.length === 0 && !isBitacoraFeed && isUnderUnidadDistribucion) ||
+    isEstacionTopLevelSection ||
+    isPlantaFichaTecnicaSection;
 
   // Administración no tiene flota propia: en vez de la tabla de su propio
   // apartado (siempre vacío), "Unidad de distribución" ahí muestra todas las
@@ -113,12 +129,12 @@ export default async function SectionPage({
           prisma.vehicleRecord.findMany({
             where: { sectionId: current.id, activo: true },
             orderBy: { order: "asc" },
-            include: { technicalSheet: true },
+            include: { technicalSheet: true, stationTankTechnicalSheet: true },
           }),
           prisma.vehicleRecord.findMany({
             where: { sectionId: current.id, activo: false },
             orderBy: { fechaBaja: "desc" },
-            include: { technicalSheet: true },
+            include: { technicalSheet: true, stationTankTechnicalSheet: true },
           }),
         ]);
         return [...activeRecords, ...inactiveRecords];
@@ -168,12 +184,18 @@ export default async function SectionPage({
   // Los equipos dados de baja (reemplazados con un mantenimiento tipo
   // "Cambio", ver actions/equipment-log-actions.ts) se listan aparte, igual
   // que las unidades: siempre al final, ordenados por fecha de baja.
+  // vehicleRecordId: null excluye los equipos propios de una Estación de
+  // carburación en particular (ver Equipo.vehicleRecordId): esos se ven en
+  // la propia unidad, no repetidos aquí en "Equipos de planta".
   const equipos = isEquiposSection && !isAggregateCity
     ? await (async () => {
         const [activos, inactivos] = await Promise.all([
-          prisma.equipo.findMany({ where: { sectionId: current.id, activo: true }, orderBy: { order: "asc" } }),
           prisma.equipo.findMany({
-            where: { sectionId: current.id, activo: false },
+            where: { sectionId: current.id, vehicleRecordId: null, activo: true },
+            orderBy: { order: "asc" },
+          }),
+          prisma.equipo.findMany({
+            where: { sectionId: current.id, vehicleRecordId: null, activo: false },
             orderBy: { fechaBaja: "desc" },
           }),
         ]);
@@ -241,7 +263,7 @@ export default async function SectionPage({
       })
     : [];
 
-  const documents = isVehicleSection || isEquiposSection
+  const documents = isVehicleSection || isEquiposSection || isResumenSection
     ? []
     : await prisma.document.findMany({
         where: { sectionId: current.id },
@@ -378,6 +400,8 @@ export default async function SectionPage({
             </>
           )}
         </div>
+      ) : isResumenSection ? (
+        <ResumenPanel citySlug={city.slug} tab={searchParams.tab ?? "general"} />
       ) : isInventarios ? (
         <InventoryItemTable
           items={inventoryItems}
@@ -404,7 +428,7 @@ export default async function SectionPage({
           "Próximamente" arriba (aunque sí hubiera archivos) seguida de esta
           misma lista, lo cual se veía como si el apartado no funcionara. Sin
           esa caja, esta tarjeta ya es el contenido principal de la página. */}
-      {!isVehicleSection && !isEquiposSection && (
+      {!isVehicleSection && !isEquiposSection && !isResumenSection && (
         <div className="mt-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             {allowsOfficeDocs ? "Documentos (PDF, imagen, Word, Excel, PowerPoint, CSV o TXT)" : "Documentos (PDF o imagen)"}

@@ -12,7 +12,7 @@ import {
 } from "@/lib/inventory-enums";
 import { InventoryItemStatusForm, type VehicleOption } from "@/components/admin/InventoryItemStatusForm";
 import { deleteInventoryItem } from "@/actions/inventory-actions";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 type InventoryItemWithVehicle = InventoryItem & {
   usedOnVehicle: { id: string; numeroEconomico: string } | null;
@@ -152,14 +152,13 @@ export function InventoryItemTable({
                 </td>
                 {isAdmin && (
                   <td className="whitespace-nowrap px-4 py-2">
-                    <form action={deleteInventoryItem.bind(null, item.id)}>
-                      <ConfirmSubmitButton
-                        confirmMessage={`¿Eliminar ${describeOrden(item.tipo, item.nombre, item.cantidad, item.unidad)} del inventario?`}
-                        className="text-xs text-accent hover:underline"
-                      >
-                        Eliminar
-                      </ConfirmSubmitButton>
-                    </form>
+                    <ConfirmDeleteRecordWithPassword
+                      mensaje={`¿Eliminar ${describeOrden(item.tipo, item.nombre, item.cantidad, item.unidad)} del inventario?`}
+                      action={deleteInventoryItem.bind(null, item.id)}
+                      className="text-xs text-accent hover:underline"
+                    >
+                      Eliminar
+                    </ConfirmDeleteRecordWithPassword>
                   </td>
                 )}
               </tr>

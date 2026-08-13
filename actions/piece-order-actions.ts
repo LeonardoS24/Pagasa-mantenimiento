@@ -4,6 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, requireUser, checkSessionUserExists } from "@/lib/auth";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 import { sectionBasePath } from "@/lib/section-path";
 import {
   pieceOrderStatusSchema,
@@ -134,6 +136,10 @@ export async function createPieceOrder(
   }
 
   let vehicleRecordId: string | null = null;
+  // Una unidad en mal estado (VehicleRecord.calidad === "MALA") vuelve ALTA
+  // cualquier orden que se levante para ella desde el inicio (ver comentario
+  // en el schema de PieceOrder.prioridad).
+  let prioridad = "NORMAL";
   if (parsed.data.vehicleRecordId) {
     const vehicle = await prisma.vehicleRecord.findUnique({
       where: { id: parsed.data.vehicleRecordId },
@@ -143,6 +149,7 @@ export async function createPieceOrder(
       return { error: "La unidad destino seleccionada no es válida." };
     }
     vehicleRecordId = vehicle.id;
+    if (vehicle.calidad === "MALA") prioridad = "ALTA";
   }
 
   const unidad = unidadParaTipo(parsed.data.tipo, parsed.data.unidadConsumible);
@@ -158,6 +165,7 @@ export async function createPieceOrder(
       estado: parsed.data.estado,
       fechaAceptada: parsed.data.estado === "ACEPTADA" ? new Date() : null,
       vehicleRecordId,
+      prioridad,
     },
   });
 
@@ -240,17 +248,37 @@ export async function sweepExpiredAcceptedOrders(sectionId: string): Promise<voi
   });
 }
 
-export async function deletePieceOrder(orderId: string) {
-  await requireElevatedEditor();
+export async function deletePieceOrder(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireElevatedEditor();
+
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
 
   const order = await prisma.pieceOrder.findUnique({
     where: { id: orderId },
     include: { section: { include: { city: true } } },
   });
-  if (!order) return;
+  if (!order) {
+    return { error: "La orden ya no existe." };
+  }
+
+  await logActivity({
+    user: admin,
+    accion: "ELIMINAR",
+    entidad: "Orden de pieza",
+    resumen: `${order.nombre} (${order.cantidad} ${order.unidad})`,
+    citySlug: order.section.city.slug,
+  });
 
   await prisma.pieceOrder.delete({ where: { id: orderId } });
   revalidatePath(sectionBasePath(order.section.city.slug, [order.section]));
+  return { success: "Orden eliminada." };
 }
 
 // Desglose al hacer clic en una barra de PieceOrderStatsChart (ver

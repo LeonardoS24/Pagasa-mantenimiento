@@ -8,10 +8,16 @@ import { canEdit } from "@/lib/roles";
 import { calidadMantenimientoLabels, calidadMantenimientoStyles, type CalidadMantenimiento } from "@/lib/vehicle-enums";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/layout/Breadcrumb";
 import { DocumentList } from "@/components/city/DocumentList";
+import { PermitDocumentList } from "@/components/city/PermitDocumentList";
 import { UploadVehicleDocumentForm } from "@/components/admin/UploadVehicleDocumentForm";
+import { UploadStationPermitForm } from "@/components/admin/UploadStationPermitForm";
 import { VehicleForm } from "@/components/admin/VehicleForm";
 import { TechnicalSheetForm } from "@/components/admin/TechnicalSheetForm";
 import { TechnicalSheetView } from "@/components/city/TechnicalSheetView";
+import { StationTankTechnicalSheetForm } from "@/components/admin/StationTankTechnicalSheetForm";
+import { StationTankTechnicalSheetView } from "@/components/city/StationTankTechnicalSheetView";
+import { CreateEquipoForm } from "@/components/admin/CreateEquipoForm";
+import { EquipoTable } from "@/components/city/EquipoTable";
 import { CreateMaintenanceLogForm } from "@/components/admin/CreateMaintenanceLogForm";
 import { MaintenanceLogTable } from "@/components/city/MaintenanceLogTable";
 import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
@@ -29,6 +35,7 @@ import { CreateHydrostaticTestLogForm } from "@/components/admin/CreateHydrostat
 import { HydrostaticTestLogTable } from "@/components/city/HydrostaticTestLogTable";
 import { CreateExtinguisherChangeLogForm } from "@/components/admin/CreateExtinguisherChangeLogForm";
 import { ExtinguisherChangeLogTable } from "@/components/city/ExtinguisherChangeLogTable";
+import { ExtinguisherQualityHistory } from "@/components/city/ExtinguisherQualityHistory";
 import { CreateValveChangeLogForm } from "@/components/admin/CreateValveChangeLogForm";
 import { ValveChangeLogTable } from "@/components/city/ValveChangeLogTable";
 import { CreateValveCorrectiveMaintenanceLogForm } from "@/components/admin/CreateValveCorrectiveMaintenanceLogForm";
@@ -101,6 +108,8 @@ export default async function VehicleDetailPage({
       section: { include: { city: true } },
       documents: { orderBy: { createdAt: "desc" } },
       technicalSheet: true,
+      stationTankTechnicalSheet: true,
+      equipos: { orderBy: { order: "asc" } },
       maintenanceLogs: {
         orderBy: { fecha: "desc" },
         include: {
@@ -134,6 +143,10 @@ export default async function VehicleDetailPage({
       extinguisherChangeLogs: {
         orderBy: { fechaRealizacion: "desc" },
         include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
+      extinguisherQualityChangeLogs: {
+        orderBy: { createdAt: "desc" },
+        include: { createdBy: { select: { username: true } } },
       },
       valveChangeLogs: {
         orderBy: { fechaInstalacion: "desc" },
@@ -188,6 +201,14 @@ export default async function VehicleDetailPage({
   // técnica se trata igual que Auto-Tanques para todo lo del tanque, solo que
   // sin la sección "Automóvil" (ver showAutomovilSection más abajo).
   const isEstacionCarburacion = vehicle.section.slug === "estaciones-de-carburacion";
+  // "Planta" (ver scripts/restructure-planta-section.mjs): su hijo
+  // "planta-ficha-tecnica" se comporta igual que una Estación en todo salvo
+  // en que NO tiene su propio sub-listado de equipos (esos viven en el
+  // apartado hermano "Equipos de planta") — por eso isEstacionLike cubre
+  // todo lo demás, pero el bloque de "Equipos de la estación" más abajo
+  // sigue gateado en isEstacionCarburacion a secas.
+  const isPlanta = vehicle.section.slug === "planta-ficha-tecnica";
+  const isEstacionLike = isEstacionCarburacion || isPlanta;
   const useDeliveryFormat =
     vehicle.section.slug === "vehiculo-de-reparto" ||
     vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
@@ -195,9 +216,9 @@ export default async function VehicleDetailPage({
   const showTankSection = vehicle.section.slug !== "vehiculo-de-reparto";
   // Las 5 pruebas de tanque (Visual Externa, Hermeticidad, Visual Interna,
   // Ultrasonido, Hidrostática) viven en Auto-Tanques, Vehículo con tanque de
-  // carburación y Estaciones de carburación; Vehículo de reparto no tiene
-  // tanque, así que no le corresponden.
-  const showInspeccionesSection = isAutoTanques || isTanqueCarburacion || isEstacionCarburacion;
+  // carburación, Estaciones de carburación y Planta; Vehículo de reparto no
+  // tiene tanque, así que no le corresponden.
+  const showInspeccionesSection = isAutoTanques || isTanqueCarburacion || isEstacionLike;
   // Algunas unidades de Auto-Tanques repiten el mismo número económico en
   // Vehículo con tanque de carburación (mismo camión, pero su motor también
   // usa el sistema dual de combustible). Cuando eso pasa, el combustible se
@@ -390,20 +411,39 @@ export default async function VehicleDetailPage({
       </div>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-        {/* Datos generales (número económico, sucursal, año, placas) solo los
-            edita ADMIN. USUARIO conserva permiso de editar el resto (ficha
-            técnica ya era ADMIN-only; bitácoras y documentos siguen abiertos
-            a USUARIO vía isEditor más abajo). */}
+        {/* Para una Estación de carburación, esto es "la ficha técnica de la
+            estación" (Nombre, Permisionaria, Permiso y Dirección juntos, sin
+            separar Dirección a otro formulario) — distinta de "Ficha técnica
+            del tanque" más abajo, que solo trae specs del recipiente a
+            presión. Para un vehículo normal sigue siendo "Datos generales"
+            (número económico, marca, año, placas), solo lo edita ADMIN.
+            USUARIO conserva permiso de editar el resto (ficha técnica ya era
+            ADMIN-only; bitácoras y documentos siguen abiertos a USUARIO vía
+            isEditor más abajo). */}
+        {isEstacionLike && (
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
+            {isPlanta ? "Ficha técnica de la planta" : "Ficha técnica de la estación"}
+          </h2>
+        )}
         {isAdmin ? (
           <VehicleForm
             action={updateVehicleRecord.bind(null, vehicle.id)}
             defaults={vehicle}
             submitLabel="Guardar cambios"
-            isEstacion={isEstacionCarburacion}
+            isEstacion={isEstacionLike}
+            stationLabel={isPlanta ? "la planta" : "la estación"}
             lockable
           />
-        ) : isEstacionCarburacion ? (
+        ) : isEstacionLike ? (
           <dl className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-semibold uppercase text-gray-500">Permisionaria</dt>
+              <dd className="text-ink">{vehicle.permisionaria || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase text-gray-500">Permiso</dt>
+              <dd className="text-ink">{vehicle.permiso || "—"}</dd>
+            </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">Dirección</dt>
               <dd className="text-ink">{vehicle.sucursal}</dd>
@@ -413,7 +453,7 @@ export default async function VehicleDetailPage({
           <dl className="grid gap-4 sm:grid-cols-2">
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">
-                Sucursal
+                Marca
               </dt>
               <dd className="text-ink">{vehicle.sucursal}</dd>
             </div>
@@ -427,14 +467,12 @@ export default async function VehicleDetailPage({
               </dt>
               <dd className="text-ink">{vehicle.placas}</dd>
             </div>
-            {(vehicle.numeroAnterior || vehicle.localidadAnterior) && (
+            {vehicle.observaciones && (
               <div>
                 <dt className="text-xs font-semibold uppercase text-gray-500">
-                  Anterior
+                  Observaciones
                 </dt>
-                <dd className="text-ink">
-                  {[vehicle.numeroAnterior, vehicle.localidadAnterior].filter(Boolean).join(", ")}
-                </dd>
+                <dd className="text-ink">{vehicle.observaciones}</dd>
               </div>
             )}
           </dl>
@@ -442,6 +480,19 @@ export default async function VehicleDetailPage({
       </div>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        {isEstacionLike && (
+          <div className="mb-6">
+            <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
+              Ficha técnica del tanque
+            </h2>
+            {isAdmin ? (
+              <StationTankTechnicalSheetForm vehicleId={vehicle.id} sheet={vehicle.stationTankTechnicalSheet} />
+            ) : (
+              <StationTankTechnicalSheetView sheet={vehicle.stationTankTechnicalSheet} />
+            )}
+          </div>
+        )}
+
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Ficha técnica
         </h2>
@@ -453,10 +504,10 @@ export default async function VehicleDetailPage({
             useDeliveryFormat={useDeliveryFormat}
             showValveSection={isTanqueCarburacion || isAutoTanques}
             showHoseSection={isTanqueCarburacion}
-            showTankSection={showTankSection}
+            showTankSection={showTankSection && !isEstacionLike}
             showInspeccionesSection={showInspeccionesSection}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
-            showAutomovilSection={!isEstacionCarburacion}
+            showAutomovilSection={!isEstacionLike}
             lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
           />
         ) : (
@@ -466,13 +517,25 @@ export default async function VehicleDetailPage({
             useDeliveryFormat={useDeliveryFormat}
             showValveSection={isTanqueCarburacion || isAutoTanques}
             showHoseSection={isTanqueCarburacion}
-            showTankSection={showTankSection}
+            showTankSection={showTankSection && !isEstacionLike}
             showInspeccionesSection={showInspeccionesSection}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
-            showAutomovilSection={!isEstacionCarburacion}
+            showAutomovilSection={!isEstacionLike}
           />
         )}
       </div>
+
+      {isEstacionCarburacion && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
+            Equipos de la estación
+          </h2>
+          <div className="space-y-3">
+            {isEditor && <CreateEquipoForm sectionId={vehicle.sectionId} vehicleRecordId={vehicle.id} />}
+            <EquipoTable equipos={vehicle.equipos} citySlug={vehicle.section.city.slug} />
+          </div>
+        </div>
+      )}
 
       {/*
         Orden de los apartados de registro (mismo orden que la ficha
@@ -517,6 +580,7 @@ export default async function VehicleDetailPage({
             canEdit={isEditor}
             isAdmin={isAdmin}
           />
+          <ExtinguisherQualityHistory logs={vehicle.extinguisherQualityChangeLogs} />
         </div>
       </div>
 
@@ -539,7 +603,12 @@ export default async function VehicleDetailPage({
           </h2>
           <div className="space-y-3">
             {isEditor && (
-              <CreateValveChangeLogForm vehicleId={vehicle.id} sectionSlug={vehicle.section.slug} />
+              <CreateValveChangeLogForm
+                vehicleId={vehicle.id}
+                sectionSlug={vehicle.section.slug}
+                hasPriorValveLog={vehicle.valveChangeLogs.length > 0}
+                knownTieneValvula85={vehicle.technicalSheet?.tieneValvulaMaximoLlenado85 ?? false}
+              />
             )}
             <ValveChangeLogTable
               logs={vehicle.valveChangeLogs}
@@ -682,13 +751,26 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
+      {isEstacionLike && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">Permisos</h2>
+          <div className="space-y-3">
+            {isEditor && <UploadStationPermitForm vehicleRecordId={vehicle.id} />}
+            <PermitDocumentList
+              documents={vehicle.documents.filter((d) => d.kind === "PERMISO")}
+              isAdmin={isAdmin}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Documentos (PDF o imagen)
         </h2>
         <div className="space-y-3">
           {isEditor && <UploadVehicleDocumentForm vehicleRecordId={vehicle.id} />}
-          <DocumentList documents={vehicle.documents} isAdmin={isAdmin} />
+          <DocumentList documents={vehicle.documents.filter((d) => d.kind !== "PERMISO")} isAdmin={isAdmin} />
         </div>
       </div>
 

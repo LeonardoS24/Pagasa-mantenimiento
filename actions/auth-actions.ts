@@ -9,6 +9,7 @@ import { roleSchema } from "@/lib/roles";
 import { getAccessibleCities } from "@/lib/access";
 import { isAggregateCitySlug } from "@/lib/aggregate-city";
 import { countInProgressMaintenance } from "@/lib/in-progress-maintenance";
+import { countPendingHighPriorityOrders, countValveRedAlerts } from "@/lib/login-alerts";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Ingresa tu usuario"),
@@ -51,13 +52,24 @@ export async function loginAction(
   session.username = user.username;
   session.role = role;
 
+  const cities = await getAccessibleCities({ userId: user.id, username: user.username, role });
+  const cityIds = cities.filter((c) => !isAggregateCitySlug(c.slug)).map((c) => c.id);
+
   if (user.avisosMantenimientoActivos) {
-    const cities = await getAccessibleCities({ userId: user.id, username: user.username, role });
-    const cityIds = cities.filter((c) => !isAggregateCitySlug(c.slug)).map((c) => c.id);
     const count = await countInProgressMaintenance(cityIds);
     if (count > 0) {
       session.pendingInProgressCount = count;
     }
+  }
+
+  const highPriorityOrderCount = await countPendingHighPriorityOrders(cityIds);
+  if (highPriorityOrderCount > 0) {
+    session.pendingHighPriorityOrderCount = highPriorityOrderCount;
+  }
+
+  const valveRedAlertCount = await countValveRedAlerts(cityIds);
+  if (valveRedAlertCount > 0) {
+    session.pendingValveRedAlertCount = valveRedAlertCount;
   }
 
   await session.save();

@@ -19,14 +19,35 @@ import type { ActionState } from "./user-actions";
 // (un vehículo de verdad) siguen siendo obligatorios, validado aparte más
 // abajo porque cuál aplica depende de a qué sección pertenece el registro.
 const ESTACION_SECTION_SLUG = "estaciones-de-carburacion";
+// "Planta" (ver scripts/restructure-planta-section.mjs) se comporta igual
+// que una Estación (ficha técnica de tanque, registros de inspección,
+// permisos) salvo por sus equipos, que viven en el apartado hermano
+// "Equipos de planta" en vez de por-registro.
+const PLANTA_FICHA_TECNICA_SECTION_SLUG = "planta-ficha-tecnica";
+const STATION_LIKE_SECTION_SLUGS = [ESTACION_SECTION_SLUG, PLANTA_FICHA_TECNICA_SECTION_SLUG];
+
+// Combustibles que implican que el motor tiene sistema de gas LP y por lo
+// tanto la unidad debe existir también como registro en Vehículo con tanque
+// de carburación: Gas LP puro o combinado con gasolina, ambos casos.
+const PAIRING_COMBUSTIBLES = ["GAS_LP", "GAS_LP_GASOLINA"];
 
 const vehicleSchema = z.object({
   numeroEconomico: z.string().min(1, "El nombre/número económico es requerido").max(50),
-  sucursal: z.string().min(1, "La sucursal/dirección es requerida").max(100),
+  // Para un vehículo normal esto es "Marca" en pantalla (así es como el
+  // equipo lo usa de siempre, ver components/admin/VehicleForm.tsx) y es
+  // requerida; para una Estación de carburación o Planta es "Dirección", ahí
+  // es opcional (puede llenarse después) — el requerido real se exige aparte
+  // más abajo, igual que año/placas. En ambos casos se captura y edita aquí,
+  // junto con el resto de los datos generales — nunca por separado en otro
+  // formulario.
+  sucursal: z.string().max(2000).optional(),
   anio: z.string().max(20).optional(),
   placas: z.string().max(50).optional(),
-  numeroAnterior: z.string().max(50).optional(),
-  localidadAnterior: z.string().max(100).optional(),
+  observaciones: z.string().max(1000).optional(),
+  // Solo para Estaciones de carburación (datos generales del listado, ver
+  // components/admin/VehicleForm.tsx).
+  permisionaria: z.string().max(150).optional(),
+  permiso: z.string().max(100).optional(),
 });
 
 function parseVehicleForm(formData: FormData) {
@@ -36,14 +57,22 @@ function parseVehicleForm(formData: FormData) {
     const text = collapseSpaces(String(value ?? ""));
     return text.length > 0 ? text : undefined;
   };
+  // sucursal ("Dirección" en Estaciones/Planta) es una dirección de varias
+  // líneas: a diferencia de los demás campos, no se colapsan los saltos de
+  // línea que la persona haya escrito.
+  const cleanKeepLines = (value: FormDataEntryValue | null) => {
+    const text = String(value ?? "").trim();
+    return text.length > 0 ? text : undefined;
+  };
 
   return vehicleSchema.safeParse({
     numeroEconomico: clean(formData.get("numeroEconomico")),
-    sucursal: clean(formData.get("sucursal")),
+    sucursal: cleanKeepLines(formData.get("sucursal")),
     anio: clean(formData.get("anio")),
     placas: clean(formData.get("placas")),
-    numeroAnterior: clean(formData.get("numeroAnterior")),
-    localidadAnterior: clean(formData.get("localidadAnterior")),
+    observaciones: clean(formData.get("observaciones")),
+    permisionaria: clean(formData.get("permisionaria")),
+    permiso: clean(formData.get("permiso")),
   });
 }
 
@@ -66,8 +95,14 @@ export async function createVehicleRecord(
   if (!section) {
     return { error: "El apartado no existe." };
   }
-  if (section.slug !== ESTACION_SECTION_SLUG && (!parsed.data.anio || !parsed.data.placas)) {
-    return { error: "El año y las placas son requeridos." };
+  const isStationLike = STATION_LIKE_SECTION_SLUGS.includes(section.slug);
+  if (!isStationLike) {
+    if (!parsed.data.sucursal) {
+      return { error: "La marca es requerida." };
+    }
+    if (!parsed.data.anio || !parsed.data.placas) {
+      return { error: "El año y las placas son requeridos." };
+    }
   }
 
   const maxOrder = await prisma.vehicleRecord.aggregate({
@@ -81,6 +116,7 @@ export async function createVehicleRecord(
       order: (maxOrder._max.order ?? -1) + 1,
       createdById: editor.userId,
       ...parsed.data,
+      sucursal: parsed.data.sucursal ?? "",
     },
   });
 
@@ -113,11 +149,22 @@ export async function updateVehicleRecord(
   if (!vehicle) {
     return { error: "El registro no existe." };
   }
-  if (vehicle.section.slug !== ESTACION_SECTION_SLUG && (!parsed.data.anio || !parsed.data.placas)) {
-    return { error: "El año y las placas son requeridos." };
+  if (!STATION_LIKE_SECTION_SLUGS.includes(vehicle.section.slug)) {
+    if (!parsed.data.sucursal) {
+      return { error: "La marca es requerida." };
+    }
+    if (!parsed.data.anio || !parsed.data.placas) {
+      return { error: "El año y las placas son requeridos." };
+    }
   }
 
-  await prisma.vehicleRecord.update({ where: { id: vehicleId }, data: parsed.data });
+  // VehicleForm siempre incluye el campo (Marca o Dirección, según el tipo
+  // de apartado), así que a diferencia de otros campos opcionales, un valor
+  // vacío aquí sí debe limpiar sucursal (no dejar el valor anterior).
+  await prisma.vehicleRecord.update({
+    where: { id: vehicleId },
+    data: { ...parsed.data, sucursal: parsed.data.sucursal ?? "" },
+  });
 
   const chain = await getSectionChain(vehicle.sectionId);
   revalidatePath(sectionBasePath(vehicle.section.city.slug, chain));
@@ -251,8 +298,31 @@ function nextFechaCalidadMalaExtintor(
   return calidadAnterior === "MALA" ? fechaAnterior : new Date();
 }
 
+// Historial de transición de calidad del extintor (ver
+// ExtinguisherQualityChangeLog en el schema): aplica a todas las unidades,
+// no solo a Estaciones de carburación. Solo deja renglón cuando la calidad
+// de verdad cambió, para no llenar el historial con guardados que no la
+// tocaron.
+async function recordExtinguisherQualityChange(params: {
+  vehicleRecordId: string;
+  calidadAnterior: string | null;
+  calidadNueva: string | null;
+  observacion: string | null;
+  userId: string | null;
+}): Promise<void> {
+  if (!params.calidadNueva || params.calidadAnterior === params.calidadNueva) return;
+  await prisma.extinguisherQualityChangeLog.create({
+    data: {
+      vehicleRecordId: params.vehicleRecordId,
+      calidadAnterior: params.calidadAnterior,
+      calidadNueva: params.calidadNueva,
+      observacion: params.observacion,
+      createdById: params.userId,
+    },
+  });
+}
+
 const technicalSheetSchema = z.object({
-  fabricante: optionalText(100),
   marca: optionalText(100),
   linea: optionalText(100),
   modelo: optionalText(100),
@@ -267,6 +337,9 @@ const technicalSheetSchema = z.object({
   caracteristicas: optionalText(1000),
   horasUsoDiario: optionalText(50),
   fechaAdquisicion: optionalDate,
+  chofer: optionalText(150),
+  numeroPoliza: optionalText(100),
+  inciso: optionalText(50),
   capacidadTanque: optionalText(50),
   marcaTanque: optionalText(100),
   anioFabricacionTanque: optionalText(20),
@@ -333,7 +406,6 @@ export async function upsertTechnicalSheet(
   // unidad: nada aquí es obligatorio, para no bloquear el guardado mientras
   // todavía no se tienen todos los datos (ver components/admin/TechnicalSheetForm.tsx).
   const parsed = technicalSheetSchema.safeParse({
-    fabricante: formData.get("fabricante"),
     marca: formData.get("marca"),
     linea: formData.get("linea"),
     modelo: formData.get("modelo"),
@@ -345,6 +417,9 @@ export async function upsertTechnicalSheet(
     caracteristicas: formData.get("caracteristicas"),
     horasUsoDiario: formData.get("horasUsoDiario"),
     fechaAdquisicion: formData.get("fechaAdquisicion"),
+    chofer: formData.get("chofer"),
+    numeroPoliza: formData.get("numeroPoliza"),
+    inciso: formData.get("inciso"),
     capacidadTanque: formData.get("capacidadTanque"),
     marcaTanque: formData.get("marcaTanque"),
     anioFabricacionTanque: formData.get("anioFabricacionTanque"),
@@ -411,12 +486,16 @@ export async function upsertTechnicalSheet(
     vehicle.technicalSheet?.fechaCalidadMalaExtintor ?? null
   );
 
-  // Vehículo con tanque de carburación siempre usa gas LP y gasolina: se
-  // fija en el servidor sin importar lo que llegue del formulario (el campo
-  // se muestra bloqueado en la UI, pero esto es la garantía real). Lo mismo
-  // aplica a Auto-Tanques cuando el mismo número económico se repite como
-  // registro en Vehículo con tanque de carburación dentro de la misma
-  // ciudad (mismo camión, motor con sistema dual de combustible).
+  // Vehículo con tanque de carburación siempre usa alguna forma de gas LP
+  // (solo o combinado con gasolina): se garantiza en el servidor sin
+  // importar lo que llegue del formulario (el campo se muestra bloqueado en
+  // la UI, pero esto es la garantía real). Lo mismo aplica a Auto-Tanques
+  // cuando el mismo número económico se repite como registro en Vehículo
+  // con tanque de carburación dentro de la misma ciudad (mismo camión, motor
+  // con sistema de gas LP). Si lo que se mandó ya es uno de los dos valores
+  // válidos se respeta tal cual (para no forzar "Gas LP/Gasolina" en una
+  // unidad que en realidad es solo Gas LP); cualquier otro valor cae al
+  // default de siempre.
   let lockCombustible = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
   if (!lockCombustible && vehicle.section.slug === "auto-tanques") {
     const match = await prisma.vehicleRecord.count({
@@ -428,7 +507,7 @@ export async function upsertTechnicalSheet(
     });
     lockCombustible = match > 0;
   }
-  if (lockCombustible) {
+  if (lockCombustible && !PAIRING_COMBUSTIBLES.includes(data.combustible ?? "")) {
     data.combustible = "GAS_LP_GASOLINA";
   }
 
@@ -436,12 +515,19 @@ export async function upsertTechnicalSheet(
   // unidad física de forma única: no pueden repetirse entre dos números
   // económicos distintos. Excepto contra una unidad ya dada de baja: ese
   // número de serie quedó libre (p.ej. el mismo tanque físico se pasó a una
-  // unidad nueva), así que no cuenta como conflicto.
+  // unidad nueva), así que no cuenta como conflicto. Tampoco cuenta cuando
+  // Vehículo con tanque de carburación está de por medio (de cualquiera de
+  // los dos lados): es el mismo automóvil que su Auto-Tanques/Vehículo de
+  // reparto pareja, así que comparte la misma Serie (VIN) a propósito.
   if (data.serie) {
     const duplicate = await prisma.vehicleTechnicalSheet.findFirst({
       where: { serie: data.serie, vehicleRecordId: { not: vehicleId }, vehicleRecord: { activo: true } },
+      include: { vehicleRecord: { include: { section: true } } },
     });
-    if (duplicate) {
+    const carburacionInvolucrada =
+      vehicle.section.slug === "vehiculo-con-tanque-de-carburacion" ||
+      duplicate?.vehicleRecord.section.slug === "vehiculo-con-tanque-de-carburacion";
+    if (duplicate && !carburacionInvolucrada) {
       return { error: `Ya existe otra unidad registrada con la Serie "${data.serie}".` };
     }
   }
@@ -466,17 +552,30 @@ export async function upsertTechnicalSheet(
     create: { vehicleRecordId: vehicleId, ...data },
   });
 
+  // Este formulario no tiene un campo de observación propio (el cambio
+  // rápido de calidad — updateCalidadExtintor — es el que lo exige); si de
+  // todos modos la calidad cambió al editar la ficha completa, igual queda
+  // el renglón en el historial, sin observación.
+  await recordExtinguisherQualityChange({
+    vehicleRecordId: vehicleId,
+    calidadAnterior: vehicle.technicalSheet?.calidadExtintor ?? null,
+    calidadNueva: data.calidadExtintor,
+    observacion: null,
+    userId: editor.userId,
+  });
+
   // Si esta unidad (en cualquier apartado de Unidad de distribución, menos
   // Vehículo con tanque de carburación mismo y Estaciones de carburación,
-  // que no es un vehículo) queda con combustible Gas LP/Gasolina, es porque
-  // tiene sistema dual y también debe existir como registro en Vehículo con
-  // tanque de carburación (ver hasTanqueCarburacionMatch en la página de
-  // detalle, que ya asumía este pareo). No es normal crear unidades ahí a
-  // mano, así que se crea sola si todavía no existe.
+  // que no es un vehículo) queda con combustible Gas LP o Gas LP/Gasolina,
+  // es porque tiene sistema de gas LP en el motor y también debe existir
+  // como registro en Vehículo con tanque de carburación (ver
+  // hasTanqueCarburacionMatch en la página de detalle, que ya asumía este
+  // pareo). No es normal crear unidades ahí a mano, así que se crea sola si
+  // todavía no existe.
   if (
-    data.combustible === "GAS_LP_GASOLINA" &&
+    PAIRING_COMBUSTIBLES.includes(data.combustible ?? "") &&
     vehicle.section.slug !== "vehiculo-con-tanque-de-carburacion" &&
-    vehicle.section.slug !== ESTACION_SECTION_SLUG
+    !STATION_LIKE_SECTION_SLUGS.includes(vehicle.section.slug)
   ) {
     const tanqueSection = await prisma.section.findFirst({
       where: { slug: "vehiculo-con-tanque-de-carburacion", cityId: vehicle.section.cityId },
@@ -499,8 +598,7 @@ export async function upsertTechnicalSheet(
             sucursal: vehicle.sucursal,
             anio: vehicle.anio,
             placas: vehicle.placas,
-            numeroAnterior: vehicle.numeroAnterior,
-            localidadAnterior: vehicle.localidadAnterior,
+            observaciones: vehicle.observaciones,
           },
         });
         const tanqueChain = await getSectionChain(tanqueSection.id);
@@ -516,6 +614,104 @@ export async function upsertTechnicalSheet(
   return { success: "Ficha técnica guardada." };
 }
 
+const stationTankTechnicalSheetSchema = z.object({
+  numeroSerie: optionalText(100),
+  marca: optionalText(100),
+  modelo: optionalText(100),
+  tipo: optionalText(100),
+  anioFabricacion: optionalText(20),
+  fechaFabricacion: optionalDate,
+  capacidad: optionalText(50),
+  presionDiseno: optionalText(50),
+  longitudTotal: optionalText(50),
+  formaCabeza: optionalText(100),
+  espesorNominalCuerpo: optionalText(50),
+  espesorNominalCabeza: optionalText(50),
+  materialCuerpo: optionalText(100),
+  materialCabeza: optionalText(100),
+  diametroInterior: optionalText(50),
+  tara: optionalText(50),
+});
+
+// Ficha técnica del tanque de una Estación de carburación: reemplaza la
+// sección "Tanque" genérica (ver upsertTechnicalSheet) con el vocabulario de
+// un recipiente a presión fijo. Las fechas de vencimiento de las 5
+// inspecciones periódicas se quedan en VehicleTechnicalSheet — si aquí se
+// captura la fecha de fabricación y esas 3 todavía están vacías, se calculan
+// solas a 10 años, igual que ya hace upsertTechnicalSheet para el resto de
+// las unidades.
+export async function upsertStationTankTechnicalSheet(
+  vehicleId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const vehicle = await prisma.vehicleRecord.findUnique({
+    where: { id: vehicleId },
+    include: { section: { include: { city: true } }, technicalSheet: true },
+  });
+  if (!vehicle) {
+    return { error: "El registro no existe." };
+  }
+
+  const parsed = stationTankTechnicalSheetSchema.safeParse({
+    numeroSerie: formData.get("numeroSerie"),
+    marca: formData.get("marca"),
+    modelo: formData.get("modelo"),
+    tipo: formData.get("tipo"),
+    anioFabricacion: formData.get("anioFabricacion"),
+    fechaFabricacion: formData.get("fechaFabricacion"),
+    capacidad: formData.get("capacidad"),
+    presionDiseno: formData.get("presionDiseno"),
+    longitudTotal: formData.get("longitudTotal"),
+    formaCabeza: formData.get("formaCabeza"),
+    espesorNominalCuerpo: formData.get("espesorNominalCuerpo"),
+    espesorNominalCabeza: formData.get("espesorNominalCabeza"),
+    materialCuerpo: formData.get("materialCuerpo"),
+    materialCabeza: formData.get("materialCabeza"),
+    diametroInterior: formData.get("diametroInterior"),
+    tara: formData.get("tara"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const sheetData = parsed.data;
+
+  await prisma.stationTankTechnicalSheet.upsert({
+    where: { vehicleRecordId: vehicleId },
+    update: sheetData,
+    create: { vehicleRecordId: vehicleId, ...sheetData },
+  });
+
+  if (
+    sheetData.fechaFabricacion &&
+    !vehicle.technicalSheet?.fechaProximaInspeccionVisualInterna &&
+    !vehicle.technicalSheet?.fechaProximaPruebaHidrostatica &&
+    !vehicle.technicalSheet?.fechaProximoUltrasonido
+  ) {
+    const fechaCalculada = addTenYears(sheetData.fechaFabricacion);
+    await prisma.vehicleTechnicalSheet.upsert({
+      where: { vehicleRecordId: vehicleId },
+      update: {
+        fechaProximaInspeccionVisualInterna: fechaCalculada,
+        fechaProximaPruebaHidrostatica: fechaCalculada,
+        fechaProximoUltrasonido: fechaCalculada,
+      },
+      create: {
+        vehicleRecordId: vehicleId,
+        fechaProximaInspeccionVisualInterna: fechaCalculada,
+        fechaProximaPruebaHidrostatica: fechaCalculada,
+        fechaProximoUltrasonido: fechaCalculada,
+      },
+    });
+  }
+
+  revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
+  return { success: "Ficha técnica del tanque actualizada." };
+}
+
 // Cambio rápido de solo la calidad del extintor, sin desbloquear/editar toda
 // la ficha técnica (mismo espíritu que EditStatusForm para mantenimientos).
 // Reutiliza la acción principal por dentro para no duplicar la lógica de
@@ -525,11 +721,19 @@ export async function updateCalidadExtintor(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
 
   const parsed = calidadExtintorSchema.safeParse(formData.get("calidadExtintor"));
   if (!parsed.success) {
     return { error: "Calidad inválida." };
+  }
+
+  // Cuando la calidad nueva es "MALA" se exige explicar por qué: la
+  // observación queda marcada en el historial de transición del extintor
+  // (ver ExtinguisherQualityChangeLog), visible junto al antes/después.
+  const observacion = String(formData.get("observacion") ?? "").trim();
+  if (parsed.data === "MALA" && !observacion) {
+    return { error: "Escribe una observación explicando por qué el extintor está en mal estado." };
   }
 
   const vehicle = await prisma.vehicleRecord.findUnique({
@@ -540,9 +744,10 @@ export async function updateCalidadExtintor(
     return { error: "El registro no existe." };
   }
 
+  const calidadAnterior = vehicle.technicalSheet?.calidadExtintor ?? null;
   const fechaCalidadMalaExtintor = nextFechaCalidadMalaExtintor(
     parsed.data,
-    vehicle.technicalSheet?.calidadExtintor ?? null,
+    calidadAnterior,
     vehicle.technicalSheet?.fechaCalidadMalaExtintor ?? null
   );
 
@@ -550,6 +755,14 @@ export async function updateCalidadExtintor(
     where: { vehicleRecordId: vehicleId },
     update: { calidadExtintor: parsed.data, fechaCalidadMalaExtintor },
     create: { vehicleRecordId: vehicleId, calidadExtintor: parsed.data, fechaCalidadMalaExtintor },
+  });
+
+  await recordExtinguisherQualityChange({
+    vehicleRecordId: vehicleId,
+    calidadAnterior,
+    calidadNueva: parsed.data,
+    observacion: observacion || null,
+    userId: editor.userId,
   });
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);

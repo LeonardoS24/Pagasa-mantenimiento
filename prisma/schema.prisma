@@ -46,6 +46,7 @@ model User {
   internalVisualInspectionLogs  InternalVisualInspectionLog[]
   hydrostaticTestLogs           HydrostaticTestLog[]
   extinguisherChangeLogs        ExtinguisherChangeLog[]
+  extinguisherQualityChangeLogs ExtinguisherQualityChangeLog[]
   valveChangeLogs               ValveChangeLog[]
   valveCorrectiveMaintenanceLogs ValveCorrectiveMaintenanceLog[]
   hoseChangeLogs                 HoseChangeLog[]
@@ -54,6 +55,7 @@ model User {
   equipmentLogs                  EquipmentLog[]
   vehicleRecords                 VehicleRecord[]
   equipos                        Equipo[]
+  activityLogs                   ActivityLog[]
 
   @@map("users")
 }
@@ -111,13 +113,25 @@ model VehicleRecord {
   // En "Estaciones de carburación" (dentro de Unidad de distribución, ver
   // scripts/add-estaciones-de-carburacion.mjs) numeroEconomico/sucursal se
   // reutilizan como "Nombre"/"Dirección" (ver components/admin/VehicleForm.tsx)
-  // y anio/placas se dejan vacíos: no aplican a una estación fija.
-  numeroEconomico   String
-  sucursal          String
-  anio              String?
-  placas            String?
-  numeroAnterior    String?
-  localidadAnterior String?
+  // y anio/placas se dejan vacíos: no aplican a una estación fija. Para el
+  // resto de las unidades, sucursal en realidad siempre guardó la marca del
+  // vehículo (así lo usa el equipo desde antes de este sistema), por eso la
+  // pantalla la llama "Marca" aunque la columna se siga llamando sucursal.
+  numeroEconomico String
+  sucursal        String
+  anio            String?
+  placas          String?
+  // Texto libre (ver components/admin/VehicleForm.tsx): reemplazó a los
+  // antiguos numeroAnterior/localidadAnterior, migrados aquí como texto.
+  observaciones   String?
+
+  // Solo para "Estaciones de carburación": datos generales del listado junto
+  // con numeroEconomico ("Nombre") y sucursal ("Dirección"), editados juntos
+  // en su propia ficha técnica de la estación (ver VehicleForm.tsx) — no se
+  // separan de Dirección, a diferencia de la ficha técnica del tanque
+  // (StationTankTechnicalSheetForm), que es un formulario distinto.
+  permisionaria String?
+  permiso       String?
 
   // Dar de baja no elimina la unidad: se conserva en el sistema (con toda su
   // ficha técnica, bitácora y documentos) marcada como inactiva. Solo un
@@ -139,6 +153,16 @@ model VehicleRecord {
 
   documents                    Document[]
   technicalSheet               VehicleTechnicalSheet?
+  // Solo para "Estaciones de carburación" (ver StationTankTechnicalSheet más
+  // abajo): reemplaza la sección "Tanque" de VehicleTechnicalSheet con campos
+  // propios de recipiente a presión. Las fechas de vencimiento de las 5
+  // inspecciones periódicas siguen viviendo en VehicleTechnicalSheet (mismo
+  // sistema de alertas que cualquier otro tanque).
+  stationTankTechnicalSheet    StationTankTechnicalSheet?
+  // Solo para "Estaciones de carburación": equipos propios de esa estación
+  // (ver Equipo.vehicleRecordId), aparte de los "Equipos de planta" a nivel
+  // ciudad.
+  equipos                      Equipo[]
   maintenanceLogs              MaintenanceLog[]
   ultrasoundLogs               UltrasoundLog[]
   visualInspectionLogs         VisualInspectionLog[]
@@ -146,6 +170,7 @@ model VehicleRecord {
   internalVisualInspectionLogs InternalVisualInspectionLog[]
   hydrostaticTestLogs          HydrostaticTestLog[]
   extinguisherChangeLogs       ExtinguisherChangeLog[]
+  extinguisherQualityChangeLogs ExtinguisherQualityChangeLog[]
   valveChangeLogs              ValveChangeLog[]
   valveCorrectiveMaintenanceLogs ValveCorrectiveMaintenanceLog[]
   hoseChangeLogs                HoseChangeLog[]
@@ -179,7 +204,10 @@ model VehicleTechnicalSheet {
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
   // Automóvil
-  fabricante        String?
+  // "Marca" se eligió de un catálogo (ver lib/vehicle-brand-catalog.ts) que
+  // también sugiere Línea/Modelo — a diferencia de VehicleRecord.sucursal
+  // (que la pantalla llama "Marca" en datos generales), este es un dato más
+  // detallado con clasificación completa, no un duplicado.
   marca             String?
   linea             String?
   modelo            String?
@@ -195,6 +223,13 @@ model VehicleTechnicalSheet {
   potencia          String?
   horasUsoDiario    String?
   fechaAdquisicion  DateTime?
+  // Chofer asignado y datos del seguro de la unidad. Igual que el resto de
+  // "Automóvil": mismo vehículo físico en el par Auto-Tanques/Vehículo con
+  // tanque de carburación, así que solo se captura y se imprime una vez (ver
+  // showAutomovilSection en TechnicalSheetView.tsx e imprimir/page.tsx).
+  chofer         String?
+  numeroPoliza   String?
+  inciso         String?
 
   // Tanque
   capacidadTanque       String?
@@ -287,6 +322,42 @@ model VehicleTechnicalSheet {
   updatedAt DateTime @updatedAt
 
   @@map("vehicle_technical_sheets")
+}
+
+// Ficha técnica del tanque de una Estación de carburación: a diferencia de
+// VehicleTechnicalSheet (pensada para el tanque de carga de un Auto-Tanque),
+// esta usa el vocabulario propio de un recipiente a presión fijo. Las fechas
+// de vencimiento de las 5 inspecciones periódicas (ultrasonido, visual
+// externa/interna, hermeticidad, hidrostática) NO están aquí — siguen
+// viviendo en VehicleTechnicalSheet, que toda unidad (incluidas las
+// estaciones) sigue teniendo, para reutilizar el mismo sistema de alertas.
+model StationTankTechnicalSheet {
+  id String @id @default(cuid())
+
+  vehicleRecordId String        @unique
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  numeroSerie          String?
+  marca                String?
+  modelo               String?
+  tipo                 String?
+  anioFabricacion      String?
+  fechaFabricacion     DateTime?
+  capacidad            String?
+  presionDiseno        String?
+  longitudTotal        String?
+  formaCabeza          String?
+  espesorNominalCuerpo String?
+  espesorNominalCabeza String?
+  materialCuerpo       String?
+  materialCabeza       String?
+  diametroInterior     String?
+  tara                 String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("station_tank_technical_sheets")
 }
 
 // Entrada de bitácora de mantenimiento de una unidad. El estatus se muestra
@@ -555,6 +626,32 @@ model ExtinguisherChangeLog {
   @@map("extinguisher_change_logs")
 }
 
+// Historial de cambios de estado del extintor (a diferencia de
+// ExtinguisherChangeLog, que registra cuándo se instaló físicamente un
+// extintor nuevo): cada vez que la calidad reportada cambia — por el cambio
+// rápido en la ficha técnica (ver actions/vehicle-actions.ts:
+// updateCalidadExtintor) o al editar la ficha técnica completa — queda un
+// renglón aquí con el antes/después. Cuando la calidad nueva es "MALA" se
+// exige una observación explicando por qué (aplica a todas las unidades, no
+// solo a Estaciones de carburación).
+model ExtinguisherQualityChangeLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  calidadAnterior String?
+  calidadNueva    String
+  observacion     String?
+
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@map("extinguisher_quality_change_logs")
+}
+
 // Registro de cada cambio de válvulas de tanque. Solo aplica a Vehículo con
 // tanque de carburación. Cada una de las 4 válvulas guarda su propia fecha
 // de fabricación (usadas para la alerta de 5 años); fechaInstalacion es la
@@ -686,6 +783,14 @@ model PieceOrder {
   // "PENDIENTE" | "ACEPTADA" | "RECHAZADA" | "EN_INVENTARIO"
   estado String @default("PENDIENTE")
 
+  // "ALTA" | "NORMAL". Se fija sola al crear la orden: ALTA cuando
+  // vehicleRecordId apunta a una unidad cuya calidad (VehicleRecord.calidad)
+  // es "MALA" (ver createPieceOrder en actions/piece-order-actions.ts). No se
+  // vuelve a recalcular si la calidad de la unidad cambia después. Dispara el
+  // aviso de inicio de sesión (ver consumePendingHighPriorityOrderAlert en
+  // actions/user-actions.ts).
+  prioridad String @default("NORMAL")
+
   // Momento en que la orden pasó a ACEPTADA (se vuelve a fijar cada vez que
   // pasa a ese estado). Ancla el plazo de 2 semanas tras el cual, si nadie la
   // pasó a EN_INVENTARIO a mano, se hace sola (ver
@@ -783,6 +888,15 @@ model Equipo {
 
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  // Solo cuando este equipo pertenece a una Estación de carburación en
+  // particular (no a los "Equipos de planta" a nivel ciudad): sectionId
+  // sigue apuntando al apartado "Estaciones de carburación" (para que el
+  // borrado en cascada de la ciudad/apartado lo siga alcanzando), pero el
+  // listado de la estación filtra por este campo y el listado de "Equipos de
+  // planta" excluye los que sí lo tienen.
+  vehicleRecordId String?
+  vehicleRecord   VehicleRecord? @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
   tipoEquipo String // "MECANICO" | "ELECTRICO" | "AUXILIAR"
 
@@ -937,9 +1051,14 @@ model Document {
   size       Int
 
   // "ADJUNTO" (PDF genérico) | "ANTES" | "DESPUES" (fotos de MaintenanceLog) |
-  // "FOTO" (fotografías de Equipo tipo Auxiliar). El resto siempre queda en
-  // el valor por defecto.
+  // "FOTO" (fotografías de Equipo tipo Auxiliar) | "PERMISO" (permiso de
+  // Estación de carburación, ver UploadStationPermitForm). El resto siempre
+  // queda en el valor por defecto.
   kind String @default("ADJUNTO")
+
+  // Solo para kind "PERMISO": fecha en que se realizó/emitió el permiso
+  // (distinta de createdAt, que es cuándo se subió el archivo al sistema).
+  fecha DateTime?
 
   uploadedById String?
   uploadedBy   User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
@@ -962,4 +1081,28 @@ model UserCityAccess {
 
   @@unique([userId, cityId])
   @@map("user_city_access")
+}
+
+// Bitácora de auditoría del sistema: quién eliminó o editó qué. Se escribe
+// ANTES de borrar (lib/activity-log.ts: logActivity), porque una vez que un
+// registro se elimina en cascada ya no queda nada que leer para describirlo.
+// userId es SetNull (igual que el resto de la app) para no perder el
+// historial de auditoría si el usuario que lo generó es eliminado después;
+// username guarda una copia fija del nombre en ese momento para que el
+// registro siga siendo legible aunque el usuario ya no exista.
+model ActivityLog {
+  id       String @id @default(cuid())
+  accion   String // "ELIMINAR" | "EDITAR"
+  entidad  String // etiqueta legible, ej. "Registro de mantenimiento"
+  resumen  String // descripción de una línea de qué se eliminó/cambió
+  detalle  String?
+  citySlug String?
+
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username String
+
+  createdAt DateTime @default(now())
+
+  @@map("activity_log")
 }

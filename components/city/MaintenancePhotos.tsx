@@ -1,6 +1,6 @@
 import type { Document } from "@prisma/client";
 import { deleteDocument } from "@/actions/document-actions";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 // Separadas de la lista genérica de PDF: son fotos, así que se muestran como
 // miniaturas en vez de un enlace de descarga, y "antes"/"después" van fijos
@@ -53,14 +53,13 @@ export function MaintenancePhotos({
             <p className="text-xs font-medium text-ink">{label}</p>
             <Photo label={label} document={document} />
             {document && isAdmin && (
-              <form action={deleteDocument.bind(null, document.id)}>
-                <ConfirmSubmitButton
-                  confirmMessage={`¿Eliminar la foto de "${label.toLowerCase()}"?`}
-                  className="text-xs text-accent hover:underline"
-                >
-                  Eliminar
-                </ConfirmSubmitButton>
-              </form>
+              <ConfirmDeleteRecordWithPassword
+                mensaje={`¿Eliminar la foto de "${label.toLowerCase()}"?`}
+                action={deleteDocument.bind(null, document.id)}
+                className="text-xs text-accent hover:underline"
+              >
+                Eliminar
+              </ConfirmDeleteRecordWithPassword>
             )}
           </div>
         ))}

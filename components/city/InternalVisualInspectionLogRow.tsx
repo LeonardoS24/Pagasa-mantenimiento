@@ -11,7 +11,7 @@ import type { ActionState } from "@/actions/user-actions";
 import { formatDate, toDateInputValue } from "@/lib/dates";
 import { DocumentList } from "./DocumentList";
 import { UploadInternalVisualInspectionLogDocumentForm } from "@/components/admin/UploadInternalVisualInspectionLogDocumentForm";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 const initialState: ActionState = {};
 
@@ -162,14 +162,13 @@ export function InternalVisualInspectionLogRow({
           </div>
 
           {isAdmin && (
-            <form action={deleteInternalVisualInspectionLog.bind(null, log.id)}>
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar este registro de inspección visual interna (${formatDate(log.fechaRealizacion)})? También se eliminarán sus documentos.`}
-                className="text-sm text-accent hover:underline"
-              >
-                Eliminar registro
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteRecordWithPassword
+              mensaje={`¿Eliminar este registro de inspección visual interna (${formatDate(log.fechaRealizacion)})? También se eliminarán sus documentos.`}
+              action={deleteInternalVisualInspectionLog.bind(null, log.id)}
+              className="text-sm text-accent hover:underline"
+            >
+              Eliminar registro
+            </ConfirmDeleteRecordWithPassword>
           )}
         </div>
       )}

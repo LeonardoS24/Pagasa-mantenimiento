@@ -4,6 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 import { saveDocumentFile, valveChangeLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import { vincularPiezaARegistro } from "./inventory-actions";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
@@ -250,14 +252,33 @@ export async function updateValveChangeLog(
   return { success: "Registro actualizado." };
 }
 
-export async function deleteValveChangeLog(logId: string) {
-  await requireElevatedEditor();
+export async function deleteValveChangeLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireElevatedEditor();
+
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
 
   const log = await prisma.valveChangeLog.findUnique({
     where: { id: logId },
     include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
   });
-  if (!log) return;
+  if (!log) {
+    return { error: "El registro ya no existe." };
+  }
+
+  await logActivity({
+    user: admin,
+    accion: "ELIMINAR",
+    entidad: "Cambio de válvulas",
+    resumen: log.vehicleRecord.numeroEconomico,
+    citySlug: log.vehicleRecord.section.city.slug,
+  });
 
   // Los PDF de la bitácora se van con ella en la base, pero el archivo en
   // disco hay que borrarlo aparte y antes, mientras el registro existe.
@@ -266,4 +287,5 @@ export async function deleteValveChangeLog(logId: string) {
 
   revalidatePath(`/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`);
   revalidatePath("/dashboard");
+  return { success: "Registro eliminado." };
 }

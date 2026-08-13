@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor } from "@/lib/auth";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 import { sectionBasePath } from "@/lib/section-path";
 import {
   inventoryItemStatusSchema,
@@ -282,15 +284,35 @@ export async function usarPiezaDesdeMantenimiento(
   });
 }
 
-export async function deleteInventoryItem(itemId: string) {
-  await requireElevatedEditor();
+export async function deleteInventoryItem(
+  itemId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireElevatedEditor();
+
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
 
   const item = await prisma.inventoryItem.findUnique({
     where: { id: itemId },
     include: { section: { include: { city: true } } },
   });
-  if (!item) return;
+  if (!item) {
+    return { error: "El artículo ya no existe." };
+  }
+
+  await logActivity({
+    user: admin,
+    accion: "ELIMINAR",
+    entidad: "Artículo de inventario",
+    resumen: `${item.nombre} (${item.cantidad} ${item.unidad})`,
+    citySlug: item.section.city.slug,
+  });
 
   await prisma.inventoryItem.delete({ where: { id: itemId } });
   revalidatePath(sectionBasePath(item.section.city.slug, [item.section]));
+  return { success: "Artículo eliminado." };
 }

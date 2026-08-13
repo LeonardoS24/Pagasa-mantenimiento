@@ -9,7 +9,7 @@ import { formatDate, toDateInputValue } from "@/lib/dates";
 import { calidadExtintorLabels, type CalidadExtintor } from "@/lib/vehicle-enums";
 import { DocumentList } from "./DocumentList";
 import { UploadExtinguisherChangeLogDocumentForm } from "@/components/admin/UploadExtinguisherChangeLogDocumentForm";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 const initialState: ActionState = {};
 
@@ -152,14 +152,13 @@ export function ExtinguisherChangeLogRow({
           </div>
 
           {isAdmin && (
-            <form action={deleteExtinguisherChangeLog.bind(null, log.id)}>
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar este registro de cambio de extintor (${formatDate(log.fechaInstalacion)})? También se eliminarán sus documentos.`}
-                className="text-sm text-accent hover:underline"
-              >
-                Eliminar registro
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteRecordWithPassword
+              mensaje={`¿Eliminar este registro de cambio de extintor (${formatDate(log.fechaInstalacion)})? También se eliminarán sus documentos.`}
+              action={deleteExtinguisherChangeLog.bind(null, log.id)}
+              className="text-sm text-accent hover:underline"
+            >
+              Eliminar registro
+            </ConfirmDeleteRecordWithPassword>
           )}
         </div>
       )}

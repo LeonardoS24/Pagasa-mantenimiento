@@ -12,7 +12,7 @@ import { formatDate, toDateInputValue } from "@/lib/dates";
 import { getValvulaCorrectivaOptions, getValvulaCorrectivaLabel } from "@/lib/valve-alerts";
 import { DocumentList } from "./DocumentList";
 import { UploadValveCorrectiveMaintenanceLogDocumentForm } from "@/components/admin/UploadValveCorrectiveMaintenanceLogDocumentForm";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 const initialState: ActionState = {};
 
@@ -173,14 +173,13 @@ export function ValveCorrectiveMaintenanceLogRow({
           </div>
 
           {isAdmin && (
-            <form action={deleteValveCorrectiveMaintenanceLog.bind(null, log.id)}>
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar este registro de mantenimiento correctivo (${formatDate(log.fecha)})? También se eliminarán sus documentos.`}
-                className="text-sm text-accent hover:underline"
-              >
-                Eliminar registro
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteRecordWithPassword
+              mensaje={`¿Eliminar este registro de mantenimiento correctivo (${formatDate(log.fecha)})? También se eliminarán sus documentos.`}
+              action={deleteValveCorrectiveMaintenanceLog.bind(null, log.id)}
+              className="text-sm text-accent hover:underline"
+            >
+              Eliminar registro
+            </ConfirmDeleteRecordWithPassword>
           )}
         </div>
       )}

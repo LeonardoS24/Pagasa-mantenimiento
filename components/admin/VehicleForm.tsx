@@ -14,8 +14,9 @@ export interface VehicleFormDefaults {
   sucursal?: string;
   anio?: string | null;
   placas?: string | null;
-  numeroAnterior?: string | null;
-  localidadAnterior?: string | null;
+  observaciones?: string | null;
+  permisionaria?: string | null;
+  permiso?: string | null;
 }
 
 function SubmitButton({ label }: { label: string }) {
@@ -37,8 +38,14 @@ export function VehicleForm({
   submitLabel,
   // "Estaciones de carburación" (ver scripts/add-estaciones-de-carburacion.mjs)
   // no es un vehículo: reutiliza numeroEconomico/sucursal como
-  // "Nombre"/"Dirección" y no pide año/placas/número o localidad anterior.
+  // "Nombre"/"Dirección" (junto con Permisionaria/Permiso, todo en un solo
+  // formulario — "la ficha técnica de la estación" — sin separar Dirección
+  // en otro lado) y no pide año/placas.
   isEstacion = false,
+  // "Planta" (ver scripts/restructure-planta-section.mjs) usa isEstacion=true
+  // igual que una Estación (mismos campos), pero el texto del banner de
+  // bloqueo dice "la planta" en vez de "la estación".
+  stationLabel = "la estación",
   // true al editar una unidad ya existente (empieza bloqueada con un botón
   // "Editar", mismo patrón que TechnicalSheetForm.tsx, para no cambiar los
   // datos generales sin querer con solo dar clic). false en CreateVehicleForm
@@ -49,6 +56,7 @@ export function VehicleForm({
   defaults?: VehicleFormDefaults;
   submitLabel: string;
   isEstacion?: boolean;
+  stationLabel?: string;
   lockable?: boolean;
 }) {
   const [state, formAction] = useFormState(action, initialState);
@@ -66,8 +74,12 @@ export function VehicleForm({
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-2">
           <p className="text-sm text-ink">
             {locked
-              ? "Los datos generales están bloqueados para evitar cambios por accidente."
-              : "Editando los datos generales."}
+              ? isEstacion
+                ? `La ficha técnica de ${stationLabel} está bloqueada para evitar cambios por accidente.`
+                : "Los datos generales están bloqueados para evitar cambios por accidente."
+              : isEstacion
+                ? `Editando la ficha técnica de ${stationLabel}.`
+                : "Editando los datos generales."}
           </p>
           {locked ? (
             <button
@@ -99,20 +111,57 @@ export function VehicleForm({
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="sucursal">
-              {isEstacion ? "Dirección" : "Sucursal"}
-            </label>
-            <input
-              id="sucursal"
-              name="sucursal"
-              defaultValue={defaults?.sucursal}
-              required
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
-            />
-          </div>
-          {!isEstacion && (
+          {isEstacion ? (
             <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="permisionaria">
+                  Permisionaria
+                </label>
+                <input
+                  id="permisionaria"
+                  name="permisionaria"
+                  defaultValue={defaults?.permisionaria ?? ""}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="permiso">
+                  Permiso
+                </label>
+                <input
+                  id="permiso"
+                  name="permiso"
+                  defaultValue={defaults?.permiso ?? ""}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="sucursal">
+                  Dirección (opcional)
+                </label>
+                <textarea
+                  id="sucursal"
+                  name="sucursal"
+                  rows={3}
+                  defaultValue={defaults?.sucursal}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="sucursal">
+                  Marca
+                </label>
+                <input
+                  id="sucursal"
+                  name="sucursal"
+                  defaultValue={defaults?.sucursal}
+                  required
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
+                />
+              </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-ink" htmlFor="anio">
                   Año
@@ -137,25 +186,15 @@ export function VehicleForm({
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="numeroAnterior">
-                  Número anterior (opcional)
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="observaciones">
+                  Observaciones (opcional)
                 </label>
-                <input
-                  id="numeroAnterior"
-                  name="numeroAnterior"
-                  defaultValue={defaults?.numeroAnterior ?? ""}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="localidadAnterior">
-                  Localidad anterior (opcional)
-                </label>
-                <input
-                  id="localidadAnterior"
-                  name="localidadAnterior"
-                  defaultValue={defaults?.localidadAnterior ?? ""}
+                <textarea
+                  id="observaciones"
+                  name="observaciones"
+                  rows={2}
+                  defaultValue={defaults?.observaciones ?? ""}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
                 />
               </div>

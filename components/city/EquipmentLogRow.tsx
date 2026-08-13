@@ -10,7 +10,7 @@ import { equipmentLogTipoOptions, criticidadEquipoSchema, criticidadEquipoLabels
 import { formatDate, toDateInputValue } from "@/lib/dates";
 import { DocumentList } from "./DocumentList";
 import { UploadEquipmentLogDocumentForm } from "@/components/admin/UploadEquipmentLogDocumentForm";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 const initialState: ActionState = {};
 
@@ -206,14 +206,13 @@ export function EquipmentLogRow({
           </div>
 
           {isAdmin && (
-            <form action={deleteEquipmentLog.bind(null, log.id)}>
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar este registro de bitácora (${formatDate(log.fecha)})? También se eliminarán sus documentos.`}
-                className="text-sm text-accent hover:underline"
-              >
-                Eliminar registro
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteRecordWithPassword
+              mensaje={`¿Eliminar este registro de bitácora (${formatDate(log.fecha)})? También se eliminarán sus documentos.`}
+              action={deleteEquipmentLog.bind(null, log.id)}
+              className="text-sm text-accent hover:underline"
+            >
+              Eliminar registro
+            </ConfirmDeleteRecordWithPassword>
           )}
         </div>
       )}

@@ -6,7 +6,7 @@ import { deleteUser } from "@/actions/user-actions";
 import { ChangePasswordForm } from "@/components/admin/ChangePasswordForm";
 import { ChangeRoleForm } from "@/components/admin/ChangeRoleForm";
 import { CityAccessCheckboxes } from "@/components/admin/CityAccessCheckboxes";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 import { ElevatedAccessForm } from "@/components/admin/ElevatedAccessForm";
 import { roleLabels, type Role } from "@/lib/roles";
 import { parseElevatedAccessSchedule } from "@/lib/elevated-access";
@@ -78,14 +78,13 @@ export default async function UserDetailPage({
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
           Zona de peligro
         </h3>
-        <form action={deleteUser.bind(null, user.id)}>
-          <ConfirmSubmitButton
-            confirmMessage={`¿Eliminar al usuario “${user.username}”? Perderá el acceso de inmediato, aunque tenga la sesión abierta. Las bitácoras y documentos que registró se conservan. Esta acción no se puede deshacer.`}
-            className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent hover:text-white"
-          >
-            Eliminar usuario
-          </ConfirmSubmitButton>
-        </form>
+        <ConfirmDeleteRecordWithPassword
+          mensaje={`¿Eliminar al usuario "${user.username}"? Perderá el acceso de inmediato, aunque tenga la sesión abierta. Las bitácoras y documentos que registró se conservan. Esta acción no se puede deshacer.`}
+          action={deleteUser.bind(null, user.id)}
+          className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent hover:text-white"
+        >
+          Eliminar usuario
+        </ConfirmDeleteRecordWithPassword>
       </section>
     </div>
   );

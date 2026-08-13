@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, requireUser, checkSessionUserExists } from "@/lib/auth";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { equipmentLogTipoSchema, criticidadEquipoSchema } from "@/lib/equipo-enums";
 import { saveDocumentFile, equipmentLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
@@ -213,16 +215,39 @@ export async function updateEquipmentLog(
   return { success: "Registro actualizado." };
 }
 
-export async function deleteEquipmentLog(logId: string) {
-  await requireElevatedEditor();
+export async function deleteEquipmentLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireElevatedEditor();
 
-  const log = await prisma.equipmentLog.findUnique({ where: { id: logId } });
-  if (!log) return;
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
+
+  const log = await prisma.equipmentLog.findUnique({
+    where: { id: logId },
+    include: { equipo: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro ya no existe." };
+  }
+
+  await logActivity({
+    user: admin,
+    accion: "ELIMINAR",
+    entidad: "Mantenimiento de equipo",
+    resumen: log.equipo.codigo ? `${log.equipo.codigo} — ${log.equipo.nombre}` : log.equipo.nombre,
+    citySlug: log.equipo.section.city.slug,
+  });
 
   await deleteLogDocumentFiles("equipmentLogId", logId);
   await prisma.equipmentLog.delete({ where: { id: logId } });
   await recalcularCriticidadEquipo(log.equipoId);
   await revalidateEquipoAndCityFeed(log.equipoId);
+  return { success: "Registro eliminado." };
 }
 
 // Desglose al hacer clic en una rebanada de EquipmentMaintenanceTypePieChart

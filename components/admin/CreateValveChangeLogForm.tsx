@@ -28,11 +28,20 @@ const inputClass =
 export function CreateValveChangeLogForm({
   vehicleId,
   sectionSlug,
+  hasPriorValveLog,
+  knownTieneValvula85,
 }: {
   vehicleId: string;
   // Vehículo con tanque de carburación solo tiene 4 de las 9 válvulas (ver
   // lib/piece-catalog.ts y actions/valve-actions.ts: requireValvulasCompletas).
   sectionSlug: string;
+  // Si ya existe al menos un registro de cambio de válvulas para esta
+  // unidad, ya se sabe si tiene o no la válvula de máximo llenado al 85%
+  // (createValveChangeLog sincroniza tieneValvulaMaximoLlenado85 a la ficha
+  // técnica en cada registro): ya no hace falta volver a preguntar, solo
+  // pedir la fecha de fabricación de la nueva válvula cuando sí aplica.
+  hasPriorValveLog: boolean;
+  knownTieneValvula85: boolean;
 }) {
   const isCarburacion = sectionSlug === "vehiculo-con-tanque-de-carburacion";
   const action = createValveChangeLog.bind(null, vehicleId);
@@ -40,7 +49,8 @@ export function CreateValveChangeLogForm({
   const formRef = useRef<HTMLFormElement>(null);
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const searchParams = useSearchParams();
-  const [tieneValvula85, setTieneValvula85] = useState(false);
+  const yaSePregunto = !isCarburacion && hasPriorValveLog;
+  const [tieneValvula85, setTieneValvula85] = useState(yaSePregunto && knownTieneValvula85);
 
   // Id de la pieza de inventario que quedó esperando este registro para
   // amarrarse a él (ver vincularPiezaARegistro).
@@ -63,7 +73,7 @@ export function CreateValveChangeLogForm({
         action={async (formData) => {
           await formAction(formData);
           formRef.current?.reset();
-          setTieneValvula85(false);
+          setTieneValvula85(yaSePregunto && knownTieneValvula85);
         }}
         className="mt-4 space-y-3"
       >
@@ -283,33 +293,68 @@ export function CreateValveChangeLogForm({
             </div>
 
             <div className="rounded-md border border-dashed border-gray-300 p-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="valv-tieneValvulaMaximoLlenado85">
-                <input
-                  id="valv-tieneValvulaMaximoLlenado85"
-                  name="tieneValvulaMaximoLlenado85"
-                  type="checkbox"
-                  checked={tieneValvula85}
-                  onChange={(event) => setTieneValvula85(event.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
-                />
-                ¿Esta unidad tiene válvula de máximo llenado al 85%?
-              </label>
-              {tieneValvula85 && (
-                <div className="mt-3 max-w-xs">
-                  <label
-                    className="mb-1 block text-sm font-medium text-ink"
-                    htmlFor="valv-fechaFabricacionValvulaMaximoLlenado85"
-                  >
-                    Fecha de fabricación de la válvula de máximo llenado 85%
+              {yaSePregunto ? (
+                // Ya se sabe la respuesta de un registro anterior de esta
+                // misma unidad: no se vuelve a preguntar, solo se pide (si
+                // aplica) la fecha de fabricación de la válvula nueva.
+                <>
+                  <p className="text-sm text-ink">
+                    {knownTieneValvula85
+                      ? "Esta unidad tiene válvula de máximo llenado al 85%."
+                      : "Esta unidad no tiene válvula de máximo llenado al 85%."}
+                  </p>
+                  {knownTieneValvula85 && (
+                    <>
+                      <input type="hidden" name="tieneValvulaMaximoLlenado85" value="on" />
+                      <div className="mt-3 max-w-xs">
+                        <label
+                          className="mb-1 block text-sm font-medium text-ink"
+                          htmlFor="valv-fechaFabricacionValvulaMaximoLlenado85"
+                        >
+                          Fecha de fabricación de la válvula de máximo llenado 85%
+                        </label>
+                        <input
+                          id="valv-fechaFabricacionValvulaMaximoLlenado85"
+                          name="fechaFabricacionValvulaMaximoLlenado85"
+                          type="date"
+                          required
+                          className={inputClass}
+                        />
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="valv-tieneValvulaMaximoLlenado85">
+                    <input
+                      id="valv-tieneValvulaMaximoLlenado85"
+                      name="tieneValvulaMaximoLlenado85"
+                      type="checkbox"
+                      checked={tieneValvula85}
+                      onChange={(event) => setTieneValvula85(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+                    />
+                    ¿Esta unidad tiene válvula de máximo llenado al 85%?
                   </label>
-                  <input
-                    id="valv-fechaFabricacionValvulaMaximoLlenado85"
-                    name="fechaFabricacionValvulaMaximoLlenado85"
-                    type="date"
-                    required
-                    className={inputClass}
-                  />
-                </div>
+                  {tieneValvula85 && (
+                    <div className="mt-3 max-w-xs">
+                      <label
+                        className="mb-1 block text-sm font-medium text-ink"
+                        htmlFor="valv-fechaFabricacionValvulaMaximoLlenado85"
+                      >
+                        Fecha de fabricación de la válvula de máximo llenado 85%
+                      </label>
+                      <input
+                        id="valv-fechaFabricacionValvulaMaximoLlenado85"
+                        name="fechaFabricacionValvulaMaximoLlenado85"
+                        type="date"
+                        required
+                        className={inputClass}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </>

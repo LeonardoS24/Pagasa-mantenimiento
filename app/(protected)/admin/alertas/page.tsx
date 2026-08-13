@@ -1,5 +1,4 @@
-import { prisma } from "@/lib/prisma";
-import { AGGREGATE_CITY_SLUG } from "@/lib/aggregate-city";
+import { getAllRealCityIds } from "@/lib/aggregate-city";
 import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
 import { UltrasoundAlertsPanel } from "@/components/dashboard/UltrasoundAlertsPanel";
 import { VisualInspectionAlertsPanel } from "@/components/dashboard/VisualInspectionAlertsPanel";
@@ -16,10 +15,7 @@ import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
 // admin que esté viendo esta página: así no hace falta ir a Inicio para
 // ver el panorama completo de vencimientos.
 export default async function AdminAlertasPage() {
-  const cities = await prisma.city.findMany({
-    where: { slug: { not: AGGREGATE_CITY_SLUG } },
-    select: { id: true },
-  });
+  const cityIds = await getAllRealCityIds();
 
   const {
     alertVehicles,
@@ -31,7 +27,7 @@ export default async function AdminAlertasPage() {
     maintenanceAlertVehicles,
     valveAlertVehicles,
     hoseAlertVehicles,
-  } = await getAllVehicleAlerts(cities.map((city) => city.id));
+  } = await getAllVehicleAlerts(cityIds);
 
   const totalAlertas =
     alertVehicles.length +

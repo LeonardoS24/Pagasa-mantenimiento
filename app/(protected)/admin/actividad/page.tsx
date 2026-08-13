@@ -12,8 +12,8 @@ export default async function ActividadPage() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink">
-        Los {eventos.length} registros más recientes agregados en todo el sistema, de cualquier
-        ciudad.
+        Los {eventos.length} eventos más recientes de todo el sistema: lo que se agregó, lo que se
+        editó y lo que se eliminó, de cualquier ciudad.
       </p>
       {eventos.length === 0 ? (
         <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-ink">
@@ -26,13 +26,25 @@ export default async function ActividadPage() {
               <div className="text-sm text-ink">
                 <span className="font-medium text-primary">{formatDate(evento.createdAt)}</span>
                 {" · "}
-                <Link href={evento.href} className="font-medium text-primary hover:underline">
-                  {evento.detalle}
-                </Link>
-                <span className="text-gray-500"> ({evento.cityName})</span>
+                {evento.href ? (
+                  <Link href={evento.href} className="font-medium text-primary hover:underline">
+                    {evento.detalle}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-ink">{evento.detalle}</span>
+                )}
+                {evento.cityName && <span className="text-gray-500"> ({evento.cityName})</span>}
               </div>
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    evento.tipo === "Eliminado"
+                      ? "bg-red-100 text-red-700"
+                      : evento.tipo === "Editado"
+                        ? "bg-orange-100 text-orange-700"
+                        : "bg-gray-100 text-gray-700"
+                  }`}
+                >
                   {evento.tipo}
                 </span>
                 <span className="text-xs text-gray-500">

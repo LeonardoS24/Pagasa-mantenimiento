@@ -4,6 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { maintenanceStatusSchema, maintenanceTypeSchema, calidadMantenimientoSchema } from "@/lib/vehicle-enums";
 import { accionPiezaSchema, PIECE_CATEGORY_OTRO } from "@/lib/piece-catalog";
@@ -468,11 +470,33 @@ export async function updateMaintenanceLogFull(
   return { success: "Registro actualizado." };
 }
 
-export async function deleteMaintenanceLog(logId: string) {
-  await requireElevatedEditor();
+export async function deleteMaintenanceLog(
+  logId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const admin = await requireElevatedEditor();
 
-  const log = await prisma.maintenanceLog.findUnique({ where: { id: logId } });
-  if (!log) return;
+  const passwordError = await verifySessionPassword(admin, formData.get("password"));
+  if (passwordError) {
+    return { error: passwordError };
+  }
+
+  const log = await prisma.maintenanceLog.findUnique({
+    where: { id: logId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro ya no existe." };
+  }
+
+  await logActivity({
+    user: admin,
+    accion: "ELIMINAR",
+    entidad: "Registro de mantenimiento",
+    resumen: `${log.vehicleRecord.numeroEconomico} — ${log.tipoMantenimiento} / ${log.tipoServicio}`,
+    citySlug: log.vehicleRecord.section.city.slug,
+  });
 
   // Los PDF de la bitácora se van con ella en la base, pero el archivo en
   // disco hay que borrarlo aparte y antes, mientras el registro existe.
@@ -482,4 +506,5 @@ export async function deleteMaintenanceLog(logId: string) {
   // volver a reflejar el que le sigue (o quedar vacía si ya no queda ninguno).
   await recalcularFichaTecnicaMantenimiento(log.vehicleRecordId);
   await revalidateVehicleAndCityFeed(log.vehicleRecordId);
+  return { success: "Registro eliminado." };
 }

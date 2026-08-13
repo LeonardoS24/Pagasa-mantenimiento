@@ -4,15 +4,18 @@ import { formatDate } from "@/lib/dates";
 import {
   pieceOrderStatusLabels,
   pieceOrderStatusStyles,
+  pieceOrderPrioridadLabels,
+  pieceOrderPrioridadStyles,
   ordenTipoLabels,
   formatCantidad,
   describeOrden,
   type PieceOrderStatus,
+  type PieceOrderPrioridad,
   type OrdenTipo,
 } from "@/lib/inventory-enums";
 import { PieceOrderStatusForm } from "@/components/admin/PieceOrderStatusForm";
 import { deletePieceOrder } from "@/actions/piece-order-actions";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 type PieceOrderWithVehicle = PieceOrder & {
   vehicleRecord: { id: string; numeroEconomico: string } | null;
@@ -37,7 +40,12 @@ export function PieceOrderTable({
     );
   }
 
-  const sorted = [...orders].sort((a, b) => b.fechaOrden.getTime() - a.fechaOrden.getTime());
+  // Las de prioridad ALTA (unidad en mal estado) siempre arriba, sin importar
+  // la fecha de la orden.
+  const sorted = [...orders].sort((a, b) => {
+    if (a.prioridad !== b.prioridad) return a.prioridad === "ALTA" ? -1 : 1;
+    return b.fechaOrden.getTime() - a.fechaOrden.getTime();
+  });
 
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -45,6 +53,7 @@ export function PieceOrderTable({
         <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
           <tr>
             <th className="whitespace-nowrap px-4 py-2">Nombre</th>
+            <th className="whitespace-nowrap px-4 py-2">Prioridad</th>
             <th className="whitespace-nowrap px-4 py-2">Orden</th>
             <th className="whitespace-nowrap px-4 py-2">Cantidad</th>
             <th className="whitespace-nowrap px-4 py-2">Fecha de la orden</th>
@@ -56,9 +65,21 @@ export function PieceOrderTable({
         <tbody>
           {sorted.map((order) => {
             const estado = order.estado as PieceOrderStatus;
+            const prioridad = order.prioridad as PieceOrderPrioridad;
             return (
               <tr key={order.id} className="border-t border-gray-100">
                 <td className="whitespace-nowrap px-4 py-2 font-medium text-ink">{order.nombre}</td>
+                <td className="whitespace-nowrap px-4 py-2">
+                  {prioridad === "ALTA" ? (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${pieceOrderPrioridadStyles[prioridad]}`}
+                    >
+                      {pieceOrderPrioridadLabels[prioridad]}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-4 py-2 text-ink">
                   {ordenTipoLabels[order.tipo as OrdenTipo] ?? order.tipo}
                 </td>
@@ -91,14 +112,13 @@ export function PieceOrderTable({
                 </td>
                 {isAdmin && (
                   <td className="whitespace-nowrap px-4 py-2">
-                    <form action={deletePieceOrder.bind(null, order.id)}>
-                      <ConfirmSubmitButton
-                        confirmMessage={`¿Eliminar la orden de ${describeOrden(order.tipo, order.nombre, order.cantidad, order.unidad)}?`}
-                        className="text-xs text-accent hover:underline"
-                      >
-                        Eliminar
-                      </ConfirmSubmitButton>
-                    </form>
+                    <ConfirmDeleteRecordWithPassword
+                      mensaje={`¿Eliminar la orden de ${describeOrden(order.tipo, order.nombre, order.cantidad, order.unidad)}?`}
+                      action={deletePieceOrder.bind(null, order.id)}
+                      className="text-xs text-accent hover:underline"
+                    >
+                      Eliminar
+                    </ConfirmDeleteRecordWithPassword>
                   </td>
                 )}
               </tr>

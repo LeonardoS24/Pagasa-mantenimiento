@@ -34,9 +34,7 @@ function vehicleMatchedGroups(record: RecordWithSheet, qNorm: string): string[] 
     { group: "Datos generales", value: record.numeroEconomico },
     { group: "Datos generales", value: record.placas },
     { group: "Datos generales", value: record.sucursal },
-    { group: "Datos generales", value: record.numeroAnterior },
-    { group: "Datos generales", value: record.localidadAnterior },
-    { group: "Ficha técnica · Automóvil", value: sheet?.fabricante },
+    { group: "Datos generales", value: record.observaciones },
     { group: "Ficha técnica · Automóvil", value: sheet?.marca },
     { group: "Ficha técnica · Automóvil", value: sheet?.linea },
     { group: "Ficha técnica · Automóvil", value: sheet?.modelo },
@@ -201,7 +199,7 @@ export default async function BuscarPage({
                 <tr>
                   <th className="whitespace-nowrap px-4 py-2">Número económico</th>
                   <th className="whitespace-nowrap px-4 py-2">Placas</th>
-                  <th className="whitespace-nowrap px-4 py-2">Sucursal</th>
+                  <th className="whitespace-nowrap px-4 py-2">Marca/Dirección</th>
                   <th className="whitespace-nowrap px-4 py-2">Ubicación</th>
                   <th className="whitespace-nowrap px-4 py-2">Coincide en</th>
                 </tr>

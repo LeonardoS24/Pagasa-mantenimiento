@@ -109,6 +109,10 @@ function parseEquipoForm(formData: FormData) {
 
 export async function createEquipo(
   sectionId: string,
+  // Solo cuando el equipo pertenece a una Estación de carburación en
+  // particular, no a los "Equipos de planta" a nivel ciudad (ver
+  // Equipo.vehicleRecordId en el schema).
+  vehicleRecordId: string | null,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
@@ -129,10 +133,19 @@ export async function createEquipo(
   const fotografias = readOptionalImageFiles(formData, "fotografias");
   if (!Array.isArray(fotografias)) return fotografias;
 
-  const maxOrder = await prisma.equipo.aggregate({ where: { sectionId }, _max: { order: true } });
+  const maxOrder = await prisma.equipo.aggregate({
+    where: { sectionId, vehicleRecordId },
+    _max: { order: true },
+  });
 
   const equipo = await prisma.equipo.create({
-    data: { sectionId, order: (maxOrder._max.order ?? -1) + 1, createdById: editor.userId, ...parsed.data },
+    data: {
+      sectionId,
+      vehicleRecordId,
+      order: (maxOrder._max.order ?? -1) + 1,
+      createdById: editor.userId,
+      ...parsed.data,
+    },
   });
 
   for (const file of manuales) {
@@ -167,6 +180,9 @@ export async function createEquipo(
 
   const chain = await getSectionChain(sectionId);
   revalidatePath(sectionBasePath(section.city.slug, chain));
+  if (vehicleRecordId) {
+    revalidatePath(`/ciudades/${section.city.slug}/vehiculo/${vehicleRecordId}`);
+  }
   return { success: "Equipo agregado." };
 }
 

@@ -8,7 +8,7 @@ import type { ActionState } from "@/actions/user-actions";
 import { formatDate, toDateInputValue } from "@/lib/dates";
 import { DocumentList } from "./DocumentList";
 import { UploadTightnessTestLogDocumentForm } from "@/components/admin/UploadTightnessTestLogDocumentForm";
-import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 
 const initialState: ActionState = {};
 
@@ -164,14 +164,13 @@ export function TightnessTestLogRow({
           </div>
 
           {isAdmin && (
-            <form action={deleteTightnessTestLog.bind(null, log.id)}>
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar este registro de prueba de hermeticidad (${formatDate(log.fechaRealizacion)})? También se eliminarán sus documentos.`}
-                className="text-sm text-accent hover:underline"
-              >
-                Eliminar registro
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteRecordWithPassword
+              mensaje={`¿Eliminar este registro de prueba de hermeticidad (${formatDate(log.fechaRealizacion)})? También se eliminarán sus documentos.`}
+              action={deleteTightnessTestLog.bind(null, log.id)}
+              className="text-sm text-accent hover:underline"
+            >
+              Eliminar registro
+            </ConfirmDeleteRecordWithPassword>
           )}
         </div>
       )}

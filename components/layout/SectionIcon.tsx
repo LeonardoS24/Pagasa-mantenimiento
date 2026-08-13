@@ -50,6 +50,18 @@ const ICONS: Record<string, IconDef> = {
       <path d="M14.7 6.3a4 4 0 0 0-5.4 4.9L3 17.5l3 3 6.3-6.3a4 4 0 0 0 4.9-5.4l-2.6 2.6-2.1-.5-.5-2.1z" />
     ),
   },
+  // "Planta" (ver scripts/restructure-planta-section.mjs): apartado
+  // contenedor, en el lugar donde antes vivía "Equipos" a nivel superior —
+  // mismo color, para que se note el parentesco. Adentro tiene dos hijos:
+  // "planta-ficha-tecnica" (mismo ícono que Estaciones/Auto-Tanques, ver el
+  // bucle más abajo) y "equipos" (el de arriba, reutilizado sin cambios).
+  planta: {
+    badge: "bg-gray-100 text-gray-500",
+    path: (
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 4.9L3 17.5l3 3 6.3-6.3a4 4 0 0 0 4.9-5.4l-2.6 2.6-2.1-.5-.5-2.1z" />
+    ),
+  },
+  "planta-ficha-tecnica": { badge: "bg-primary/10 text-primary", path: null },
   "bitacoras-de-unidades": {
     badge: "bg-accent/10 text-accent/80",
     path: (
@@ -90,6 +102,15 @@ const ICONS: Record<string, IconDef> = {
       </>
     ),
   },
+  resumen: {
+    badge: "bg-violet-50 text-violet-600",
+    path: (
+      <>
+        <path d="M5 20V10M12 20V4M19 20v-7" />
+        <path d="M3 20h18" />
+      </>
+    ),
+  },
 };
 
 // Los tipos de unidades reutilizan el ícono de camión de su padre.
@@ -100,6 +121,7 @@ for (const slug of [
   "unidades-utilitarias",
   "parque-vehicular",
   "estaciones-de-carburacion",
+  "planta-ficha-tecnica",
 ]) {
   ICONS[slug].path = ICONS["unidad-de-distribucion"].path;
 }

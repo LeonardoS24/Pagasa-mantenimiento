@@ -11,6 +11,9 @@ export interface AggregateVehicleRow {
   anio: string | null;
   placas: string | null;
   serie: string | null;
+  // Solo en "Estaciones de carburación" (ver components/admin/VehicleForm.tsx).
+  permisionaria: string | null;
+  permiso: string | null;
   activo: boolean;
   motivoBaja: string | null;
   citySlug: string;
@@ -32,9 +35,12 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       sucursal: true,
       anio: true,
       placas: true,
+      permisionaria: true,
+      permiso: true,
       activo: true,
       motivoBaja: true,
       technicalSheet: true,
+      stationTankTechnicalSheet: true,
       section: { select: { slug: true, city: { select: { slug: true, name: true, order: true } } } },
     },
   });
@@ -46,7 +52,9 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       sucursal: r.sucursal,
       anio: r.anio,
       placas: r.placas,
-      serie: r.technicalSheet?.serie ?? null,
+      serie: r.stationTankTechnicalSheet?.numeroSerie ?? r.technicalSheet?.serie ?? null,
+      permisionaria: r.permisionaria,
+      permiso: r.permiso,
       activo: r.activo,
       motivoBaja: r.motivoBaja,
       citySlug: r.section.city.slug,
@@ -77,7 +85,13 @@ export interface AggregateEquipoRow {
 // combinado de Administración.
 export async function getAggregateEquipos(): Promise<AggregateEquipoRow[]> {
   const equipos = await prisma.equipo.findMany({
-    where: { section: { slug: "equipos", city: { slug: { not: AGGREGATE_CITY_SLUG } } } },
+    where: {
+      section: { slug: "equipos", city: { slug: { not: AGGREGATE_CITY_SLUG } } },
+      // Excluye los equipos propios de una Estación de carburación en
+      // particular (ver Equipo.vehicleRecordId): esos no son "Equipos de
+      // planta", se ven en la propia unidad.
+      vehicleRecordId: null,
+    },
     select: {
       id: true,
       codigo: true,
