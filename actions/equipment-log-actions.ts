@@ -63,6 +63,29 @@ async function recalcularCriticidadEquipo(equipoId: string): Promise<void> {
   });
 }
 
+// Los extintores de una estación siempre se atienden juntos, en la misma
+// visita (por eso ahora cada uno es su propio Equipo, ver
+// scripts/desglosar-cantidades-equipos-estacion.mjs): registrar un
+// mantenimiento en cualquiera de ellos aplica el mismo registro a los demás
+// "Extintores" de esa misma estación, para no repetirlo uno por uno.
+const NOMBRE_EXTINTORES = "Extintores";
+
+async function equiposHermanosExtintores(equipo: {
+  id: string;
+  nombre: string;
+  vehicleRecordId: string | null;
+}) {
+  if (equipo.nombre !== NOMBRE_EXTINTORES || !equipo.vehicleRecordId) return [];
+  return prisma.equipo.findMany({
+    where: {
+      vehicleRecordId: equipo.vehicleRecordId,
+      nombre: NOMBRE_EXTINTORES,
+      activo: true,
+      id: { not: equipo.id },
+    },
+  });
+}
+
 async function revalidateEquipoAndCityFeed(equipoId: string) {
   const equipo = await prisma.equipo.findUnique({
     where: { id: equipoId },
@@ -139,11 +162,24 @@ export async function createEquipmentLog(
     });
   }
 
+  // Ver comentario en equiposHermanosExtintores: el mismo registro se
+  // replica en el resto de los extintores de la estación (sin los archivos
+  // subidos, que quedan solo en el que se registró a mano).
+  const hermanos = await equiposHermanosExtintores(equipo);
+  for (const hermano of hermanos) {
+    await prisma.equipmentLog.create({
+      data: { equipoId: hermano.id, createdById: editor.userId, ...parsed.data },
+    });
+    await recalcularCriticidadEquipo(hermano.id);
+  }
+
   // "Cambio": el equipo se reemplaza por uno nuevo. Se da de baja el actual
   // (se conserva como historial, igual que una unidad) y se crea uno nuevo
   // del mismo tipo en la misma sección, con la ficha técnica en blanco para
   // llenarla de inmediato — no tendría sentido copiar los datos del equipo
-  // que se acaba de reemplazar.
+  // que se acaba de reemplazar. vehicleRecordId se conserva: si no, un
+  // equipo de una estación en particular "perdería" la estación al
+  // reemplazarse y pasaría a verse como un equipo genérico de la ciudad.
   if (parsed.data.tipoMantenimiento === "Cambio") {
     await prisma.equipo.update({
       where: { id: equipoId },
@@ -151,17 +187,40 @@ export async function createEquipmentLog(
     });
 
     const maxOrder = await prisma.equipo.aggregate({
-      where: { sectionId: equipo.sectionId },
+      where: { sectionId: equipo.sectionId, vehicleRecordId: equipo.vehicleRecordId },
       _max: { order: true },
     });
     const nuevoEquipo = await prisma.equipo.create({
       data: {
         sectionId: equipo.sectionId,
+        vehicleRecordId: equipo.vehicleRecordId,
         order: (maxOrder._max.order ?? -1) + 1,
         tipoEquipo: equipo.tipoEquipo,
         nombre: equipo.nombre,
       },
     });
+
+    // Mismo reemplazo para cada hermano: se da de baja y nace uno nuevo en
+    // blanco en su lugar, igual que el que se registró a mano.
+    for (const hermano of hermanos) {
+      await prisma.equipo.update({
+        where: { id: hermano.id },
+        data: { activo: false, fechaBaja: parsed.data.fecha },
+      });
+      const maxOrderHermano = await prisma.equipo.aggregate({
+        where: { sectionId: hermano.sectionId, vehicleRecordId: hermano.vehicleRecordId },
+        _max: { order: true },
+      });
+      await prisma.equipo.create({
+        data: {
+          sectionId: hermano.sectionId,
+          vehicleRecordId: hermano.vehicleRecordId,
+          order: (maxOrderHermano._max.order ?? -1) + 1,
+          tipoEquipo: hermano.tipoEquipo,
+          nombre: hermano.nombre,
+        },
+      });
+    }
 
     await revalidateEquipoAndCityFeed(equipoId);
     revalidatePath(sectionBasePath(equipo.section.city.slug, [equipo.section]));
