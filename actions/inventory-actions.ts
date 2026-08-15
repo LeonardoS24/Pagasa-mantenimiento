@@ -26,6 +26,11 @@ import type { ActionState } from "./user-actions";
 // ciudad (no hay tareas programadas en este sistema), así que la fecha se
 // pone al día cada vez que alguien la visita.
 export async function sweepExpiredPorUtilizar(sectionId: string): Promise<void> {
+  // Todo lo exportado desde un archivo "use server" queda expuesto como
+  // endpoint que el navegador puede llamar directo, aunque aquí solo se use
+  // desde la página de Inventarios. Sin esta guarda, cualquiera podría
+  // marcar piezas como utilizadas en cualquier apartado.
+  await requireEditor();
   const threshold = new Date(Date.now() - INVENTORY_POR_UTILIZAR_DAYS * 24 * 60 * 60 * 1000);
   await prisma.inventoryItem.updateMany({
     where: { sectionId, estado: "POR_UTILIZAR", fechaPorUtilizarDesde: { lte: threshold } },
@@ -246,6 +251,9 @@ export async function vincularPiezaARegistro(
   logId: string,
   vehicleId: string
 ): Promise<void> {
+  // Misma razón que en sweepExpiredPorUtilizar: es exportada desde un
+  // archivo "use server", así que se puede llamar desde fuera.
+  await requireEditor();
   const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
   if (!item || item.usedOnVehicleId !== vehicleId) return;
 
@@ -270,6 +278,7 @@ export async function usarPiezaDesdeMantenimiento(
   vehicleId: string,
   logId: string
 ): Promise<void> {
+  await requireEditor();
   const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
   if (!item || item.estado !== "EN_INVENTARIO") return;
 

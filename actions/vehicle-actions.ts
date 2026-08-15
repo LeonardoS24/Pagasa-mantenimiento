@@ -15,6 +15,7 @@ import {
   type VehicleEstatus,
 } from "@/lib/vehicle-enums";
 import { STATION_VALVE_FIELDS, stationValveLabels } from "@/lib/station-valves";
+import { saveCustomFieldValues } from "@/lib/custom-fields-runtime";
 import { collapseSpaces } from "@/lib/text-normalize";
 import { verifySessionPassword } from "@/lib/reauth";
 import { deleteVehicleDocumentFiles } from "@/lib/document-cleanup";
@@ -601,6 +602,9 @@ export async function upsertTechnicalSheet(
     create: { vehicleRecordId: vehicleId, ...data },
   });
 
+  // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
+  await saveCustomFieldValues(vehicleId, formData, "VEHICULO");
+
   // Este formulario no tiene un campo de observación propio (el cambio
   // rápido de calidad — updateCalidadExtintor — es el que lo exige); si de
   // todos modos la calidad cambió al editar la ficha completa, igual queda
@@ -760,6 +764,10 @@ export async function upsertStationTankTechnicalSheet(
     update: sheetData,
     create: { vehicleRecordId: vehicleId, ...sheetData },
   });
+
+  // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts):
+  // viven en su propia tabla, no en las columnas de la ficha.
+  await saveCustomFieldValues(vehicleId, formData, "ESTACION");
 
   if (
     sheetData.fechaFabricacion &&

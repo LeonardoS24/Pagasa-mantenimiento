@@ -39,6 +39,8 @@ import {
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { SECTION_STYLES } from "@/lib/section-colors";
+import type { CustomFieldDef } from "@/lib/custom-fields";
+import { CustomFieldItems } from "@/components/admin/CustomFieldInputs";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 
 function Item({ label, value }: { label: string; value?: string | null }) {
@@ -62,6 +64,8 @@ export function TechnicalSheetView({
   showMaintenancePreventiveSection = true,
   showAutomovilSection = true,
   showExtintorSection = true,
+  camposExtra = [],
+  valoresExtra = {},
 }: {
   sheet: VehicleTechnicalSheet | null;
   // Para no repetir la alerta de extintor/mantenimiento preventivo cuando la
@@ -96,6 +100,9 @@ export function TechnicalSheetView({
   // desde Auto-Tanques (ver imprimir/page.tsx y lib/alert-visibility.ts, que
   // ya trata a Auto-Tanques como el dueño del extintor en ese par).
   showExtintorSection?: boolean;
+  // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
+  camposExtra?: CustomFieldDef[];
+  valoresExtra?: Record<string, string>;
 }) {
   if (!sheet) {
     return <p className="text-sm text-ink">Sin ficha técnica registrada.</p>;
@@ -155,6 +162,7 @@ export function TechnicalSheetView({
             />
             <Item label="Horas de uso diario" value={sheet.horasUsoDiario} />
             <Item label="Fecha de adquisición" value={formatDate(sheet.fechaAdquisicion) || null} />
+            <CustomFieldItems campos={camposExtra} seccion="automovil" valores={valoresExtra} />
           </dl>
           {sheet.caracteristicas && (
             <div className="mt-3">
@@ -176,6 +184,7 @@ export function TechnicalSheetView({
             <Item label="Chofer" value={sheet.chofer} />
             <Item label="Número de póliza" value={sheet.numeroPoliza} />
             <Item label="Inciso" value={sheet.inciso} />
+            <CustomFieldItems campos={camposExtra} seccion="automovil" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -191,6 +200,7 @@ export function TechnicalSheetView({
             <Item label="Marca de tanque" value={sheet.marcaTanque} />
             <Item label="Año de fabricación" value={sheet.anioFabricacionTanque} />
             <Item label="Fecha de fabricación" value={formatDate(sheet.fechaFabricacionTanque) || null} />
+            <CustomFieldItems campos={camposExtra} seccion="tanque" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -240,6 +250,7 @@ export function TechnicalSheetView({
                   : null
               }
             />
+            <CustomFieldItems campos={camposExtra} seccion="mantenimiento" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -273,6 +284,7 @@ export function TechnicalSheetView({
                   : null
               }
             />
+            <CustomFieldItems campos={camposExtra} seccion="extintor" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -300,6 +312,7 @@ export function TechnicalSheetView({
               label="Fecha de fabricación de la manguera"
               value={formatDate(sheet.fechaFabricacionManguera) || null}
             />
+            <CustomFieldItems campos={camposExtra} seccion="mangueras" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -344,6 +357,7 @@ export function TechnicalSheetView({
                 label="Válvula de seguridad"
                 value={formatDate(sheet.fechaFabricacionValvulaAlivio) || null}
               />
+              <CustomFieldItems campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
             </dl>
           ) : (
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -415,6 +429,7 @@ export function TechnicalSheetView({
             label="Fecha próxima de inspección visual externa"
             value={formatDate(sheet.fechaProximaInspeccionVisual) || null}
           />
+          <CustomFieldItems campos={camposExtra} seccion="visualExterna" valores={valoresExtra} />
         </dl>
       </div>
 
@@ -441,6 +456,7 @@ export function TechnicalSheetView({
             label="Fecha próxima de prueba de hermeticidad"
             value={formatDate(sheet.fechaProximaPruebaHermeticidad) || null}
           />
+          <CustomFieldItems campos={camposExtra} seccion="hermeticidad" valores={valoresExtra} />
         </dl>
       </div>
 
@@ -473,6 +489,7 @@ export function TechnicalSheetView({
             label="Fecha próxima de inspección visual interna"
             value={formatDate(sheet.fechaProximaInspeccionVisualInterna) || null}
           />
+          <CustomFieldItems campos={camposExtra} seccion="visualInterna" valores={valoresExtra} />
         </dl>
       </div>
 
@@ -499,6 +516,7 @@ export function TechnicalSheetView({
             label="Fecha próxima de ultrasonido"
             value={formatDate(sheet.fechaProximoUltrasonido) || null}
           />
+          <CustomFieldItems campos={camposExtra} seccion="ultrasonido" valores={valoresExtra} />
         </dl>
       </div>
 
@@ -525,6 +543,7 @@ export function TechnicalSheetView({
             label="Fecha próxima de prueba hidrostática"
             value={formatDate(sheet.fechaProximaPruebaHidrostatica) || null}
           />
+          <CustomFieldItems campos={camposExtra} seccion="hidrostatica" valores={valoresExtra} />
         </dl>
       </div>
       </>

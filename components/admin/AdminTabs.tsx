@@ -8,6 +8,7 @@ const TABS = [
   { href: "/admin/ciudades", label: "Ciudades y apartados" },
   { href: "/admin/alertas", label: "Alertas" },
   { href: "/admin/piezas", label: "Piezas y refacciones" },
+  { href: "/admin/campos", label: "Recuadros de fichas" },
   { href: "/admin/actividad", label: "Actividad del sistema" },
 ];
 

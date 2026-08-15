@@ -1,5 +1,7 @@
 import type { StationTankTechnicalSheet } from "@prisma/client";
 import { formatDate } from "@/lib/dates";
+import type { CustomFieldDef } from "@/lib/custom-fields";
+import { CustomFieldItems } from "@/components/admin/CustomFieldInputs";
 import {
   STATION_VALVE_FIELDS,
   stationValveLabels,
@@ -22,7 +24,15 @@ function Item({ label, value }: { label: string; value?: string | null }) {
 // Vista de solo lectura de StationTankTechnicalSheetForm, para USUARIO (que
 // puede ver la ficha técnica del tanque pero no editarla) y para la hoja de
 // impresión.
-export function StationTankTechnicalSheetView({ sheet }: { sheet: StationTankTechnicalSheet | null }) {
+export function StationTankTechnicalSheetView({
+  sheet,
+  camposExtra = [],
+  valoresExtra = {},
+}: {
+  sheet: StationTankTechnicalSheet | null;
+  camposExtra?: CustomFieldDef[];
+  valoresExtra?: Record<string, string>;
+}) {
   const tieneValvulas =
     !!sheet && (!!sheet.fechaInstalacionValvulas || STATION_VALVE_FIELDS.some((campo) => sheet[campo]));
   const vencimiento = sheet ? getStationValveVencimiento(sheet) : null;
@@ -47,6 +57,7 @@ export function StationTankTechnicalSheetView({ sheet }: { sheet: StationTankTec
         <Item label="Material cabeza" value={sheet?.materialCabeza} />
         <Item label="Diámetro interior" value={sheet?.diametroInterior} />
         <Item label="Tara" value={sheet?.tara} />
+        <CustomFieldItems campos={camposExtra} seccion="tanque" valores={valoresExtra} />
       </dl>
 
       {tieneValvulas && (

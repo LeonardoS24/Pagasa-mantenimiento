@@ -25,6 +25,7 @@ import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { getLearnedPieces } from "@/lib/learned-pieces";
 import { getPieceCatalog, getPieceCategoriesWithExtras } from "@/lib/piece-catalog-runtime";
 import { getChecklistItems, getLeakCheckItems } from "@/lib/checklist-runtime";
+import { getCustomFields, getCustomFieldValues } from "@/lib/custom-fields-runtime";
 import { CreateUltrasoundLogForm } from "@/components/admin/CreateUltrasoundLogForm";
 import { UltrasoundLogTable } from "@/components/city/UltrasoundLogTable";
 import { CreateVisualInspectionLogForm } from "@/components/admin/CreateVisualInspectionLogForm";
@@ -203,6 +204,12 @@ export default async function VehicleDetailPage({
     ? await getChecklistItems(esCarburacion ? "CARBURACION" : "GENERAL")
     : undefined;
   const leakCheckItems = isEditor && esCarburacion ? await getLeakCheckItems() : undefined;
+  // Recuadros extra de la ficha técnica (ver /admin/campos): las
+  // definiciones son iguales para todas las unidades, los valores son de
+  // esta en particular.
+  const camposVehiculo = await getCustomFields("VEHICULO");
+  const camposEstacion = await getCustomFields("ESTACION");
+  const valoresCampos = await getCustomFieldValues(vehicle.id);
   // Piezas con más mantenimiento de esta unidad en el año en curso (mismo
   // gráfico que Bitácora de unidades, pero acotado a una sola unidad y
   // reiniciado cada año en vez de cada mes — ver PieceMaintenanceChart).
@@ -501,9 +508,18 @@ export default async function VehicleDetailPage({
               Ficha técnica del tanque
             </h2>
             {isAdmin ? (
-              <StationTankTechnicalSheetForm vehicleId={vehicle.id} sheet={vehicle.stationTankTechnicalSheet} />
+              <StationTankTechnicalSheetForm
+              vehicleId={vehicle.id}
+              sheet={vehicle.stationTankTechnicalSheet}
+              camposExtra={camposEstacion}
+              valoresExtra={valoresCampos}
+            />
             ) : (
-              <StationTankTechnicalSheetView sheet={vehicle.stationTankTechnicalSheet} />
+              <StationTankTechnicalSheetView
+              sheet={vehicle.stationTankTechnicalSheet}
+              camposExtra={camposEstacion}
+              valoresExtra={valoresCampos}
+            />
             )}
           </div>
         )}
@@ -524,6 +540,8 @@ export default async function VehicleDetailPage({
             showMaintenancePreventiveSection={!isTanqueCarburacion}
             showAutomovilSection={!isEstacionLike}
             lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
+            camposExtra={camposVehiculo}
+            valoresExtra={valoresCampos}
           />
         ) : (
           <TechnicalSheetView
@@ -536,6 +554,8 @@ export default async function VehicleDetailPage({
             showInspeccionesSection={showInspeccionesSection}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
             showAutomovilSection={!isEstacionLike}
+            camposExtra={camposVehiculo}
+            valoresExtra={valoresCampos}
           />
         )}
       </div>

@@ -19,11 +19,23 @@ export interface SessionData {
   pendingValveRedAlertCount?: number;
 }
 
+// Una cookie marcada "secure" SOLO viaja por https. Antes esto se activaba
+// solo con NODE_ENV=production, que es justo lo que corre al hacer
+// `next start` — y como el sistema se sirve por http en la red local
+// (http://192.168.x.x:3000), el navegador de las demás computadoras se
+// negaría a guardar la cookie y NADIE podría iniciar sesión: quedaría
+// dando vueltas de regreso al login sin decir por qué.
+//
+// Por eso ahora es explícito: se prende poniendo COOKIE_SECURE=true en .env,
+// y eso hay que hacerlo únicamente cuando el sistema ya se sirva por https
+// (ver la nota de despliegue en .env.example).
+const servidoPorHttps = process.env.COOKIE_SECURE === "true";
+
 export const sessionOptions: SessionOptions = {
   password: process.env.SESSION_SECRET!,
   cookieName: "pagasa_session",
   cookieOptions: {
-    secure: process.env.NODE_ENV === "production",
+    secure: servidoPorHttps,
     httpOnly: true,
     sameSite: "lax",
     // 1 hora de inactividad permitida antes de tener que volver a entrar.

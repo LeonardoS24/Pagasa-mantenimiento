@@ -6,6 +6,8 @@ import type { StationTankTechnicalSheet } from "@prisma/client";
 import { upsertStationTankTechnicalSheet } from "@/actions/vehicle-actions";
 import type { ActionState } from "@/actions/user-actions";
 import { toDateInputValue } from "@/lib/dates";
+import type { CustomFieldDef } from "@/lib/custom-fields";
+import { CustomFieldInputs } from "./CustomFieldInputs";
 import {
   STATION_VALVE_FIELDS,
   stationValveLabels,
@@ -67,9 +69,14 @@ function SubmitButton() {
 export function StationTankTechnicalSheetForm({
   vehicleId,
   sheet,
+  camposExtra = [],
+  valoresExtra = {},
 }: {
   vehicleId: string;
   sheet: StationTankTechnicalSheet | null;
+  // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
+  camposExtra?: CustomFieldDef[];
+  valoresExtra?: Record<string, string>;
 }) {
   const action = upsertStationTankTechnicalSheet.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
@@ -137,6 +144,7 @@ export function StationTankTechnicalSheetForm({
           <Field id="materialCabeza" label="Material cabeza" defaultValue={sheet?.materialCabeza} />
           <Field id="diametroInterior" label="Diámetro interior" defaultValue={sheet?.diametroInterior} />
           <Field id="tara" label="Tara" defaultValue={sheet?.tara} />
+          <CustomFieldInputs campos={camposExtra} seccion="tanque" valores={valoresExtra} />
         </div>
 
         {/* Válvulas del tanque fijo: otro juego que el de un Auto-Tanque
@@ -181,6 +189,7 @@ export function StationTankTechnicalSheetForm({
                 defaultValue={toDateInputValue(sheet?.[campo])}
               />
             ))}
+            <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
           </div>
         </div>
       </fieldset>

@@ -19,6 +19,8 @@ import { FormMessage } from "./FormMessage";
 import { SECTION_STYLES } from "@/lib/section-colors";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { VEHICLE_BRAND_CATALOG, findBrandOption } from "@/lib/vehicle-brand-catalog";
+import type { CustomFieldDef } from "@/lib/custom-fields";
+import { CustomFieldInputs } from "./CustomFieldInputs";
 
 const initialState: ActionState = {};
 
@@ -279,6 +281,8 @@ export function TechnicalSheetForm({
   showMaintenancePreventiveSection = true,
   showAutomovilSection = true,
   lockCombustibleGasLpGasolina = false,
+  camposExtra = [],
+  valoresExtra = {},
 }: {
   vehicleId: string;
   sheet: VehicleTechnicalSheet | null;
@@ -317,6 +321,9 @@ export function TechnicalSheetForm({
   // valor se fuerza en el servidor (ver actions/vehicle-actions.ts) sin
   // importar lo que se elija aquí.
   lockCombustibleGasLpGasolina?: boolean;
+  // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
+  camposExtra?: CustomFieldDef[];
+  valoresExtra?: Record<string, string>;
 }) {
   const action = upsertTechnicalSheet.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
@@ -489,6 +496,7 @@ export function TechnicalSheetForm({
                 número económico repetido ahí). Cualquier otro valor se guarda como Gas LP/Gasolina.
               </p>
             )}
+            <CustomFieldInputs campos={camposExtra} seccion="automovil" valores={valoresExtra} />
           </div>
           <Field id="horasUsoDiario" label="Horas de uso diario" defaultValue={sheet?.horasUsoDiario} />
           <Field
@@ -550,6 +558,7 @@ export function TechnicalSheetForm({
               type="date"
               defaultValue={toDateInputValue(sheet?.fechaFabricacionTanque)}
             />
+            <CustomFieldInputs campos={camposExtra} seccion="tanque" valores={valoresExtra} />
           </div>
         </div>
       )}
@@ -680,6 +689,7 @@ export function TechnicalSheetForm({
                   >
                     Cancelar
                   </button>
+                  <CustomFieldInputs campos={camposExtra} seccion="extintor" valores={valoresExtra} />
                 </div>
               </div>
             ) : (
@@ -730,6 +740,7 @@ export function TechnicalSheetForm({
               type="date"
               defaultValue={toDateInputValue(sheet?.fechaFabricacionManguera)}
             />
+            <CustomFieldInputs campos={camposExtra} seccion="mangueras" valores={valoresExtra} />
           </div>
           <p className="mt-2 text-xs text-ink">
             El cambio de mangueras debe hacerse cada 2 años a partir de la fecha de fabricación.
@@ -788,6 +799,7 @@ export function TechnicalSheetForm({
                 type="date"
                 defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaAlivio)}
               />
+              <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
             </div>
           ) : (
             <>
@@ -897,6 +909,7 @@ export function TechnicalSheetForm({
             type="date"
             defaultValue={toDateInputValue(sheet?.fechaProximaInspeccionVisual)}
           />
+          <CustomFieldInputs campos={camposExtra} seccion="visualExterna" valores={valoresExtra} />
         </div>
         <p className="mt-2 text-xs text-ink">
           Cuando falte un mes para la fecha próxima de inspección visual externa, la unidad se
@@ -927,6 +940,7 @@ export function TechnicalSheetForm({
             type="date"
             defaultValue={toDateInputValue(sheet?.fechaProximaPruebaHermeticidad)}
           />
+          <CustomFieldInputs campos={camposExtra} seccion="hermeticidad" valores={valoresExtra} />
         </div>
         <p className="mt-2 text-xs text-ink">
           Se revisa típicamente cada año. Cuando falte un mes para la fecha próxima, la unidad se
@@ -957,6 +971,7 @@ export function TechnicalSheetForm({
             type="date"
             defaultValue={toDateInputValue(sheet?.fechaProximaInspeccionVisualInterna)}
           />
+          <CustomFieldInputs campos={camposExtra} seccion="visualInterna" valores={valoresExtra} />
         </div>
         <p className="mt-2 text-xs text-ink">
           Vence cada 10 años a partir de la fecha de fabricación del tanque. Si se deja vacía, se
@@ -988,6 +1003,7 @@ export function TechnicalSheetForm({
             type="date"
             defaultValue={toDateInputValue(sheet?.fechaProximoUltrasonido)}
           />
+          <CustomFieldInputs campos={camposExtra} seccion="ultrasonido" valores={valoresExtra} />
         </div>
         <p className="mt-2 text-xs text-ink">
           Cuando falte un mes para la fecha próxima de ultrasonido, la unidad se marcará en
@@ -1018,6 +1034,7 @@ export function TechnicalSheetForm({
             type="date"
             defaultValue={toDateInputValue(sheet?.fechaProximaPruebaHidrostatica)}
           />
+          <CustomFieldInputs campos={camposExtra} seccion="hidrostatica" valores={valoresExtra} />
         </div>
         <p className="mt-2 text-xs text-ink">
           Vence cada 10 años a partir de la fecha de fabricación del tanque, con el mismo cálculo

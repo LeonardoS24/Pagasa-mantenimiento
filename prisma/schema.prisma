@@ -161,6 +161,9 @@ model VehicleRecord {
   estatus String @default("OPERATIVA")
 
   documents                    Document[]
+  // Valores de los recuadros extra que se hayan agregado a su ficha técnica
+  // desde el panel (ver CustomField).
+  customFieldValues            CustomFieldValue[]
   technicalSheet               VehicleTechnicalSheet?
   // Solo para "Estaciones de carburación" (ver StationTankTechnicalSheet más
   // abajo): reemplaza la sección "Tanque" de VehicleTechnicalSheet con campos
@@ -459,6 +462,52 @@ model MaintenanceLog {
 // "Otro", ver lib/learned-pieces.ts) y las que un ADMIN agrega desde el panel
 // (ver /admin/piezas y actions/piece-catalog-actions.ts). Son lo mismo desde
 // el punto de vista del catálogo, por eso comparten tabla.
+// Recuadros extra que un ADMIN agrega a las fichas técnicas desde el panel
+// (ver /admin/campos y lib/custom-fields.ts). No tocan las columnas fijas de
+// VehicleTechnicalSheet ni StationTankTechnicalSheet: sus valores viven en
+// CustomFieldValue. Así las alertas, el semáforo y los vencimientos, que
+// dependen de esas columnas, siguen funcionando igual.
+model CustomField {
+  id String @id @default(cuid())
+  // "VEHICULO" | "ESTACION" (ver CAMPO_AMBITOS en lib/custom-fields.ts)
+  ambito String
+  // Recuadro donde aparece ("automovil", "tanque", ...): coincide con las
+  // claves de SECTION_STYLES para heredar el color de esa sección.
+  seccion  String
+  etiqueta String
+  // "TEXTO" | "TEXTO_LARGO" | "NUMERO" | "FECHA"
+  tipo  String @default("TEXTO")
+  orden Int    @default(0)
+
+  valores CustomFieldValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("custom_fields")
+}
+
+// El valor capturado de un campo extra para una unidad concreta. Se guarda
+// siempre como texto: el tipo solo decide qué control se muestra y cómo se
+// valida al capturar, no cómo se almacena.
+model CustomFieldValue {
+  id String @id @default(cuid())
+
+  fieldId String
+  field   CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  valor String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fieldId, vehicleRecordId])
+  @@map("custom_field_values")
+}
+
 // Ítems que un ADMIN agrega al checklist de mantenimiento preventivo desde
 // el panel (ver /admin/piezas y actions/checklist-actions.ts). La lista base
 // vive en el código (lib/preventive-checklist.ts); estos se suman a ella.
