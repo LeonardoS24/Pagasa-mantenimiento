@@ -11,6 +11,7 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
         <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
           <tr>
             <th className="px-4 py-2">Usuario</th>
+            <th className="px-4 py-2">Puesto</th>
             <th className="px-4 py-2">Rol</th>
             <th className="px-4 py-2" />
           </tr>
@@ -28,6 +29,7 @@ export function UserTable({ users, currentUserId }: { users: User[]; currentUser
                   {user.username}
                 </Link>
               </td>
+              <td className="px-4 py-2 text-ink">{user.puesto || "—"}</td>
               <td className="px-4 py-2 text-ink">{roleLabels[user.role as Role]}</td>
               <td className="relative px-4 py-2 text-right">
                 {user.id !== currentUserId && (

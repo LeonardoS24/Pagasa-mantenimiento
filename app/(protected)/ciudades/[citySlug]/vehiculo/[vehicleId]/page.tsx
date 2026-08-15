@@ -501,7 +501,7 @@ export default async function VehicleDetailPage({
         )}
       </div>
 
-      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+      <div id={isEstacionLike ? "valvulas" : undefined} className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         {isEstacionLike && (
           <div className="mb-6">
             <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">

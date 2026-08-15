@@ -30,7 +30,7 @@ export function CreateUserForm() {
         Crear usuario
       </h2>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="username">
             Usuario
@@ -39,6 +39,18 @@ export function CreateUserForm() {
             id="username"
             name="username"
             required
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="puesto">
+            Puesto
+          </label>
+          <input
+            id="puesto"
+            name="puesto"
+            required
+            placeholder="Ej. Jefe de mantenimiento"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>

@@ -5,6 +5,10 @@ export interface SessionData {
   userId: string;
   username: string;
   role: Role;
+  // Puesto de la persona (ver User.puesto en el schema): no se guarda en la
+  // cookie, requireUser lo relee de la base en cada request igual que el rol
+  // (ver lib/auth.ts). Se muestra en el Header en vez del rol técnico.
+  puesto?: string | null;
   // Cuántos mantenimientos "En proceso" había al iniciar esta sesión (ver
   // actions/auth-actions.ts). Transitorio: el layout protegido lo lee una
   // vez para mostrar el aviso y lo borra de inmediato, así solo aparece justo

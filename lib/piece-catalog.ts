@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ESTACION_LIKE_SECTION_SLUGS } from "./estacion-sections";
 
 // Catálogo de piezas para la Bitácora de mantenimiento de unidades: se
 // selecciona primero la categoría y después la pieza (ver
@@ -354,8 +355,6 @@ export const STATION_PIECE_CATEGORIES = [
   "Obra e instalaciones",
 ];
 
-const STATION_SECTION_SLUGS = ["estaciones-de-carburacion", "planta-ficha-tecnica"];
-
 const SECTION_ONLY_CATEGORIES = [
   TANQUE_CATEGORY,
   ...CARBURACION_CATEGORIES,
@@ -370,7 +369,7 @@ const SECTION_ONLY_CATEGORIES = [
 // de gas LP, no el vehículo completo. Una Estación/Planta ve únicamente sus
 // propias categorías: es una instalación fija, no un vehículo.
 export function getPieceCategories(sectionSlug?: string): string[] {
-  if (sectionSlug && STATION_SECTION_SLUGS.includes(sectionSlug)) {
+  if (sectionSlug && ESTACION_LIKE_SECTION_SLUGS.includes(sectionSlug)) {
     return [...STATION_PIECE_CATEGORIES, PIECE_CATEGORY_OTRO];
   }
   if (sectionSlug === "vehiculo-con-tanque-de-carburacion") {

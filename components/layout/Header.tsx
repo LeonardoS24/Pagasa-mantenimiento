@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { SessionData } from "@/lib/session";
-import { roleLabels } from "@/lib/roles";
 
 export function Header({ user }: { user: SessionData }) {
   const pathname = usePathname();
@@ -43,7 +42,8 @@ export function Header({ user }: { user: SessionData }) {
       )}
       <div className="flex items-center gap-4 text-sm">
         <span>
-          {user.username} <span className="text-blue-200">({roleLabels[user.role]})</span>
+          {user.username}
+          {user.puesto && <span className="text-blue-200"> — {user.puesto}</span>}
         </span>
         <form action="/api/logout" method="POST">
           <button

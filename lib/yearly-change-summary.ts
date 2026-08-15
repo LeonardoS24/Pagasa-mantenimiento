@@ -2,6 +2,16 @@ import { prisma } from "./prisma";
 import { isAlertVisibleForSection, type AlertType } from "./alert-visibility";
 import { getValveVencimiento, type ValveDates } from "./valve-alerts";
 import { getHoseVencimiento } from "./hose-alerts";
+import { getStationValveVencimiento, type StationValveDates } from "./station-valves";
+import { ESTACION_LIKE_SECTION_SLUGS } from "./estacion-sections";
+
+// A qué ámbito pertenece el resumen: una unidad normal o una Estación de
+// carburación/Planta (ver ESTACION_LIKE_SECTION_SLUGS). Ambas cuentan con las
+// mismas 5 inspecciones periódicas (viven igual en VehicleTechnicalSheet),
+// pero "valvulas" es un juego totalmente distinto en cada una (ver
+// lib/valve-alerts.ts vs lib/station-valves.ts), y extintor/mangueras no
+// aplican a una estación fija.
+export type ResumenAmbito = "UNIDADES" | "ESTACIONES";
 
 // Resumen anual de "Administración": a diferencia de lib/vehicle-alerts-summary.ts
 // (que solo mira los próximos 30 días para las alertas de Inicio), este
@@ -29,6 +39,20 @@ export const YEARLY_SUMMARY_TYPES: YearlySummaryTypeId[] = [
   "valvulas",
   "mangueras",
 ];
+
+// Sin extintor ni mangueras: una estación fija no los tiene.
+export const STATION_SUMMARY_TYPES: YearlySummaryTypeId[] = [
+  "ultrasonido",
+  "visualExterna",
+  "visualInterna",
+  "hermeticidad",
+  "hidrostatica",
+  "valvulas",
+];
+
+export function summaryTypesForAmbito(ambito: ResumenAmbito): YearlySummaryTypeId[] {
+  return ambito === "ESTACIONES" ? STATION_SUMMARY_TYPES : YEARLY_SUMMARY_TYPES;
+}
 
 export const yearlySummaryLabels: Record<YearlySummaryTypeId, string> = {
   extintor: "Cambio de Extintor",
@@ -118,7 +142,15 @@ type TechnicalSheetLike = {
   fechaFabricacionManguera: Date | null;
 } | null;
 
-function getDueDate(type: YearlySummaryTypeId, sheet: TechnicalSheetLike): Date | null {
+function getDueDate(
+  type: YearlySummaryTypeId,
+  sheet: TechnicalSheetLike,
+  ambito: ResumenAmbito,
+  stationSheet?: StationValveDates | null
+): Date | null {
+  if (type === "valvulas" && ambito === "ESTACIONES") {
+    return stationSheet ? getStationValveVencimiento(stationSheet) : null;
+  }
   if (!sheet) return null;
   switch (type) {
     case "extintor":
@@ -160,9 +192,16 @@ async function getLogDatesThisYear(
   type: YearlySummaryTypeId,
   vehicleIds: string[],
   yearStart: Date,
-  yearEnd: Date
+  yearEnd: Date,
+  ambito: ResumenAmbito
 ): Promise<Map<string, Date>> {
   if (vehicleIds.length === 0) return new Map();
+  // El juego de válvulas de una estación (ver lib/station-valves.ts) no
+  // tiene una bitácora propia de cambios: las fechas se sobrescriben
+  // directo en StationTankTechnicalSheet. Sin log no hay forma de saber si
+  // ya se registró un cambio este año, así que ese tipo siempre queda como
+  // "vence"/"sin información", nunca "ya registrado".
+  if (type === "valvulas" && ambito === "ESTACIONES") return new Map();
 
   const where = { vehicleRecordId: { in: vehicleIds } };
   let rows: { vehicleRecordId: string; fecha: Date }[];
@@ -258,9 +297,15 @@ async function getLogDatesThisYear(
 export async function getYearlySummary(
   type: YearlySummaryTypeId,
   cityIds: string[],
-  year: number
+  year: number,
+  ambito: ResumenAmbito = "UNIDADES"
 ): Promise<YearlySummaryResult> {
   if (cityIds.length === 0) return { due: [], missing: [], completed: [] };
+  // extintor/mangueras no aplican a una estación fija (ver comentario en
+  // STATION_SUMMARY_TYPES); nada que resumir en ese cruce.
+  if (ambito === "ESTACIONES" && (type === "extintor" || type === "mangueras")) {
+    return { due: [], missing: [], completed: [] };
+  }
 
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year + 1, 0, 1));
@@ -268,15 +313,24 @@ export async function getYearlySummary(
 
   const vehicles = await prisma.vehicleRecord.findMany({
     where: { activo: true, section: { cityId: { in: cityIds } } },
-    include: { technicalSheet: true, section: { include: { city: true } } },
+    include: {
+      technicalSheet: true,
+      stationTankTechnicalSheet: true,
+      section: { include: { city: true } },
+    },
   });
 
-  const inScope = vehicles.filter((v) => isAlertVisibleForSection(alertType, v.section.slug));
+  const inScope = vehicles.filter((v) => {
+    if (!isAlertVisibleForSection(alertType, v.section.slug)) return false;
+    const esEstacion = ESTACION_LIKE_SECTION_SLUGS.includes(v.section.slug);
+    return ambito === "ESTACIONES" ? esEstacion : !esEstacion;
+  });
   const logDates = await getLogDatesThisYear(
     type,
     inScope.map((v) => v.id),
     yearStart,
-    yearEnd
+    yearEnd,
+    ambito
   );
 
   const due: YearlySummaryItem[] = [];
@@ -291,7 +345,7 @@ export async function getYearlySummary(
       cityName: v.section.city.name,
     };
     const fechaRegistro = logDates.get(v.id);
-    const dueDate = getDueDate(type, v.technicalSheet);
+    const dueDate = getDueDate(type, v.technicalSheet, ambito, v.stationTankTechnicalSheet);
 
     if (fechaRegistro) {
       completed.push({ ...base, dueDate, fechaRegistro });
@@ -316,15 +370,15 @@ export interface YearlySummaryOverviewRow {
   completed: number;
 }
 
-// Conteos de los 8 tipos para la pestaña "Resumen general".
+// Conteos de los tipos del ámbito para la pestaña "Resumen general".
 export async function getYearlySummaryOverview(
   cityIds: string[],
-  year: number
+  year: number,
+  ambito: ResumenAmbito = "UNIDADES"
 ): Promise<YearlySummaryOverviewRow[]> {
-  const results = await Promise.all(
-    YEARLY_SUMMARY_TYPES.map((type) => getYearlySummary(type, cityIds, year))
-  );
-  return YEARLY_SUMMARY_TYPES.map((type, i) => ({
+  const types = summaryTypesForAmbito(ambito);
+  const results = await Promise.all(types.map((type) => getYearlySummary(type, cityIds, year, ambito)));
+  return types.map((type, i) => ({
     type,
     label: yearlySummaryLabels[type],
     due: results[i].due.length,
@@ -339,16 +393,16 @@ export interface YearlySummaryMissingGroup {
   items: YearlySummaryItem[];
 }
 
-// Los "sin información" de los 8 tipos juntos, agrupados por tipo, para la
-// pestaña "Sin información".
+// Los "sin información" de los tipos del ámbito juntos, agrupados por tipo,
+// para la pestaña "Sin información".
 export async function getYearlySummaryAllMissing(
   cityIds: string[],
-  year: number
+  year: number,
+  ambito: ResumenAmbito = "UNIDADES"
 ): Promise<YearlySummaryMissingGroup[]> {
-  const results = await Promise.all(
-    YEARLY_SUMMARY_TYPES.map((type) => getYearlySummary(type, cityIds, year))
-  );
-  return YEARLY_SUMMARY_TYPES.map((type, i) => ({
+  const types = summaryTypesForAmbito(ambito);
+  const results = await Promise.all(types.map((type) => getYearlySummary(type, cityIds, year, ambito)));
+  return types.map((type, i) => ({
     type,
     label: yearlySummaryLabels[type],
     items: results[i].missing,

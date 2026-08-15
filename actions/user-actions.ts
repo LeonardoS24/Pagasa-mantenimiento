@@ -23,6 +23,7 @@ const createUserSchema = z.object({
     .regex(/^[a-zA-Z0-9._-]+$/, "Solo letras, números, punto, guion y guion bajo"),
   password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
   role: roleSchema,
+  puesto: z.string().trim().min(1, "El puesto es requerido").max(80),
 });
 
 export async function createUser(
@@ -35,6 +36,7 @@ export async function createUser(
     username: formData.get("username"),
     password: formData.get("password"),
     role: formData.get("role"),
+    puesto: formData.get("puesto"),
   });
 
   if (!parsed.success) {
@@ -52,6 +54,7 @@ export async function createUser(
       username: parsed.data.username,
       passwordHash,
       role: parsed.data.role,
+      puesto: parsed.data.puesto,
     },
   });
 
@@ -148,6 +151,31 @@ export async function changeUserRole(
       ? `Rol actualizado. Asígnale las ciudades a las que tendrá acceso.`
       : "Rol actualizado.",
   };
+}
+
+const changePuestoSchema = z.object({
+  puesto: z.string().trim().min(1, "El puesto es requerido").max(80),
+});
+
+// Puesto de la persona (ver comentario en el schema): lo captura el ADMIN al
+// crear la cuenta, y lo puede corregir después desde aquí sin tener que
+// borrar y recrear el usuario.
+export async function changeUserPuesto(
+  userId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const parsed = changePuestoSchema.safeParse({ puesto: formData.get("puesto") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Puesto inválido" };
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { puesto: parsed.data.puesto } });
+  revalidatePath(`/admin/usuarios/${userId}`);
+  revalidatePath("/admin/usuarios");
+  return { success: "Puesto actualizado." };
 }
 
 const changePasswordSchema = z.object({

@@ -19,6 +19,7 @@ import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDelet
 
 type PieceOrderWithVehicle = PieceOrder & {
   vehicleRecord: { id: string; numeroEconomico: string } | null;
+  sustituyeEquipo?: { id: string; nombre: string; codigo: string | null } | null;
 };
 
 export function PieceOrderTable({
@@ -68,7 +69,15 @@ export function PieceOrderTable({
             const prioridad = order.prioridad as PieceOrderPrioridad;
             return (
               <tr key={order.id} className="border-t border-gray-100">
-                <td className="whitespace-nowrap px-4 py-2 font-medium text-ink">{order.nombre}</td>
+                <td className="whitespace-nowrap px-4 py-2 font-medium text-ink">
+                  {order.nombre}
+                  {order.sustituyeEquipo && (
+                    <span className="block text-xs font-normal text-gray-500">
+                      Sustituye a: {order.sustituyeEquipo.codigo ? `${order.sustituyeEquipo.codigo} — ` : ""}
+                      {order.sustituyeEquipo.nombre}
+                    </span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-4 py-2">
                   {prioridad === "ALTA" ? (
                     <span

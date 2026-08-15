@@ -43,16 +43,34 @@ function SubmitButton() {
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
-export type VehicleOption = { id: string; numeroEconomico: string; section: { name: string } };
+export type VehicleOption = {
+  id: string;
+  numeroEconomico: string;
+  section: { name: string };
+  // Si es una Estación de carburación / Planta en vez de una unidad normal
+  // (ver lib/estacion-sections.ts), para el selector "¿Para qué es la orden?".
+  esEstacion?: boolean;
+};
+
+export type EquipoOption = {
+  id: string;
+  nombre: string;
+  codigo: string | null;
+  vehicleRecord: { numeroEconomico: string } | null;
+};
 
 export function CreatePieceOrderForm({
   sectionId,
   vehicles,
+  equipos,
   pieceCatalog,
   categoriasPorGrupo,
 }: {
   sectionId: string;
   vehicles: VehicleOption[];
+  // Equipos activos de la ciudad, para el checklist de "sustituye a un
+  // equipo que ya existe" (solo aplica a tipo "Equipo").
+  equipos?: EquipoOption[];
   // Catálogo ya resuelto en el servidor: lista fija + piezas agregadas desde
   // /admin/piezas (ver lib/piece-catalog-runtime.ts).
   pieceCatalog?: Record<string, string[]>;
@@ -81,13 +99,22 @@ export function CreatePieceOrderForm({
   // de piezas de unidad en vez de escribirlo a mano (ver lib/piece-catalog.ts,
   // el mismo catálogo de "Registrar mantenimiento"). "" = escribir a mano.
   const [piezaCatalogo, setPiezaCatalogo] = useState("");
-  // Para qué es la pieza: acota el catálogo a las categorías de vehículo o a
-  // las de Estación de carburación (ver lib/piece-catalog.ts). Sin esto, las
-  // dos listas aparecían revueltas en el mismo selector.
-  const [grupoPieza, setGrupoPieza] = useState<PieceGroup>("Unidades");
+  // Para qué es la orden: acota tanto el catálogo de piezas (cuando aplica)
+  // como el selector de "Unidad destino" a solo unidades o solo estaciones
+  // (ver esEstacion en VehicleOption), igual que ya se hace al elegir la
+  // pieza del catálogo. Siempre visible, no solo cuando hay catálogo.
+  const [destino, setDestino] = useState<PieceGroup>("Unidades");
   const mostrarCatalogo = tipo !== "" && usaCatalogoDePiezas(tipo);
   const catalogo = pieceCatalog ?? PIECE_CATALOG;
-  const categoriasDelGrupo = categoriasPorGrupo?.[grupoPieza] ?? getPieceCategoriesForGroup(grupoPieza);
+  const categoriasDelGrupo = categoriasPorGrupo?.[destino] ?? getPieceCategoriesForGroup(destino);
+  const vehiculosDelDestino = vehicles.filter((v) =>
+    destino === "Estaciones de carburación" ? v.esEstacion : !v.esEstacion
+  );
+
+  // Checklist al elegir tipo "Equipo": si ya se sabe que sustituye a un
+  // equipo que ya existe, se liga aquí a modo de referencia (ver
+  // PieceOrder.sustituyeEquipoId). No lo da de baja solo.
+  const [esSustitucion, setEsSustitucion] = useState(false);
 
   useEffect(() => {
     if (hasPrefill && detailsRef.current) {
@@ -118,11 +145,33 @@ export function CreatePieceOrderForm({
           setUnidadConsumible("LTS");
           setCantidad("1");
           setPiezaCatalogo("");
-          setGrupoPieza("Unidades");
+          setDestino("Unidades");
+          setEsSustitucion(false);
         }}
         className="mt-4 space-y-3"
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-destino">
+              ¿Para qué es la orden?
+            </label>
+            <select
+              id="op-destino"
+              value={destino}
+              onChange={(event) => {
+                setDestino(event.target.value as PieceGroup);
+                setPiezaCatalogo("");
+              }}
+              className={inputClass}
+            >
+              {PIECE_GROUPS.map((grupo) => (
+                <option key={grupo} value={grupo}>
+                  {grupo}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-tipo">
               Orden
@@ -133,8 +182,10 @@ export function CreatePieceOrderForm({
               required
               value={tipo}
               onChange={(event) => {
-                setTipo(event.target.value as OrdenTipo | "");
+                const nuevoTipo = event.target.value as OrdenTipo | "";
+                setTipo(nuevoTipo);
                 setPiezaCatalogo("");
+                if (nuevoTipo !== "EQUIPO") setEsSustitucion(false);
               }}
               className={inputClass}
             >
@@ -151,27 +202,6 @@ export function CreatePieceOrderForm({
 
           {mostrarCatalogo && (
             <>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-grupoPieza">
-                  Piezas de
-                </label>
-                <select
-                  id="op-grupoPieza"
-                  value={grupoPieza}
-                  onChange={(event) => {
-                    setGrupoPieza(event.target.value as PieceGroup);
-                    setPiezaCatalogo("");
-                  }}
-                  className={inputClass}
-                >
-                  {PIECE_GROUPS.map((grupo) => (
-                    <option key={grupo} value={grupo}>
-                      {grupo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div>
                 <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-piezaCatalogo">
                   Elegir del catálogo
@@ -297,12 +327,12 @@ export function CreatePieceOrderForm({
             >
               <option value="">— Se elige después, desde Inventarios —</option>
               {Array.from(
-                vehicles.reduce((groups, vehicle) => {
+                vehiculosDelDestino.reduce((groups, vehicle) => {
                   const list = groups.get(vehicle.section.name) ?? [];
                   list.push(vehicle);
                   groups.set(vehicle.section.name, list);
                   return groups;
-                }, new Map<string, typeof vehicles>())
+                }, new Map<string, typeof vehiculosDelDestino>())
               ).map(([sectionName, options]) => (
                 <optgroup key={sectionName} label={sectionName}>
                   {options.map((vehicle) => (
@@ -315,6 +345,48 @@ export function CreatePieceOrderForm({
             </select>
           </div>
         </div>
+
+        {tipo === "EQUIPO" && (equipos?.length ?? 0) > 0 && (
+          <div className="rounded-md border border-dashed border-gray-300 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-ink">
+              <input
+                type="checkbox"
+                checked={esSustitucion}
+                onChange={(event) => setEsSustitucion(event.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-accent"
+              />
+              Sustituye a un equipo que ya existe
+            </label>
+            {esSustitucion && (
+              <div className="mt-2">
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-sustituyeEquipoId">
+                  ¿A cuál equipo sustituye?
+                </label>
+                <select
+                  id="op-sustituyeEquipoId"
+                  name="sustituyeEquipoId"
+                  required
+                  defaultValue=""
+                  className={`max-w-sm ${inputClass}`}
+                >
+                  <option value="" disabled>
+                    Selecciona...
+                  </option>
+                  {equipos?.map((equipo) => (
+                    <option key={equipo.id} value={equipo.id}>
+                      {equipo.codigo ? `${equipo.codigo} — ${equipo.nombre}` : equipo.nombre}
+                      {equipo.vehicleRecord ? ` (${equipo.vehicleRecord.numeroEconomico})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Solo queda anotado como referencia: el equipo anterior se sigue dando de baja
+                  desde su propia bitácora, registrando ahí el cambio.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         <p className="text-xs text-ink">
           Si ya sabes para qué unidad es la pieza, selecciónala aquí: al aceptarse la orden, el

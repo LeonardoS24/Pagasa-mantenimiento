@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { deleteUser } from "@/actions/user-actions";
 import { ChangePasswordForm } from "@/components/admin/ChangePasswordForm";
+import { ChangePuestoForm } from "@/components/admin/ChangePuestoForm";
 import { ChangeRoleForm } from "@/components/admin/ChangeRoleForm";
 import { CityAccessCheckboxes } from "@/components/admin/CityAccessCheckboxes";
 import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
@@ -35,8 +36,15 @@ export default async function UserDetailPage({
           ← Volver a usuarios
         </Link>
         <h2 className="mt-2 text-xl font-semibold text-primary">{user.username}</h2>
-        <p className="text-sm text-ink">{roleLabels[user.role as Role]}</p>
+        <p className="text-sm text-ink">{user.puesto || "Sin puesto capturado"} · {roleLabels[user.role as Role]}</p>
       </div>
+
+      <section className="rounded-lg border border-gray-200 bg-white p-5">
+        <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+          Puesto
+        </h3>
+        <ChangePuestoForm userId={user.id} puesto={user.puesto} />
+      </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-5">
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">

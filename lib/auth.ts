@@ -22,7 +22,7 @@ export async function getSession(): Promise<IronSession<SessionData>> {
 const cargarUsuarioDeSesion = cache(async (userId: string) => {
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, username: true, role: true },
+    select: { id: true, username: true, role: true, puesto: true },
   });
 });
 
@@ -49,6 +49,7 @@ export async function requireUser(): Promise<SessionData> {
     userId: user.id,
     username: user.username,
     role: rol.success ? rol.data : "LECTOR",
+    puesto: user.puesto,
   };
 }
 

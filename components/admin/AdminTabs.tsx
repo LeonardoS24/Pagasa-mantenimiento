@@ -9,6 +9,7 @@ const TABS = [
   { href: "/admin/alertas", label: "Alertas" },
   { href: "/admin/piezas", label: "Piezas y refacciones" },
   { href: "/admin/campos", label: "Recuadros de fichas" },
+  { href: "/admin/respaldos", label: "Respaldos" },
   { href: "/admin/actividad", label: "Actividad del sistema" },
 ];
 

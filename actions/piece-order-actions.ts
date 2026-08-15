@@ -56,6 +56,13 @@ const createPieceOrderSchema = z.object({
     const text = String(value ?? "").trim();
     return text.length > 0 ? text : undefined;
   }, z.string().optional()),
+  // Checklist de "¿Es un equipo? ¿Sustituye a uno que ya existe?" (ver
+  // CreatePieceOrderForm): solo se manda cuando tipo === "EQUIPO" y se marcó
+  // la casilla; el equipo elegido solo queda anotado como referencia.
+  sustituyeEquipoId: z.preprocess((value) => {
+    const text = String(value ?? "").trim();
+    return text.length > 0 ? text : undefined;
+  }, z.string().optional()),
 });
 
 // Da de alta los renglones en el apartado de Inventarios de la misma ciudad
@@ -122,6 +129,7 @@ export async function createPieceOrder(
     fechaOrden: formData.get("fechaOrden"),
     estado: formData.get("estado"),
     vehicleRecordId: formData.get("vehicleRecordId"),
+    sustituyeEquipoId: formData.get("sustituyeEquipoId"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -133,6 +141,18 @@ export async function createPieceOrder(
   });
   if (!section) {
     return { error: "El apartado no existe." };
+  }
+
+  let sustituyeEquipoId: string | null = null;
+  if (parsed.data.tipo === "EQUIPO" && parsed.data.sustituyeEquipoId) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: parsed.data.sustituyeEquipoId },
+      include: { section: true },
+    });
+    if (!equipo || !equipo.activo || equipo.section.cityId !== section.cityId) {
+      return { error: "El equipo a sustituir seleccionado no es válido." };
+    }
+    sustituyeEquipoId = equipo.id;
   }
 
   let vehicleRecordId: string | null = null;
@@ -165,6 +185,7 @@ export async function createPieceOrder(
       estado: parsed.data.estado,
       fechaAceptada: parsed.data.estado === "ACEPTADA" ? new Date() : null,
       vehicleRecordId,
+      sustituyeEquipoId,
       prioridad,
     },
   });

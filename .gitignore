@@ -29,6 +29,10 @@ prisma/dev.db.backup-*
 # archivos subidos (PDFs por apartado)
 /uploads
 
+# respaldos automáticos de la base y de uploads/ (ver lib/backup.ts):
+# son datos reales, no código, y ya duplican lo de arriba
+/backups
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

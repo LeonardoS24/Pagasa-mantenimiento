@@ -27,7 +27,9 @@ import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
 import { getPieceMaintenanceStatsByMarca } from "@/lib/piece-maintenance-by-marca";
 import { MarcaMaintenanceCharts } from "@/components/city/MarcaMaintenanceCharts";
-import { isAggregateCitySlug } from "@/lib/aggregate-city";
+import { isAggregateCitySlug, getAllRealCityIds } from "@/lib/aggregate-city";
+import { InventoryAggregateTable } from "@/components/city/InventoryAggregateTable";
+import { getCityInventoryFeed } from "@/lib/city-inventory-feed";
 import { getAllRecordTypeStats } from "@/lib/record-count-stats";
 import { RecordCountByCityChart } from "@/components/city/RecordCountByCityChart";
 import { RecordTypeComparisonSection } from "@/components/city/RecordTypeComparisonSection";
@@ -70,7 +72,7 @@ export default async function SectionPage({
   searchParams,
 }: {
   params: { citySlug: string; sectionPath: string[] };
-  searchParams: { mes?: string; tab?: string };
+  searchParams: { mes?: string; tab?: string; ambito?: string };
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
@@ -303,9 +305,28 @@ export default async function SectionPage({
       ? await prisma.pieceOrder.findMany({
           where: { sectionId: current.id },
           orderBy: { fechaOrden: "desc" },
-          include: { vehicleRecord: { select: { id: true, numeroEconomico: true } } },
+          include: {
+            vehicleRecord: { select: { id: true, numeroEconomico: true } },
+            sustituyeEquipo: { select: { id: true, nombre: true, codigo: true } },
+          },
         })
       : [];
+  // Equipos activos de la ciudad, para el checklist de "sustituye a un
+  // equipo que ya existe" al levantar una orden tipo "Equipo" (ver
+  // CreatePieceOrderForm). Incluye tanto los de "Equipos" a nivel ciudad
+  // como los propios de cada estación (ver Equipo.vehicleRecordId).
+  const cityEquipos = isOrdenDePieza && !isAggregateCity
+    ? await prisma.equipo.findMany({
+        where: { activo: true, section: { cityId: city.id } },
+        orderBy: { nombre: "asc" },
+        select: {
+          id: true,
+          nombre: true,
+          codigo: true,
+          vehicleRecord: { select: { numeroEconomico: true } },
+        },
+      })
+    : [];
   // Rango seleccionado con el MonthPicker (o el mes en curso por defecto),
   // mismo patrón que pieceMaintenanceRange arriba: antes esto siempre era el
   // mes en curso y sin selector, así que una orden de un mes anterior
@@ -322,10 +343,10 @@ export default async function SectionPage({
   const orderLogFeed =
     isOrdenDePieza && isAggregateCity ? await getCityOrderLogFeed(null, pieceOrderRange) : [];
 
-  if (isInventarios) {
+  if (isInventarios && !isAggregateCity) {
     await sweepExpiredPorUtilizar(current.id);
   }
-  const inventoryItems = isInventarios
+  const inventoryItems = isInventarios && !isAggregateCity
     ? await prisma.inventoryItem.findMany({
         where: { sectionId: current.id },
         orderBy: { fechaIngreso: "desc" },
@@ -337,6 +358,12 @@ export default async function SectionPage({
         },
       })
     : [];
+  // En Administración, "Inventarios" combina el de todas las ciudades reales
+  // en vez de mostrar el suyo propio (vacío: es una ciudad virtual sin
+  // unidades). Mismo criterio que Orden (ver isOrdenDePieza && isAggregateCity
+  // arriba): de solo lectura, editar sigue siendo desde la ciudad real.
+  const inventoryFeed =
+    isInventarios && isAggregateCity ? await getCityInventoryFeed(await getAllRealCityIds()) : [];
 
   // Unidades activas de la ciudad: para elegir dónde se colocó una pieza al
   // marcarla "Utilizada" (ver InventoryItemStatusForm) y para elegir la
@@ -346,9 +373,16 @@ export default async function SectionPage({
     ? await prisma.vehicleRecord.findMany({
         where: { activo: true, section: { cityId: city.id } },
         orderBy: [{ section: { order: "asc" } }, { numeroEconomico: "asc" }],
-        select: { id: true, numeroEconomico: true, section: { select: { name: true } } },
+        select: { id: true, numeroEconomico: true, section: { select: { name: true, slug: true } } },
       })
     : [];
+  // Para el selector "¿Para qué es la orden?" (Unidades/Estaciones) de
+  // CreatePieceOrderForm: mismo criterio que el resto del sistema para
+  // distinguir una estación/planta de una unidad normal.
+  const orderVehicles = cityVehicles.map((v) => ({
+    ...v,
+    esEstacion: ESTACION_LIKE_SECTION_SLUGS.includes(v.section.slug),
+  }));
 
   const documents = isVehicleSection || isEquiposSection || isResumenSection
     ? []
@@ -519,7 +553,8 @@ export default async function SectionPage({
               {isEditor && (
                 <CreatePieceOrderForm
                   sectionId={current.id}
-                  vehicles={cityVehicles}
+                  vehicles={orderVehicles}
+                  equipos={cityEquipos}
                   pieceCatalog={pieceCatalog}
                   categoriasPorGrupo={categoriasPorGrupo}
                 />
@@ -529,15 +564,23 @@ export default async function SectionPage({
           )}
         </div>
       ) : isResumenSection ? (
-        <ResumenPanel citySlug={city.slug} tab={searchParams.tab ?? "general"} />
-      ) : isInventarios ? (
-        <InventoryItemTable
-          items={inventoryItems}
-          vehicles={cityVehicles}
+        <ResumenPanel
           citySlug={city.slug}
-          canEdit={isEditor}
-          isAdmin={isAdmin}
+          tab={searchParams.tab ?? "general"}
+          ambito={searchParams.ambito === "estaciones" ? "ESTACIONES" : "UNIDADES"}
         />
+      ) : isInventarios ? (
+        isAggregateCity ? (
+          <InventoryAggregateTable items={inventoryFeed} />
+        ) : (
+          <InventoryItemTable
+            items={inventoryItems}
+            vehicles={cityVehicles}
+            citySlug={city.slug}
+            canEdit={isEditor}
+            isAdmin={isAdmin}
+          />
+        )
       ) : isPlantaFichaTecnicaSection ? (
         <div>
           <PlantaCardGrid records={plantaCards} />

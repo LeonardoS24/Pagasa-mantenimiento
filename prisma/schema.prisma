@@ -18,6 +18,10 @@ model User {
   username     String   @unique
   passwordHash String
   role         String   @default("USUARIO")
+  // Puesto de la persona (ej. "Jefe de mantenimiento"), visible para
+  // cualquiera en vez del rol técnico (ADMIN/USUARIO/LECTOR): ese rol solo
+  // lo ve un ADMIN, en /admin/usuarios (ver components/layout/Header.tsx).
+  puesto       String?
   // Aviso de 5 minutos al iniciar sesión cuando hay mantenimientos "En
   // proceso" en sus ciudades accesibles (ver actions/auth-actions.ts). Cada
   // usuario lo puede apagar para sí mismo.
@@ -915,6 +919,14 @@ model PieceOrder {
   vehicleRecordId String?
   vehicleRecord   VehicleRecord? @relation(fields: [vehicleRecordId], references: [id], onDelete: SetNull)
 
+  // Checklist al levantar una orden tipo "EQUIPO" (ver
+  // components/admin/CreatePieceOrderForm.tsx): si ya se sabe que sustituye
+  // a un equipo existente, queda ligado aquí a modo de referencia — no lo da
+  // de baja solo; eso lo sigue haciendo su propia bitácora ("Cambio", ver
+  // Equipo.activo). SetNull para no perder la orden si el equipo se elimina.
+  sustituyeEquipoId String?
+  sustituyeEquipo   Equipo? @relation(fields: [sustituyeEquipoId], references: [id], onDelete: SetNull)
+
   // Una orden aceptada genera VARIOS renglones de inventario cuando el tipo
   // es contable (5 refacciones -> 5 renglones independientes); el consumible
   // genera uno solo con el total.
@@ -1060,6 +1072,9 @@ model Equipo {
 
   documents     Document[]
   equipmentLogs EquipmentLog[]
+  // Órdenes de pieza que marcaron a este equipo como el que sustituirán
+  // (ver PieceOrder.sustituyeEquipoId).
+  ordenesQueLoSustituyen PieceOrder[]
 
   // Quién dio de alta el equipo, para la bitácora de actividad del sistema
   // (ver app/(protected)/admin/actividad).
