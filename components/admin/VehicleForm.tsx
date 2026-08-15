@@ -195,10 +195,14 @@ export function VehicleForm({
                 <label className="mb-1 block text-sm font-medium text-ink" htmlFor="observaciones">
                   Observaciones (opcional)
                 </label>
+                <p className="mb-1 text-xs text-gray-500">
+                  Aquí va, por ejemplo, el número económico o la ciudad anteriores de la unidad.
+                </p>
                 <textarea
                   id="observaciones"
                   name="observaciones"
                   rows={2}
+                  placeholder="Ej. Anterior: PH31, Hermosillo"
                   defaultValue={defaults?.observaciones ?? ""}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
                 />

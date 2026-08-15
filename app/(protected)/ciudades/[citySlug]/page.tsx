@@ -1,9 +1,19 @@
 import { getSession } from "@/lib/auth";
 import { assertCityAccess } from "@/lib/access";
 import { resolveSectionPath } from "@/lib/section-path";
-import { isAggregateCitySlug } from "@/lib/aggregate-city";
+import { isAggregateCitySlug, getAllRealCityIds } from "@/lib/aggregate-city";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { SectionCard } from "@/components/city/SectionCard";
+import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
+import { UltrasoundAlertsPanel } from "@/components/dashboard/UltrasoundAlertsPanel";
+import { VisualInspectionAlertsPanel } from "@/components/dashboard/VisualInspectionAlertsPanel";
+import { TightnessTestAlertsPanel } from "@/components/dashboard/TightnessTestAlertsPanel";
+import { InternalVisualInspectionAlertsPanel } from "@/components/dashboard/InternalVisualInspectionAlertsPanel";
+import { HydrostaticTestAlertsPanel } from "@/components/dashboard/HydrostaticTestAlertsPanel";
+import { ExtinguisherAlertsPanel } from "@/components/dashboard/ExtinguisherAlertsPanel";
+import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlertsPanel";
+import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
+import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
 
 export default async function CityPage({
   params,
@@ -15,6 +25,22 @@ export default async function CityPage({
 
   await assertCityAccess(user, params.citySlug);
   const { city, children } = await resolveSectionPath(params.citySlug, []);
+
+  // "Administración" no tiene unidades propias: igual que su Bitácora de
+  // unidades (ver lib/aggregate-city.ts), sus alertas combinan las de todas
+  // las ciudades reales en vez de salir vacías.
+  const alertCityIds = isAggregateCitySlug(city.slug) ? await getAllRealCityIds() : [city.id];
+  const {
+    alertVehicles,
+    visualAlertVehicles,
+    tightnessAlertVehicles,
+    internalVisualAlertVehicles,
+    hydrostaticAlertVehicles,
+    extinguisherAlertVehicles,
+    maintenanceAlertVehicles,
+    valveAlertVehicles,
+    hoseAlertVehicles,
+  } = await getAllVehicleAlerts(alertCityIds);
 
   return (
     <div>
@@ -44,6 +70,16 @@ export default async function CityPage({
           </a>
         )}
       </div>
+
+      <UltrasoundAlertsPanel vehicles={alertVehicles} />
+      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
+      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} />
+      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} />
+      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} />
+      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
+      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
+      <ValveAlertsPanel vehicles={valveAlertVehicles} />
+      <HoseAlertsPanel vehicles={hoseAlertVehicles} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {children.map((section) => (
