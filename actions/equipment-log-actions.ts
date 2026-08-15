@@ -64,22 +64,23 @@ async function recalcularCriticidadEquipo(equipoId: string): Promise<void> {
 }
 
 // Los extintores de una estación siempre se atienden juntos, en la misma
-// visita (por eso ahora cada uno es su propio Equipo, ver
-// scripts/desglosar-cantidades-equipos-estacion.mjs): registrar un
-// mantenimiento en cualquiera de ellos aplica el mismo registro a los demás
-// "Extintores" de esa misma estación, para no repetirlo uno por uno.
-const NOMBRE_EXTINTORES = "Extintores";
+// visita (por eso ahora cada uno es su propio Equipo, uno por uno, ver
+// scripts/desglosar-cantidades-equipos-estacion.mjs — de ahí que el nombre
+// sea singular): registrar un mantenimiento en cualquiera de ellos aplica
+// el mismo registro a los demás "Extintor" de esa misma estación, para no
+// repetirlo uno por uno.
+const NOMBRE_EXTINTOR = "Extintor";
 
 async function equiposHermanosExtintores(equipo: {
   id: string;
   nombre: string;
   vehicleRecordId: string | null;
 }) {
-  if (equipo.nombre !== NOMBRE_EXTINTORES || !equipo.vehicleRecordId) return [];
+  if (equipo.nombre !== NOMBRE_EXTINTOR || !equipo.vehicleRecordId) return [];
   return prisma.equipo.findMany({
     where: {
       vehicleRecordId: equipo.vehicleRecordId,
-      nombre: NOMBRE_EXTINTORES,
+      nombre: NOMBRE_EXTINTOR,
       activo: true,
       id: { not: equipo.id },
     },

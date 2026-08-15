@@ -41,7 +41,7 @@ const NOMBRE_POR_FILA = {
   MANGUERA: "Manguera",
   MANOMETRO: "Manómetro",
   TERMOMETRO: "Termómetro",
-  EXTINTORES: "Extintores",
+  EXTINTORES: "Extintor",
 };
 
 function tipoFilaDe(rawNombre) {
