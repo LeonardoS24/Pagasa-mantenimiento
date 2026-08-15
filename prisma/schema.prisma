@@ -151,6 +151,15 @@ model VehicleRecord {
   // No se edita a mano, a diferencia de Equipo.criticidad.
   calidad String?
 
+  // "OPERATIVA" | "EN_TALLER" | "FUERA_DE_SERVICIO" (ver lib/vehicle-enums.ts:
+  // vehicleEstatusSchema). Se recalcula sola a EN_TALLER/OPERATIVA con cada
+  // mantenimiento (mismo lugar que "calidad" arriba, según si queda algún
+  // MaintenanceLog sin terminar) salvo que esté en FUERA_DE_SERVICIO, que es
+  // manual y no se pisa solo. También se puede cambiar a mano desde el botón
+  // rápido del listado (ver setVehicleEstatus en actions/vehicle-actions.ts);
+  // marcarla OPERATIVA a mano cierra ahí mismo los mantenimientos abiertos.
+  estatus String @default("OPERATIVA")
+
   documents                    Document[]
   technicalSheet               VehicleTechnicalSheet?
   // Solo para "Estaciones de carburación" (ver StationTankTechnicalSheet más
@@ -354,6 +363,23 @@ model StationTankTechnicalSheet {
   diametroInterior     String?
   tara                 String?
 
+  // Válvulas del tanque fijo. Son otro juego que el de un Auto-Tanque (ver
+  // lib/station-valves.ts y VehicleTechnicalSheet): aquí hay exceso de flujo
+  // y check lock, y no hay bypass, retorno de vapores, máximo llenado ni
+  // descarga de emergencia. La de relevo hidrostático va en la tubería, no
+  // en el tanque, así que no forma parte de este juego.
+  //
+  // Como en las unidades, se guarda la fecha de fabricación grabada en cada
+  // válvula más la fecha en que se instaló el juego completo.
+  fechaInstalacionValvulas                  DateTime?
+  fechaFabricacionValvulaExcesoFlujo        DateTime?
+  fechaFabricacionValvulaNoRetroceso        DateTime?
+  fechaFabricacionValvulaSeguridad          DateTime?
+  fechaFabricacionValvulaLlenado            DateTime?
+  fechaFabricacionValvulaServicio           DateTime?
+  fechaFabricacionValvulaCheckLock          DateTime?
+  fechaFabricacionValvulaVapor              DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -428,10 +454,40 @@ model MaintenanceLog {
 // escribe 3 veces o más, se agrega aquí para que a partir de entonces
 // aparezca como opción seleccionable en vez de tener que volver a escribirla
 // (ver lib/learned-pieces.ts).
+// Piezas del catálogo que no vienen en la lista fija de lib/piece-catalog.ts:
+// las que el sistema aprende solo de tanto escribirlas a mano (categoría
+// "Otro", ver lib/learned-pieces.ts) y las que un ADMIN agrega desde el panel
+// (ver /admin/piezas y actions/piece-catalog-actions.ts). Son lo mismo desde
+// el punto de vista del catálogo, por eso comparten tabla.
+// Ítems que un ADMIN agrega al checklist de mantenimiento preventivo desde
+// el panel (ver /admin/piezas y actions/checklist-actions.ts). La lista base
+// vive en el código (lib/preventive-checklist.ts); estos se suman a ella.
+model ChecklistItemExtra {
+  id String @id @default(cuid())
+  // "GENERAL" (cualquier unidad) | "CARBURACION" (Vehículo con tanque de
+  // carburación, que tiene su propio checklist).
+  lista  String
+  nombre String
+  // Para "CARBURACION": si el ítem solo se revisa por fugas o admite
+  // reparación/sustitución (ver checklistEstadoOptionsFor). Ignorado en
+  // "GENERAL", donde todos los ítems usan el mismo juego de estados.
+  soloFugas Boolean  @default(false)
+  orden     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([lista, nombre])
+  @@map("checklist_items_extra")
+}
+
 model LearnedPiece {
   id        String   @id @default(cuid())
   categoria String
   nombre    String
+  // "UNIDADES" | "ESTACIONES" (ver lib/piece-catalog.ts: PIECE_GROUPS). Solo
+  // hace falta para saber a qué grupo pertenece una CATEGORÍA nueva creada
+  // desde el panel; las categorías de la lista fija ya se sabe cuáles son.
+  // null en las aprendidas solas (categoría "Otro", que no es de un grupo).
+  grupo     String?
   createdAt DateTime @default(now())
 
   @@unique([categoria, nombre])
@@ -664,7 +720,11 @@ model ValveChangeLog {
   vehicleRecordId String
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
-  responsable String?
+  // Antes era un solo "responsable": ahora se distingue quién hizo el cambio
+  // físico de quién lo supervisó/validó, porque no siempre son la misma
+  // persona y en la bitácora en papel se firman por separado.
+  responsableCambio      String?
+  responsableSupervision String?
 
   fechaInstalacion DateTime
 

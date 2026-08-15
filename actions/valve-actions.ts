@@ -36,7 +36,8 @@ const optionalDate = z.preprocess((value) => {
 // zod no puede saber por sí solo al momento de parsear.
 const createValveChangeLogSchema = z
   .object({
-    responsable: optionalText(150),
+    responsableCambio: optionalText(150),
+    responsableSupervision: optionalText(150),
     fechaInstalacion: requiredDate("La fecha de instalación es requerida"),
     fechaFabricacionValvulaLlenado: requiredDate(
       "La fecha de fabricación de la válvula de llenado es requerida"
@@ -71,6 +72,23 @@ const createValveChangeLogSchema = z
         path: ["fechaFabricacionValvulaMaximoLlenado85"],
       });
     }
+
+    // Una válvula no se puede instalar antes de existir: si la fecha de
+    // instalación queda antes que la de fabricación de cualquiera de ellas,
+    // es un error de captura. Se detecta aquí para no dejarlo pasar (así
+    // quedó capturado en su momento LL100, con instalación 8 meses antes de
+    // la fabricación, y eso descuadra el vencimiento).
+    for (const [campo, etiqueta] of VALVULA_ETIQUETAS) {
+      const fabricacion = data[campo];
+      if (!fabricacion) continue;
+      if (data.fechaInstalacion.getTime() >= fabricacion.getTime()) continue;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Error en las fechas: la instalación (${formatoCorto(data.fechaInstalacion)}) es anterior a la fabricación de la ${etiqueta} (${formatoCorto(fabricacion)}). Una válvula no puede instalarse antes de fabricarse.`,
+        path: ["fechaInstalacion"],
+      });
+      return;
+    }
   })
   .transform((data) => ({
     ...data,
@@ -78,6 +96,24 @@ const createValveChangeLogSchema = z
       ? data.fechaFabricacionValvulaMaximoLlenado85
       : null,
   }));
+
+// Nombre visible de cada válvula, para poder decir en el mensaje de error
+// cuál de todas es la que tiene la fecha imposible.
+const VALVULA_ETIQUETAS = [
+  ["fechaFabricacionValvulaLlenado", "válvula de llenado"],
+  ["fechaFabricacionValvulaNoRetroceso", "válvula de no retroceso (check)"],
+  ["fechaFabricacionValvulaBypass", "válvula de retroceso (bypass)"],
+  ["fechaFabricacionValvulaRetornoVapores", "válvula de retorno de vapores"],
+  ["fechaFabricacionValvulaServicio", "válvula de servicio de vapor"],
+  ["fechaFabricacionValvulaMaximoLlenado", "válvula de máximo llenado 90%"],
+  ["fechaFabricacionValvulaMaximoLlenado85", "válvula de máximo llenado 85%"],
+  ["fechaFabricacionValvulaAlivio", "válvula de seguridad"],
+  ["fechaFabricacionValvulaDescargaEmergencia", "válvula de descarga de emergencia"],
+] as const;
+
+function formatoCorto(fecha: Date): string {
+  return fecha.toISOString().slice(0, 10).split("-").reverse().join("/");
+}
 
 // Las 4 válvulas propias del tanque de carga (no aplican a Vehículo con
 // tanque de carburación, ver CreateValveChangeLogForm.tsx/ValveChangeLogRow.tsx)
@@ -110,7 +146,8 @@ export async function createValveChangeLog(
   if (sessionError) return { error: sessionError };
 
   const parsed = createValveChangeLogSchema.safeParse({
-    responsable: formData.get("responsable"),
+    responsableCambio: formData.get("responsableCambio"),
+    responsableSupervision: formData.get("responsableSupervision"),
     fechaInstalacion: formData.get("fechaInstalacion"),
     fechaFabricacionValvulaLlenado: formData.get("fechaFabricacionValvulaLlenado"),
     fechaFabricacionValvulaNoRetroceso: formData.get("fechaFabricacionValvulaNoRetroceso"),
@@ -213,7 +250,8 @@ export async function updateValveChangeLog(
   await requireElevatedEditor();
 
   const parsed = createValveChangeLogSchema.safeParse({
-    responsable: formData.get("responsable"),
+    responsableCambio: formData.get("responsableCambio"),
+    responsableSupervision: formData.get("responsableSupervision"),
     fechaInstalacion: formData.get("fechaInstalacion"),
     fechaFabricacionValvulaLlenado: formData.get("fechaFabricacionValvulaLlenado"),
     fechaFabricacionValvulaNoRetroceso: formData.get("fechaFabricacionValvulaNoRetroceso"),

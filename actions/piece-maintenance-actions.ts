@@ -35,11 +35,12 @@ export async function fetchMaintenanceLogsForPiece(
   cityId: string | null,
   categoria: string | null,
   pieza: string,
-  range: MonthRange
+  range: MonthRange,
+  sectionSlugs?: string[]
 ): Promise<PieceMaintenanceLogEntry[]> {
   const user = await requireUser();
   await assertCanViewPieceStats(user, cityId);
-  return getMaintenanceLogsForPiece(cityId, categoria, pieza, range);
+  return getMaintenanceLogsForPiece(cityId, categoria, pieza, range, undefined, sectionSlugs);
 }
 
 // Mismo desglose, pero para el gráfico propio de una unidad (ver el apartado
@@ -69,7 +70,8 @@ export async function fetchMaintenanceLogsForType(
   cityId: string | null,
   tipoMantenimiento: string,
   range: MonthRange,
-  vehicleRecordId?: string
+  vehicleRecordId?: string,
+  sectionSlugs?: string[]
 ): Promise<MaintenanceTypeLogEntry[]> {
   const user = await requireUser();
 
@@ -84,5 +86,5 @@ export async function fetchMaintenanceLogsForType(
     await assertCanViewPieceStats(user, cityId);
   }
 
-  return getMaintenanceLogsForType(cityId, tipoMantenimiento, range, vehicleRecordId);
+  return getMaintenanceLogsForType(cityId, tipoMantenimiento, range, vehicleRecordId, sectionSlugs);
 }

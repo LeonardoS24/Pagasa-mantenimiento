@@ -17,7 +17,12 @@ import {
   type OrdenTipo,
   type ConsumibleUnidad,
 } from "@/lib/inventory-enums";
-import { PIECE_CATALOG } from "@/lib/piece-catalog";
+import {
+  PIECE_CATALOG,
+  PIECE_GROUPS,
+  getPieceCategoriesForGroup,
+  type PieceGroup,
+} from "@/lib/piece-catalog";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -43,9 +48,15 @@ export type VehicleOption = { id: string; numeroEconomico: string; section: { na
 export function CreatePieceOrderForm({
   sectionId,
   vehicles,
+  pieceCatalog,
+  categoriasPorGrupo,
 }: {
   sectionId: string;
   vehicles: VehicleOption[];
+  // Catálogo ya resuelto en el servidor: lista fija + piezas agregadas desde
+  // /admin/piezas (ver lib/piece-catalog-runtime.ts).
+  pieceCatalog?: Record<string, string[]>;
+  categoriasPorGrupo?: Record<PieceGroup, string[]>;
 }) {
   const action = createPieceOrder.bind(null, sectionId);
   const [state, formAction] = useFormState(action, initialState);
@@ -70,7 +81,13 @@ export function CreatePieceOrderForm({
   // de piezas de unidad en vez de escribirlo a mano (ver lib/piece-catalog.ts,
   // el mismo catálogo de "Registrar mantenimiento"). "" = escribir a mano.
   const [piezaCatalogo, setPiezaCatalogo] = useState("");
+  // Para qué es la pieza: acota el catálogo a las categorías de vehículo o a
+  // las de Estación de carburación (ver lib/piece-catalog.ts). Sin esto, las
+  // dos listas aparecían revueltas en el mismo selector.
+  const [grupoPieza, setGrupoPieza] = useState<PieceGroup>("Unidades");
   const mostrarCatalogo = tipo !== "" && usaCatalogoDePiezas(tipo);
+  const catalogo = pieceCatalog ?? PIECE_CATALOG;
+  const categoriasDelGrupo = categoriasPorGrupo?.[grupoPieza] ?? getPieceCategoriesForGroup(grupoPieza);
 
   useEffect(() => {
     if (hasPrefill && detailsRef.current) {
@@ -101,6 +118,7 @@ export function CreatePieceOrderForm({
           setUnidadConsumible("LTS");
           setCantidad("1");
           setPiezaCatalogo("");
+          setGrupoPieza("Unidades");
         }}
         className="mt-4 space-y-3"
       >
@@ -132,28 +150,51 @@ export function CreatePieceOrderForm({
           </div>
 
           {mostrarCatalogo && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-piezaCatalogo">
-                Elegir del catálogo
-              </label>
-              <select
-                id="op-piezaCatalogo"
-                value={piezaCatalogo}
-                onChange={(event) => setPiezaCatalogo(event.target.value)}
-                className={inputClass}
-              >
-                <option value="">Escribir a mano</option>
-                {Object.entries(PIECE_CATALOG).map(([categoria, piezas]) => (
-                  <optgroup key={categoria} label={categoria}>
-                    {piezas.map((pieza) => (
-                      <option key={pieza} value={pieza}>
-                        {pieza}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
+            <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-grupoPieza">
+                  Piezas de
+                </label>
+                <select
+                  id="op-grupoPieza"
+                  value={grupoPieza}
+                  onChange={(event) => {
+                    setGrupoPieza(event.target.value as PieceGroup);
+                    setPiezaCatalogo("");
+                  }}
+                  className={inputClass}
+                >
+                  {PIECE_GROUPS.map((grupo) => (
+                    <option key={grupo} value={grupo}>
+                      {grupo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="op-piezaCatalogo">
+                  Elegir del catálogo
+                </label>
+                <select
+                  id="op-piezaCatalogo"
+                  value={piezaCatalogo}
+                  onChange={(event) => setPiezaCatalogo(event.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Escribir a mano</option>
+                  {categoriasDelGrupo.map((categoria) => (
+                    <optgroup key={categoria} label={categoria}>
+                      {(catalogo[categoria] ?? []).map((pieza) => (
+                        <option key={pieza} value={pieza}>
+                          {pieza}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+            </>
           )}
 
           <div>

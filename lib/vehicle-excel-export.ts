@@ -5,11 +5,18 @@ import {
   calidadMantenimientoLabels,
   combustibleLabels,
   calidadExtintorLabels,
+  vehicleEstatusLabels,
   type CalidadMantenimiento,
   type Combustible,
   type CalidadExtintor,
+  type VehicleEstatus,
 } from "./vehicle-enums";
-import type { VehicleRecord, VehicleTechnicalSheet } from "@prisma/client";
+import { STATION_VALVE_FIELDS, stationValveLabels, getStationValveVencimiento } from "./station-valves";
+import type {
+  VehicleRecord,
+  VehicleTechnicalSheet,
+  StationTankTechnicalSheet,
+} from "@prisma/client";
 
 type VehicleWithSheet = VehicleRecord & { technicalSheet: VehicleTechnicalSheet | null };
 
@@ -44,6 +51,9 @@ function baseColumns(v: VehicleWithSheet, useDeliveryFormat: boolean) {
     "Calidad de la unidad": v.calidad
       ? (calidadMantenimientoLabels[v.calidad as CalidadMantenimiento] ?? v.calidad)
       : "",
+    // Estatus operativo (Operativa / En taller / Fuera de servicio), distinto
+    // de "Estado" de arriba, que es si sigue dada de alta.
+    Estatus: vehicleEstatusLabels[v.estatus as VehicleEstatus] ?? v.estatus,
     "Marca (datos generales)": v.sucursal,
     Año: t(v.anio),
     Placas: t(v.placas),
@@ -209,6 +219,7 @@ const EMPTY_VEHICLE: VehicleWithSheet = {
   fechaBaja: null,
   motivoBaja: null,
   calidad: null,
+  estatus: "OPERATIVA",
   createdById: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -218,6 +229,80 @@ const EMPTY_VEHICLE: VehicleWithSheet = {
 // Nombre de hoja válido para Excel: máximo 31 caracteres, sin : \ / ? * [ ].
 function safeSheetName(name: string): string {
   return name.replace(/[:\\/?*[\]]/g, " ").slice(0, 31);
+}
+
+// Estaciones de carburación y Planta: instalaciones fijas, con su propia
+// ficha del tanque y su propio juego de válvulas (ver lib/station-valves.ts).
+const APARTADOS_ESTACION: { slug: string; nombreHoja: string }[] = [
+  { slug: "estaciones-de-carburacion", nombreHoja: "Estaciones de carburación" },
+  { slug: "planta-ficha-tecnica", nombreHoja: "Planta" },
+];
+
+type StationRecord = VehicleRecord & {
+  stationTankTechnicalSheet: StationTankTechnicalSheet | null;
+  technicalSheet: VehicleTechnicalSheet | null;
+};
+
+const EMPTY_STATION: StationRecord = {
+  ...EMPTY_VEHICLE,
+  stationTankTechnicalSheet: null,
+};
+
+function stationRow(r: StationRecord) {
+  const tanque = r.stationTankTechnicalSheet;
+  const s = r.technicalSheet;
+  const vencimientoValvulas = tanque ? getStationValveVencimiento(tanque) : null;
+
+  return {
+    Nombre: r.numeroEconomico,
+    Estado: r.activo ? "Activo" : "Dado de baja",
+    "Fecha de baja": d(r.fechaBaja),
+    "Motivo de baja": t(r.motivoBaja),
+    "Calidad de la unidad": r.calidad
+      ? (calidadMantenimientoLabels[r.calidad as CalidadMantenimiento] ?? r.calidad)
+      : "",
+    Estatus: vehicleEstatusLabels[r.estatus as VehicleEstatus] ?? r.estatus,
+    Permisionaria: t(r.permisionaria),
+    Permiso: t(r.permiso),
+    Dirección: r.sucursal,
+    // Ficha técnica del tanque
+    "Tanque — Número de serie": t(tanque?.numeroSerie),
+    "Tanque — Marca": t(tanque?.marca),
+    "Tanque — Modelo": t(tanque?.modelo),
+    "Tanque — Tipo": t(tanque?.tipo),
+    "Tanque — Año de fabricación": t(tanque?.anioFabricacion),
+    "Tanque — Fecha de fabricación": d(tanque?.fechaFabricacion ?? null),
+    "Tanque — Capacidad (lts)": t(tanque?.capacidad),
+    "Tanque — Presión de diseño": t(tanque?.presionDiseno),
+    "Tanque — Longitud total": t(tanque?.longitudTotal),
+    "Tanque — Forma de la cabeza": t(tanque?.formaCabeza),
+    "Tanque — Espesor nominal del cuerpo": t(tanque?.espesorNominalCuerpo),
+    "Tanque — Espesor nominal de la cabeza": t(tanque?.espesorNominalCabeza),
+    "Tanque — Material del cuerpo": t(tanque?.materialCuerpo),
+    "Tanque — Material cabeza": t(tanque?.materialCabeza),
+    "Tanque — Diámetro interior": t(tanque?.diametroInterior),
+    "Tanque — Tara": t(tanque?.tara),
+    // Válvulas del tanque fijo
+    "Válvulas — Fecha de instalación del juego": d(tanque?.fechaInstalacionValvulas ?? null),
+    ...Object.fromEntries(
+      STATION_VALVE_FIELDS.map((campo) => [
+        `Válvulas — ${stationValveLabels[campo]}`,
+        d(tanque?.[campo] ?? null),
+      ])
+    ),
+    "Válvulas — Próximo cambio": d(vencimientoValvulas),
+    // Las 5 inspecciones periódicas siguen viviendo en la ficha del vehículo.
+    "Último ultrasonido": d(s?.ultimoUltrasonido ?? null),
+    "Próximo ultrasonido": d(s?.fechaProximoUltrasonido ?? null),
+    "Última inspección visual externa": d(s?.ultimaInspeccionVisual ?? null),
+    "Próxima inspección visual externa": d(s?.fechaProximaInspeccionVisual ?? null),
+    "Última prueba de hermeticidad": d(s?.ultimaPruebaHermeticidad ?? null),
+    "Próxima prueba de hermeticidad": d(s?.fechaProximaPruebaHermeticidad ?? null),
+    "Última inspección visual interna": d(s?.ultimaInspeccionVisualInterna ?? null),
+    "Próxima inspección visual interna": d(s?.fechaProximaInspeccionVisualInterna ?? null),
+    "Última prueba hidrostática": d(s?.ultimaPruebaHidrostatica ?? null),
+    "Próxima prueba hidrostática": d(s?.fechaProximaPruebaHidrostatica ?? null),
+  };
 }
 
 // Arma el libro con una hoja por cada sub-apartado de "Unidad de
@@ -254,6 +339,25 @@ export async function buildCityFleetWorkbook(citySlug: string): Promise<{ buffer
     // Ancho fijo razonable: encabezados largos ("Válvula de descarga de
     // emergencia — Fecha de fabricación") si no, se ven amontonados por
     // default en 8 caracteres.
+    worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
+    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
+  }
+
+  // Estaciones de carburación y Planta: no son vehículos, así que van en sus
+  // propias hojas con el vocabulario de un recipiente fijo (ver
+  // StationTankTechnicalSheet) más sus válvulas, en vez de las columnas de
+  // motor/chofer/placas que no aplican.
+  for (const { slug, nombreHoja } of APARTADOS_ESTACION) {
+    const registros = await prisma.vehicleRecord.findMany({
+      where: { section: { slug, cityId: city.id } },
+      include: { stationTankTechnicalSheet: true, technicalSheet: true },
+      orderBy: [{ activo: "desc" }, { numeroEconomico: "asc" }],
+    });
+
+    const rows = registros.map((r) => stationRow(r));
+    const headerRow = rows[0] ?? stationRow(EMPTY_STATION);
+    const worksheet =
+      rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
     worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
     XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
   }

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentMonthRange } from "@/lib/dates";
 import type { MonthRange } from "@/lib/piece-maintenance-stats";
+import { vehicleRecordScopeWhere } from "@/lib/vehicle-record-scope";
 
 export interface MaintenanceTypeStat {
   tipo: string;
@@ -19,11 +20,12 @@ const TIPOS: string[] = ["Preventivo", "Correctivo", "Predictivo"];
 export async function getMaintenanceTypeStats(
   cityId: string | null,
   range: MonthRange = getCurrentMonthRange(),
-  vehicleRecordId?: string
+  vehicleRecordId?: string,
+  sectionSlugs?: string[]
 ): Promise<MaintenanceTypeStat[]> {
   const logs = await prisma.maintenanceLog.findMany({
     where: {
-      vehicleRecord: vehicleRecordId ? { id: vehicleRecordId } : cityId ? { section: { cityId } } : {},
+      vehicleRecord: vehicleRecordId ? { id: vehicleRecordId } : vehicleRecordScopeWhere(cityId, sectionSlugs),
       fecha: { gte: range.start, lt: range.end },
     },
     select: { tipoMantenimiento: true },
@@ -57,11 +59,12 @@ export async function getMaintenanceLogsForType(
   cityId: string | null,
   tipoMantenimiento: string,
   range: MonthRange = getCurrentMonthRange(),
-  vehicleRecordId?: string
+  vehicleRecordId?: string,
+  sectionSlugs?: string[]
 ): Promise<MaintenanceTypeLogEntry[]> {
   const logs = await prisma.maintenanceLog.findMany({
     where: {
-      vehicleRecord: vehicleRecordId ? { id: vehicleRecordId } : cityId ? { section: { cityId } } : {},
+      vehicleRecord: vehicleRecordId ? { id: vehicleRecordId } : vehicleRecordScopeWhere(cityId, sectionSlugs),
       tipoMantenimiento,
       fecha: { gte: range.start, lt: range.end },
     },

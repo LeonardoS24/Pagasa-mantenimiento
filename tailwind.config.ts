@@ -10,7 +10,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-roboto)", ...defaultTheme.fontFamily.sans],
+        // Roboto si está instalada en el equipo; si no, la del sistema. Ya no
+        // se descarga de Google al compilar (ver app/layout.tsx).
+        sans: ["Roboto", ...defaultTheme.fontFamily.sans],
       },
       colors: {
         // Los tres azules de grupopagasa.com.mx: la barra de navegación

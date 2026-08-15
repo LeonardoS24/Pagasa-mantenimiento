@@ -23,6 +23,8 @@ import { MaintenanceLogTable } from "@/components/city/MaintenanceLogTable";
 import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
 import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { getLearnedPieces } from "@/lib/learned-pieces";
+import { getPieceCatalog, getPieceCategoriesWithExtras } from "@/lib/piece-catalog-runtime";
+import { getChecklistItems, getLeakCheckItems } from "@/lib/checklist-runtime";
 import { CreateUltrasoundLogForm } from "@/components/admin/CreateUltrasoundLogForm";
 import { UltrasoundLogTable } from "@/components/city/UltrasoundLogTable";
 import { CreateVisualInspectionLogForm } from "@/components/admin/CreateVisualInspectionLogForm";
@@ -189,6 +191,18 @@ export default async function VehicleDetailPage({
   // lib/learned-pieces.ts), para ofrecerlas como opción dentro de "Otro" en
   // CreateMaintenanceLogForm en vez de tener que volver a escribirlas.
   const learnedPieces = isEditor ? (await getLearnedPieces()).map((p) => p.nombre) : [];
+  // Catálogo con las piezas agregadas desde /admin/piezas, no solo la lista
+  // fija del código (ver lib/piece-catalog-runtime.ts).
+  const pieceCatalog = isEditor ? await getPieceCatalog() : undefined;
+  const pieceCategories = isEditor
+    ? await getPieceCategoriesWithExtras(vehicle.section.slug)
+    : undefined;
+  // Checklist preventivo con los ítems agregados desde /admin/piezas.
+  const esCarburacion = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
+  const checklistItems = isEditor
+    ? await getChecklistItems(esCarburacion ? "CARBURACION" : "GENERAL")
+    : undefined;
+  const leakCheckItems = isEditor && esCarburacion ? await getLeakCheckItems() : undefined;
   // Piezas con más mantenimiento de esta unidad en el año en curso (mismo
   // gráfico que Bitácora de unidades, pero acotado a una sola unidad y
   // reiniciado cada año en vez de cada mes — ver PieceMaintenanceChart).
@@ -432,6 +446,7 @@ export default async function VehicleDetailPage({
             submitLabel="Guardar cambios"
             isEstacion={isEstacionLike}
             stationLabel={isPlanta ? "la planta" : "la estación"}
+            direccionRequired={isPlanta}
             lockable
           />
         ) : isEstacionLike ? (
@@ -563,6 +578,10 @@ export default async function VehicleDetailPage({
               sectionSlug={vehicle.section.slug}
               availableInventory={availableInventory}
               learnedPieces={learnedPieces}
+              pieceCatalog={pieceCatalog}
+              pieceCategories={pieceCategories}
+              checklistItems={checklistItems}
+              leakCheckItems={leakCheckItems}
             />
           )}
           <MaintenanceLogTable logs={vehicle.maintenanceLogs} canEdit={isEditor} isAdmin={isAdmin} />

@@ -31,6 +31,11 @@ export const PLANTILLA_APARTADOS: PlantillaApartado[] = [
   // equipo se elige al dar de alta (ver Equipo.tipoEquipo en el schema).
   { name: "Equipos", slug: "equipos" },
   { name: "Bitácoras de unidades", slug: "bitacoras-de-unidades" },
+  // Igual que Bitácoras de unidades, pero acotado a Estaciones de
+  // carburación y Planta (ver ESTACION_LIKE_SECTION_SLUGS en
+  // lib/estacion-sections.ts): todos los mantenimientos de estaciones en
+  // un solo feed, sin mezclarse con los de las unidades normales.
+  { name: "Bitácora de estaciones", slug: "bitacora-de-estaciones" },
   // Misma fusión que arriba, para la bitácora.
   { name: "Bitácora de equipos", slug: "bitacora-de-equipos" },
   // El nombre es "Orden" pero el slug histórico es "orden-de-pieza": por eso

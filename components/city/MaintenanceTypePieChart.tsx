@@ -62,7 +62,7 @@ function TypeBreakdown({
       const data =
         scope.type === "vehicle"
           ? await fetchMaintenanceLogsForType(null, tipo, range, scope.vehicleRecordId)
-          : await fetchMaintenanceLogsForType(scope.cityId, tipo, range);
+          : await fetchMaintenanceLogsForType(scope.cityId, tipo, range, undefined, scope.sectionSlugs);
       setEntries(data);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { accionPiezaOptions, type AccionPieza } from "@/lib/piece-catalog";
 import { getCurrentMonthRange } from "@/lib/dates";
+import { vehicleRecordScopeWhere } from "@/lib/vehicle-record-scope";
 
 export type MonthRange = { start: Date; end: Date };
 
@@ -39,12 +40,15 @@ export async function getPieceMaintenanceStats(
   cityId: string | null,
   limit = 10,
   range: MonthRange = getCurrentMonthRange(),
-  vehicleRecordId?: string
+  vehicleRecordId?: string,
+  // Acota a un subconjunto de apartados (p.ej. solo Estaciones/Planta, ver
+  // Bitácora de estaciones); ignorado si se da vehicleRecordId.
+  sectionSlugs?: string[]
 ): Promise<PieceMaintenanceStat[]> {
   const { start, end } = range;
   const logs = await prisma.maintenanceLog.findMany({
     where: {
-      vehicleRecord: vehicleRecordId ? { id: vehicleRecordId } : cityId ? { section: { cityId } } : {},
+      vehicleRecord: vehicleRecordId ? { id: vehicleRecordId } : vehicleRecordScopeWhere(cityId, sectionSlugs),
       pieza: { not: null },
       accionPieza: { not: null },
       fecha: { gte: start, lt: end },
@@ -99,12 +103,13 @@ export async function getMaintenanceLogsForPiece(
   categoria: string | null,
   pieza: string,
   range: MonthRange = getCurrentMonthRange(),
-  vehicleRecordId?: string
+  vehicleRecordId?: string,
+  sectionSlugs?: string[]
 ): Promise<PieceMaintenanceLogEntry[]> {
   const { start, end } = range;
   const logs = await prisma.maintenanceLog.findMany({
     where: {
-      vehicleRecord: vehicleRecordId ? { id: vehicleRecordId } : cityId ? { section: { cityId } } : {},
+      vehicleRecord: vehicleRecordId ? { id: vehicleRecordId } : vehicleRecordScopeWhere(cityId, sectionSlugs),
       categoriaPieza: categoria,
       pieza,
       accionPieza: { not: null },

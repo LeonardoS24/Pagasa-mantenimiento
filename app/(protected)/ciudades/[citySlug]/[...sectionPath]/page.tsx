@@ -13,6 +13,8 @@ import { UploadDocumentForm } from "@/components/admin/UploadDocumentForm";
 import { CreateVehicleForm } from "@/components/admin/CreateVehicleForm";
 import { CityMaintenanceFeed } from "@/components/city/CityMaintenanceFeed";
 import { getCityUnitLogFeed } from "@/lib/city-unit-log-feed";
+import { CityOrderFeed } from "@/components/city/CityOrderFeed";
+import { getCityOrderLogFeed } from "@/lib/city-order-log-feed";
 import { CreatePieceOrderForm } from "@/components/admin/CreatePieceOrderForm";
 import { PieceOrderTable } from "@/components/city/PieceOrderTable";
 import { InventoryItemTable } from "@/components/city/InventoryItemTable";
@@ -23,12 +25,23 @@ import { getCityEquipmentLogFeed } from "@/lib/city-equipment-log-feed";
 import { CityEquipmentLogFeed } from "@/components/city/CityEquipmentLogFeed";
 import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
+import { getPieceMaintenanceStatsByMarca } from "@/lib/piece-maintenance-by-marca";
+import { MarcaMaintenanceCharts } from "@/components/city/MarcaMaintenanceCharts";
 import { isAggregateCitySlug } from "@/lib/aggregate-city";
 import { getAllRecordTypeStats } from "@/lib/record-count-stats";
 import { RecordCountByCityChart } from "@/components/city/RecordCountByCityChart";
 import { RecordTypeComparisonSection } from "@/components/city/RecordTypeComparisonSection";
-import { getAggregateVehicleRecords, getAggregateEquipos, getHighCriticidadEquipos } from "@/lib/aggregate-listings";
+import {
+  getAggregateVehicleRecords,
+  getAggregateEquipos,
+  getHighCriticidadEquipos,
+  getVehiclesInMaintenance,
+} from "@/lib/aggregate-listings";
+import { VehiclesInMaintenancePanel } from "@/components/city/VehiclesInMaintenancePanel";
 import { AggregateVehicleTable } from "@/components/city/AggregateVehicleTable";
+import { PlantaCardGrid, type PlantaCardData } from "@/components/city/PlantaCardGrid";
+import { getVehicleSemaforoLevel } from "@/lib/vehicle-semaforo";
+import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
 import { AggregateEquipoTable } from "@/components/city/AggregateEquipoTable";
 import { HighCriticidadEquiposPanel } from "@/components/city/HighCriticidadEquiposPanel";
 import { getPieceOrderStatsByCity, getPieceOrderStatusStatsByCity } from "@/lib/piece-order-stats";
@@ -50,6 +63,7 @@ import {
 } from "@/lib/dates";
 import { MonthPicker } from "@/components/city/MonthPicker";
 import { ResumenPanel } from "@/components/admin/ResumenPanel";
+import { getPieceCatalog, getCategoriasPorGrupo } from "@/lib/piece-catalog-runtime";
 
 export default async function SectionPage({
   params,
@@ -71,6 +85,9 @@ export default async function SectionPage({
 
   const current = chain[chain.length - 1];
   const isBitacoraFeed = chain.length === 1 && current.slug === "bitacoras-de-unidades";
+  // Igual que Bitácora de unidades, pero acotada a Estaciones de
+  // carburación y Planta (ver ESTACION_LIKE_SECTION_SLUGS abajo).
+  const isBitacoraEstacionesFeed = chain.length === 1 && current.slug === "bitacora-de-estaciones";
   const isOrdenDePieza = chain.length === 1 && current.slug === "orden-de-pieza";
   const isInventarios = chain.length === 1 && current.slug === "inventarios";
   // "Equipos de planta" (ver scripts/restructure-planta-section.mjs) vive
@@ -141,6 +158,39 @@ export default async function SectionPage({
       })()
     : [];
 
+  // Planta (ver isPlantaFichaTecnicaSection abajo): en vez de tabla, cada
+  // planta se ve como su propio recuadro con nombre + listado (ver
+  // components/city/PlantaCardGrid.tsx). Reusa vehicleRecords/
+  // aggregateVehicleRecords ya cargados arriba, solo reempaca la forma.
+  const plantaCards: PlantaCardData[] = !isPlantaFichaTecnicaSection
+    ? []
+    : isAggregateCity
+    ? aggregateVehicleRecords.map((r) => ({
+        id: r.id,
+        numeroEconomico: r.numeroEconomico,
+        permisionaria: r.permisionaria,
+        permiso: r.permiso,
+        sucursal: r.sucursal,
+        activo: r.activo,
+        motivoBaja: r.motivoBaja,
+        semaforoLevel: r.semaforoLevel,
+        citySlug: r.citySlug,
+        cityName: r.cityName,
+      }))
+    : vehicleRecords.map((r) => ({
+        id: r.id,
+        numeroEconomico: r.numeroEconomico,
+        permisionaria: r.permisionaria,
+        permiso: r.permiso,
+        sucursal: r.sucursal,
+        activo: r.activo,
+        motivoBaja: r.motivoBaja,
+        semaforoLevel: r.activo
+          ? getVehicleSemaforoLevel(r.technicalSheet, "planta-ficha-tecnica", r.stationTankTechnicalSheet)
+          : "none",
+        citySlug: city.slug,
+      }));
+
   // Selector de mes (o de todo el año, ver lib/dates.ts: MesSelection): en
   // la Bitácora de unidades y en Orden de pieza de Administración (ver
   // lib/aggregate-city.ts). Las ciudades reales siguen mostrando "actividad
@@ -149,6 +199,7 @@ export default async function SectionPage({
   const selectedMonthRange = mesSelectionRange(selectedMes);
   const showMonthPicker = isBitacoraFeed && isAggregateCity;
   const showOrderMonthPicker = isOrdenDePieza && isAggregateCity;
+  const showEstacionesMonthPicker = isBitacoraEstacionesFeed && isAggregateCity;
 
   const cityMaintenanceLogs = isBitacoraFeed
     ? await getCityUnitLogFeed(isAggregateCity ? null : city.id, showMonthPicker ? selectedMonthRange : undefined)
@@ -160,12 +211,42 @@ export default async function SectionPage({
   const pieceMaintenanceStats = isBitacoraFeed
     ? await getPieceMaintenanceStats(isAggregateCity ? null : city.id, 10, pieceMaintenanceRange)
     : [];
+  const marcaMaintenanceStats = isBitacoraFeed
+    ? await getPieceMaintenanceStatsByMarca(isAggregateCity ? null : city.id, pieceMaintenanceRange)
+    : [];
   const recordTypeStats =
     isBitacoraFeed && isAggregateCity ? await getAllRecordTypeStats(selectedMonthRange) : [];
+  const vehiclesInMaintenance =
+    isBitacoraFeed && isAggregateCity ? await getVehiclesInMaintenance() : [];
   // Pastel Preventivo/Correctivo/Predictivo, mismo alcance y rango que
   // pieceMaintenanceStats (ver lib/maintenance-type-stats.ts).
   const maintenanceTypeStats = isBitacoraFeed
     ? await getMaintenanceTypeStats(isAggregateCity ? null : city.id, pieceMaintenanceRange)
+    : [];
+  const estacionesRange = showEstacionesMonthPicker ? selectedMonthRange : getCurrentMonthRange();
+  const estacionesMaintenanceLogs = isBitacoraEstacionesFeed
+    ? await getCityUnitLogFeed(
+        isAggregateCity ? null : city.id,
+        showEstacionesMonthPicker ? selectedMonthRange : undefined,
+        ESTACION_LIKE_SECTION_SLUGS
+      )
+    : [];
+  const estacionesPieceMaintenanceStats = isBitacoraEstacionesFeed
+    ? await getPieceMaintenanceStats(
+        isAggregateCity ? null : city.id,
+        10,
+        estacionesRange,
+        undefined,
+        ESTACION_LIKE_SECTION_SLUGS
+      )
+    : [];
+  const estacionesMaintenanceTypeStats = isBitacoraEstacionesFeed
+    ? await getMaintenanceTypeStats(
+        isAggregateCity ? null : city.id,
+        estacionesRange,
+        undefined,
+        ESTACION_LIKE_SECTION_SLUGS
+      )
     : [];
   const cityEquipmentLogs = isBitacoraEquiposFeed
     ? await getCityEquipmentLogFeed(isAggregateCity ? null : city.id)
@@ -213,6 +294,10 @@ export default async function SectionPage({
   if (isOrdenDePieza && !isAggregateCity) {
     await sweepExpiredAcceptedOrders(current.id);
   }
+  // Catálogo con las piezas agregadas desde /admin/piezas, para el selector
+  // del formulario de órdenes (ver lib/piece-catalog-runtime.ts).
+  const pieceCatalog = isOrdenDePieza ? await getPieceCatalog() : undefined;
+  const categoriasPorGrupo = isOrdenDePieza ? await getCategoriasPorGrupo() : undefined;
   const pieceOrders =
     isOrdenDePieza && !isAggregateCity
       ? await prisma.pieceOrder.findMany({
@@ -234,6 +319,8 @@ export default async function SectionPage({
     isOrdenDePieza && isAggregateCity ? await getPieceOrderStatsByCity(pieceOrderRange) : [];
   const pieceOrderStatusStats =
     isOrdenDePieza && isAggregateCity ? await getPieceOrderStatusStatsByCity(pieceOrderRange) : [];
+  const orderLogFeed =
+    isOrdenDePieza && isAggregateCity ? await getCityOrderLogFeed(null, pieceOrderRange) : [];
 
   if (isInventarios) {
     await sweepExpiredPorUtilizar(current.id);
@@ -319,6 +406,7 @@ export default async function SectionPage({
           )}
           {isAggregateCity && (
             <>
+              <VehiclesInMaintenancePanel vehicles={vehiclesInMaintenance} />
               <RecordTypeComparisonSection
                 stats={recordTypeStats}
                 range={selectedMonthRange}
@@ -349,7 +437,39 @@ export default async function SectionPage({
             range={pieceMaintenanceRange}
             monthLabel={showMonthPicker ? mesSelectionLabel(selectedMes) : undefined}
           />
+          <MarcaMaintenanceCharts
+            groups={marcaMaintenanceStats}
+            monthLabel={showMonthPicker ? mesSelectionLabel(selectedMes) : currentMonthLabel()}
+          />
           <CityMaintenanceFeed logs={cityMaintenanceLogs} showCity={isAggregateCity} />
+        </div>
+      ) : isBitacoraEstacionesFeed ? (
+        <div className="space-y-6">
+          {showEstacionesMonthPicker && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3">
+              <p className="text-sm text-ink">
+                Viendo <span className="font-medium">{mesSelectionLabel(selectedMes)}</span>: la
+                bitácora y las gráficas de abajo son solo de {selectedMes.type === "year" ? "ese año" : "ese mes"}.
+              </p>
+              <MonthPicker
+                months={listRecentMonthsWithYearOption(12)}
+                selected={mesSelectionParamValue(selectedMes)}
+              />
+            </div>
+          )}
+          <MaintenanceTypePieChart
+            stats={estacionesMaintenanceTypeStats}
+            scope={{ type: "city", cityId: isAggregateCity ? null : city.id, sectionSlugs: ESTACION_LIKE_SECTION_SLUGS }}
+            range={estacionesRange}
+            monthLabel={showEstacionesMonthPicker ? mesSelectionLabel(selectedMes) : currentMonthLabel()}
+          />
+          <PieceMaintenanceChart
+            stats={estacionesPieceMaintenanceStats}
+            scope={{ type: "city", cityId: isAggregateCity ? null : city.id, sectionSlugs: ESTACION_LIKE_SECTION_SLUGS }}
+            range={estacionesRange}
+            monthLabel={showEstacionesMonthPicker ? mesSelectionLabel(selectedMes) : undefined}
+          />
+          <CityMaintenanceFeed logs={estacionesMaintenanceLogs} showCity={isAggregateCity} />
         </div>
       ) : isBitacoraEquiposFeed ? (
         <div className="space-y-6">
@@ -392,10 +512,18 @@ export default async function SectionPage({
             <>
               <PieceOrderStatsChart stats={pieceOrderStats} range={pieceOrderRange} monthLabel={pieceOrderMonthLabel} />
               <PieceOrderStatusChart stats={pieceOrderStatusStats} range={pieceOrderRange} monthLabel={pieceOrderMonthLabel} />
+              <CityOrderFeed orders={orderLogFeed} showCity />
             </>
           ) : (
             <>
-              {isEditor && <CreatePieceOrderForm sectionId={current.id} vehicles={cityVehicles} />}
+              {isEditor && (
+                <CreatePieceOrderForm
+                  sectionId={current.id}
+                  vehicles={cityVehicles}
+                  pieceCatalog={pieceCatalog}
+                  categoriasPorGrupo={categoriasPorGrupo}
+                />
+              )}
               <PieceOrderTable orders={pieceOrders} canEdit={isEditor} isAdmin={isAdmin} citySlug={city.slug} />
             </>
           )}
@@ -410,6 +538,15 @@ export default async function SectionPage({
           canEdit={isEditor}
           isAdmin={isAdmin}
         />
+      ) : isPlantaFichaTecnicaSection ? (
+        <div>
+          <PlantaCardGrid records={plantaCards} />
+          {isEditor && !isAggregateCity && (
+            <div className="mt-4">
+              <CreateVehicleForm sectionId={current.id} sectionSlug={current.slug} />
+            </div>
+          )}
+        </div>
       ) : isVehicleSection ? (
         <div>
           {isAggregateCity ? (

@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { getAccessibleCities } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { normalizeForSearch } from "@/lib/text-normalize";
+import { SEARCH_SCOPES, parseScopedQuery } from "@/lib/search-scopes";
 import { combustibleLabels, calidadExtintorLabels, type Combustible, type CalidadExtintor } from "@/lib/vehicle-enums";
 import {
   tipoEquipoLabels,
@@ -13,10 +14,16 @@ import {
   type EstadoEquipo,
   type CriticidadEquipo,
 } from "@/lib/equipo-enums";
-import type { VehicleRecord, VehicleTechnicalSheet, Equipo } from "@prisma/client";
+import type {
+  VehicleRecord,
+  VehicleTechnicalSheet,
+  StationTankTechnicalSheet,
+  Equipo,
+} from "@prisma/client";
 
 type RecordWithSheet = VehicleRecord & {
   technicalSheet: VehicleTechnicalSheet | null;
+  stationTankTechnicalSheet: StationTankTechnicalSheet | null;
   section: { name: string; city: { name: string; slug: string }; parent: { name: string } | null };
 };
 
@@ -28,13 +35,38 @@ type EquipoWithSection = Equipo & {
 // técnica donde vive (mismos nombres que las tarjetas de color en
 // TechnicalSheetForm/TechnicalSheetView), para poder decirle al usuario
 // dónde exactamente se encontró su búsqueda.
-function vehicleMatchedGroups(record: RecordWithSheet, qNorm: string): string[] {
+function vehicleMatchedGroups(
+  record: RecordWithSheet,
+  qNorm: string,
+  // Si viene, solo se buscan los campos de esos recuadros (ver
+  // lib/search-scopes.ts): así "tanque 5000" no encuentra un "5000" que esté
+  // en el peso del automóvil.
+  soloGrupos?: string[]
+): string[] {
   const sheet = record.technicalSheet;
+  const tanque = record.stationTankTechnicalSheet;
   const matchers: { group: string; value: string | null | undefined }[] = [
     { group: "Datos generales", value: record.numeroEconomico },
     { group: "Datos generales", value: record.placas },
     { group: "Datos generales", value: record.sucursal },
     { group: "Datos generales", value: record.observaciones },
+    { group: "Datos generales", value: record.anio },
+    // Estación / Planta
+    { group: "Estación · Datos", value: record.permisionaria },
+    { group: "Estación · Datos", value: record.permiso },
+    { group: "Estación · Tanque", value: tanque?.numeroSerie },
+    { group: "Estación · Tanque", value: tanque?.marca },
+    { group: "Estación · Tanque", value: tanque?.modelo },
+    { group: "Estación · Tanque", value: tanque?.tipo },
+    { group: "Estación · Tanque", value: tanque?.anioFabricacion },
+    { group: "Estación · Tanque", value: tanque?.capacidad },
+    { group: "Estación · Tanque", value: tanque?.presionDiseno },
+    { group: "Estación · Tanque", value: tanque?.materialCuerpo },
+    { group: "Estación · Tanque", value: tanque?.materialCabeza },
+    // Chofer y póliza
+    { group: "Ficha técnica · Chofer y póliza", value: sheet?.chofer },
+    { group: "Ficha técnica · Chofer y póliza", value: sheet?.numeroPoliza },
+    { group: "Ficha técnica · Chofer y póliza", value: sheet?.inciso },
     { group: "Ficha técnica · Automóvil", value: sheet?.marca },
     { group: "Ficha técnica · Automóvil", value: sheet?.linea },
     { group: "Ficha técnica · Automóvil", value: sheet?.modelo },
@@ -61,13 +93,14 @@ function vehicleMatchedGroups(record: RecordWithSheet, qNorm: string): string[] 
   ];
   const groups = new Set<string>();
   for (const matcher of matchers) {
+    if (soloGrupos && !soloGrupos.includes(matcher.group)) continue;
     if (matcher.value && normalizeForSearch(matcher.value).includes(qNorm)) groups.add(matcher.group);
   }
   return Array.from(groups);
 }
 
-function vehicleMatches(record: RecordWithSheet, qNorm: string): boolean {
-  return vehicleMatchedGroups(record, qNorm).length > 0;
+function vehicleMatches(record: RecordWithSheet, qNorm: string, soloGrupos?: string[]): boolean {
+  return vehicleMatchedGroups(record, qNorm, soloGrupos).length > 0;
 }
 
 function equipoMatchedGroups(equipo: EquipoWithSection, qNorm: string): string[] {
@@ -114,7 +147,7 @@ function isSpecificEquipoMatch(equipo: EquipoWithSection, qNorm: string): boolea
 export default async function BuscarPage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: { q?: string; en?: string };
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
@@ -122,7 +155,11 @@ export default async function BuscarPage({
   const cityIds = cities.map((city) => city.id);
 
   const q = (searchParams.q ?? "").trim();
-  const qNorm = normalizeForSearch(q);
+  // "tanque 5000" acota la búsqueda a los datos del tanque (ver
+  // lib/search-scopes.ts); el selector de al lado hace lo mismo.
+  const { scope, term, scopeFromText } = parseScopedQuery(q, searchParams.en);
+  const qNorm = normalizeForSearch(term);
+  const soloGrupos = scope?.groups;
 
   // El total de unidades y equipos es chico (cientos, no miles), así que se
   // trae todo lo accesible para el usuario y se filtra en JS ya normalizado:
@@ -131,11 +168,15 @@ export default async function BuscarPage({
   const candidateVehicles = qNorm
     ? await prisma.vehicleRecord.findMany({
         where: { section: { cityId: { in: cityIds } } },
-        include: { section: { include: { city: true, parent: true } }, technicalSheet: true },
+        include: {
+          section: { include: { city: true, parent: true } },
+          technicalSheet: true,
+          stationTankTechnicalSheet: true,
+        },
       })
     : [];
   const records = candidateVehicles
-    .filter((record) => vehicleMatches(record, qNorm))
+    .filter((record) => vehicleMatches(record, qNorm, soloGrupos))
     .sort((a, b) => {
       const aPushed = !a.activo && !isSpecificVehicleMatch(a, qNorm);
       const bPushed = !b.activo && !isSpecificVehicleMatch(b, qNorm);
@@ -169,16 +210,50 @@ export default async function BuscarPage({
         cual se capturaron.
       </p>
 
-      <form action="/buscar" method="GET" className="mb-6 max-w-md">
+      <form action="/buscar" method="GET" className="mb-3 flex max-w-2xl flex-wrap gap-2">
         <input
           type="search"
           name="q"
           defaultValue={q}
           autoFocus
-          placeholder="Ej. 1234, ABC-123, Hermosillo..."
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="Ej. 1234, ABC-123, tanque 5000, ultrasonido 192..."
+          className="min-w-[16rem] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
+        <select
+          name="en"
+          defaultValue={searchParams.en ?? ""}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">Buscar en todo</option>
+          {SEARCH_SCOPES.map((s) => (
+            <option key={s.id} value={s.id}>
+              Solo en: {s.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark"
+        >
+          Buscar
+        </button>
       </form>
+
+      {scope && (
+        <p className="mb-6 text-sm text-ink">
+          Buscando <span className="font-medium">“{term}”</span> solo en{" "}
+          <span className="font-medium">{scope.label}</span>
+          {scopeFromText && (
+            <>
+              {" "}
+              <span className="text-gray-500">
+                (lo tomé de la palabra “{q.slice(0, q.length - term.length).trim()}”)
+              </span>
+            </>
+          )}
+          .
+        </p>
+      )}
 
       {!q && <p className="text-sm text-gray-500">Escribe un término para comenzar a buscar.</p>}
 

@@ -61,6 +61,10 @@ export function CreateMaintenanceLogForm({
   sectionSlug,
   availableInventory = [],
   learnedPieces = [],
+  pieceCatalog,
+  pieceCategories: pieceCategoriesProp,
+  checklistItems: checklistItemsProp,
+  leakCheckItems,
 }: {
   vehicleId: string;
   // Determina si se ofrece la categoría "Tanque" (ver lib/piece-catalog.ts:
@@ -75,15 +79,25 @@ export function CreateMaintenanceLogForm({
   // lib/learned-pieces.ts): se ofrecen como opción dentro de "Otro" en vez
   // de tener que volver a escribirlas.
   learnedPieces?: string[];
+  // Catálogo ya resuelto en el servidor: la lista fija más las piezas
+  // agregadas desde el panel de administración (ver
+  // lib/piece-catalog-runtime.ts y /admin/piezas). Si no llega, se cae a la
+  // lista fija de siempre.
+  pieceCatalog?: Record<string, string[]>;
+  pieceCategories?: string[];
+  // Ítems del checklist preventivo ya resueltos en el servidor: la lista fija
+  // más los agregados desde /admin/piezas (ver lib/checklist-runtime.ts).
+  checklistItems?: string[];
+  leakCheckItems?: string[];
 }) {
-  const pieceCategories = getPieceCategories(sectionSlug);
+  const catalogo = pieceCatalog ?? PIECE_CATALOG;
+  const pieceCategories = pieceCategoriesProp ?? getPieceCategories(sectionSlug);
   // Vehículo con tanque de carburación tiene su propio checklist preventivo,
   // solo de lo relacionado a su sistema de gas LP (ver
   // lib/preventive-checklist.ts) — reemplaza al genérico, no lo complementa.
   const isCarburacion = sectionSlug === "vehiculo-con-tanque-de-carburacion";
-  const checklistItems: readonly string[] = isCarburacion
-    ? CARBURACION_CHECKLIST_ITEMS
-    : PREVENTIVE_CHECKLIST_ITEMS;
+  const checklistItems: readonly string[] =
+    checklistItemsProp ?? (isCarburacion ? CARBURACION_CHECKLIST_ITEMS : PREVENTIVE_CHECKLIST_ITEMS);
   const action = createMaintenanceLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -294,7 +308,7 @@ export function CreateMaintenanceLogForm({
                     <option value="" disabled>
                       Selecciona...
                     </option>
-                    {PIECE_CATALOG[categoriaPieza].map((pieza) => (
+                    {(catalogo[categoriaPieza] ?? []).map((pieza) => (
                       <option key={pieza} value={pieza}>
                         {pieza}
                       </option>
@@ -460,7 +474,7 @@ export function CreateMaintenanceLogForm({
                 const row = checklist[item] ?? { estado: DEFAULT_CHECKLIST_ESTADO, cantidad: "", descripcion: "" };
                 const needsCantidad = checklistRequiresCantidad(row.estado);
                 const allowsDescripcion = checklistAllowsDescripcion(row.estado);
-                const estadoOptions = checklistEstadoOptionsFor(item, isCarburacion);
+                const estadoOptions = checklistEstadoOptionsFor(item, isCarburacion, leakCheckItems);
                 return (
                   <div key={item} className="rounded-md bg-white px-2 py-1.5">
                     <div className="flex items-center justify-between gap-2">

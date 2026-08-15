@@ -49,10 +49,26 @@ function EditValveChangeLogForm({ log, isCarburacion }: { log: ValveChangeLog; i
     <form action={formAction} className="mt-3 space-y-3 rounded-md bg-gray-50 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`responsable-${log.id}`}>
-            Responsable
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`responsableCambio-${log.id}`}>
+            Responsable de cambio/instalación
           </label>
-          <input id={`responsable-${log.id}`} name="responsable" defaultValue={log.responsable ?? ""} className={inputClass} />
+          <input
+            id={`responsableCambio-${log.id}`}
+            name="responsableCambio"
+            defaultValue={log.responsableCambio ?? ""}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`responsableSupervision-${log.id}`}>
+            Responsable de supervisión y control
+          </label>
+          <input
+            id={`responsableSupervision-${log.id}`}
+            name="responsableSupervision"
+            defaultValue={log.responsableSupervision ?? ""}
+            className={inputClass}
+          />
         </div>
         <div className="rounded-md border-2 border-primary/40 bg-primary/5 p-2">
           <label className="mb-1 block text-xs font-medium text-ink" htmlFor={`fechaInstalacion-${log.id}`}>
@@ -280,7 +296,7 @@ export function ValveChangeLogRow({
       >
         <span className="text-sm text-ink">
           <span className="font-medium text-primary">{formatDate(log.fechaInstalacion)}</span>
-          {log.responsable && <>{" · "}{log.responsable}</>}
+          {log.responsableCambio && <>{" · "}{log.responsableCambio}</>}
         </span>
         <span className="text-xs text-primary">{expanded ? "Ocultar" : "Ver detalle"}</span>
       </button>
@@ -288,7 +304,8 @@ export function ValveChangeLogRow({
       {expanded && (
         <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 text-sm text-ink">
           <dl className="grid gap-3 sm:grid-cols-2">
-            <Field label="Responsable" value={log.responsable} />
+            <Field label="Responsable de cambio/instalación" value={log.responsableCambio} />
+            <Field label="Responsable de supervisión y control" value={log.responsableSupervision} />
           </dl>
           <div className="mt-3 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
             <dt className="text-xs font-semibold uppercase text-gray-500">

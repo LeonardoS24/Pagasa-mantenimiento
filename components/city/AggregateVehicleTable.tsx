@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AggregateVehicleRow } from "@/lib/aggregate-listings";
 import { semaforoDotStyles, semaforoLabels } from "@/lib/vehicle-semaforo";
+import { VehicleEstatusControl } from "./VehicleEstatusControl";
 
 function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEstacion: boolean }) {
   return (
@@ -45,6 +46,9 @@ function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEst
           <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
           <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
           <td className="whitespace-nowrap px-4 py-2 text-ink">{record.serie || "—"}</td>
+          <td className="relative z-10 whitespace-nowrap px-4 py-2">
+            <VehicleEstatusControl vehicleId={record.id} estatus={record.estatus} />
+          </td>
         </>
       )}
     </tr>
@@ -72,6 +76,7 @@ function VehicleTableHead({ isEstacion }: { isEstacion: boolean }) {
             <th className="whitespace-nowrap px-4 py-2">Año</th>
             <th className="whitespace-nowrap px-4 py-2">Placas</th>
             <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
+            <th className="whitespace-nowrap px-4 py-2">Estatus</th>
           </>
         )}
       </tr>

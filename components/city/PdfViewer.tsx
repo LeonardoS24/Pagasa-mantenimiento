@@ -27,10 +27,14 @@ export function PdfViewer({ src, fileName }: { src: string; fileName: string }) 
     (async () => {
       try {
         const pdfjsLib = await import("pdfjs-dist");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-          "pdfjs-dist/build/pdf.worker.min.mjs",
-          import.meta.url
-        ).toString();
+        // El worker se sirve como archivo estático desde /public en vez de
+        // dejar que el empaquetador lo resuelva con new URL(..., import.meta.url):
+        // ese camino hacía que el minificador del build de producción tratara
+        // el worker (que es un módulo ESM) como código suelto y fallara con
+        // "'import', and 'export' cannot be used outside of module code".
+        // Si se actualiza pdfjs-dist hay que volver a copiar el archivo (ver
+        // scripts/copy-pdf-worker.mjs, que corre solo en postinstall).
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
         const pdf = await pdfjsLib.getDocument({ url: src }).promise;
         if (cancelled || !containerRef.current) return;

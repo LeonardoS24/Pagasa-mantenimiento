@@ -3,6 +3,7 @@ import type { BadgeColorKey } from "@/lib/section-colors";
 import { maintenanceStatusLabels, calidadExtintorLabels, type MaintenanceStatus, type CalidadExtintor } from "@/lib/vehicle-enums";
 import { valvulaCorrectivaLabels, type ValvulaCorrectiva } from "@/lib/valve-alerts";
 import type { MonthRange } from "@/lib/piece-maintenance-stats";
+import { vehicleRecordScopeWhere } from "@/lib/vehicle-record-scope";
 
 export interface UnitLogEvent {
   id: string;
@@ -64,9 +65,12 @@ function groupBajas<
 // los más recientes.
 export async function getCityUnitLogFeed(
   cityId: string | null,
-  range?: MonthRange
+  range?: MonthRange,
+  // Acota a un subconjunto de apartados (p.ej. solo Estaciones/Planta, ver
+  // Bitácora de estaciones).
+  sectionSlugs?: string[]
 ): Promise<UnitLogEvent[]> {
-  const vehicleWhere = cityId ? { section: { cityId } } : {};
+  const vehicleWhere = vehicleRecordScopeWhere(cityId, sectionSlugs);
   const take = range ? TAKE_RANGE : TAKE;
 
   const [

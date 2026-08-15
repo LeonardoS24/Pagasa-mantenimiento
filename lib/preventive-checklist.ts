@@ -108,10 +108,17 @@ export const carburacionAccionEstadoOptions = ["Buen estado", "Reparación", "Su
 // viene (ver CreateMaintenanceLogForm.tsx).
 export function checklistEstadoOptionsFor(
   item: string,
-  isCarburacion: boolean
+  isCarburacion: boolean,
+  // Ítems que solo se revisan por fugas, incluyendo los agregados desde el
+  // panel y marcados así (ver lib/checklist-runtime.ts: getLeakCheckItems).
+  // Sin esto solo se conocen los de la lista fija.
+  leakCheckItems?: readonly string[]
 ): readonly string[] {
   if (!isCarburacion) return checklistEstadoOptions;
-  return isCarburacionLeakCheckItem(item) ? leakCheckEstadoOptions : carburacionAccionEstadoOptions;
+  const esDeFugas = leakCheckItems
+    ? leakCheckItems.includes(item)
+    : isCarburacionLeakCheckItem(item);
+  return esDeFugas ? leakCheckEstadoOptions : carburacionAccionEstadoOptions;
 }
 
 export const DEFAULT_CHECKLIST_ESTADO: ChecklistEstado = "Buen estado";
@@ -162,13 +169,12 @@ export function checklistAllowsDescripcion(estado: ChecklistEstado): boolean {
 export const CHECKLIST_PIECE_CATEGORY = "Servicio preventivo";
 
 const checklistEntrySchema = z.object({
-  item: z
-    .string()
-    .refine(
-      (v) =>
-        (PREVENTIVE_CHECKLIST_ITEMS as readonly string[]).includes(v) ||
-        (CARBURACION_CHECKLIST_ITEMS as readonly string[]).includes(v)
-    ),
+  // Antes esto exigía que el ítem estuviera en una de las dos listas fijas.
+  // Ya no: un ADMIN puede agregar ítems propios desde el panel (ver
+  // lib/checklist-runtime.ts) y con la regla anterior el checklist completo
+  // se descartaba al guardar si traía uno de esos. El nombre es solo una
+  // etiqueta que se guarda y se muestra, así que basta con acotar el largo.
+  item: z.string().min(1).max(120),
   estado: checklistEstadoSchema,
   cantidad: z.string().max(50).optional(),
   descripcion: z.string().max(500).optional(),

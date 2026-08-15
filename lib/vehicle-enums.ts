@@ -46,6 +46,44 @@ export const maintenanceStatusStyles: Record<MaintenanceStatus, string> = {
   CANCELADO: "bg-blue-100 text-blue-700",
 };
 
+// Estatus operativo de la unidad (VehicleRecord.estatus), no confundir con
+// MaintenanceStatus de arriba (el estatus de UN mantenimiento en concreto):
+// este es el estatus de la unidad completa, ver el comentario del campo en
+// prisma/schema.prisma.
+export const vehicleEstatusSchema = z.enum(["OPERATIVA", "EN_TALLER", "FUERA_DE_SERVICIO"]);
+export type VehicleEstatus = z.infer<typeof vehicleEstatusSchema>;
+
+export const vehicleEstatusLabels: Record<VehicleEstatus, string> = {
+  OPERATIVA: "Operativa",
+  EN_TALLER: "En taller",
+  FUERA_DE_SERVICIO: "Fuera de servicio",
+};
+
+export const vehicleEstatusStyles: Record<VehicleEstatus, string> = {
+  OPERATIVA: "bg-green-100 text-green-700",
+  EN_TALLER: "bg-accent-light/20 text-accent",
+  FUERA_DE_SERVICIO: "bg-gray-200 text-gray-700",
+};
+
+// A qué estatus se puede pasar A MANO desde cada estatus (ver
+// setVehicleEstatus en actions/vehicle-actions.ts y el select rápido del
+// listado, components/city/VehicleEstatusControl.tsx). "En taller" nunca se
+// elige a mano estando Operativa: a taller se entra sola al registrar un
+// mantenimiento sin terminar (ver recalcularFichaTecnicaMantenimiento en
+// actions/maintenance-actions.ts), no apretando un botón.
+export const vehicleEstatusTransitions: Record<VehicleEstatus, VehicleEstatus[]> = {
+  OPERATIVA: ["FUERA_DE_SERVICIO"],
+  EN_TALLER: ["OPERATIVA"],
+  FUERA_DE_SERVICIO: ["EN_TALLER"],
+};
+
+export function canTransitionVehicleEstatus(from: VehicleEstatus, to: VehicleEstatus): boolean {
+  // Volver a elegir el estatus en el que ya está no es un cambio: se permite
+  // sin más (el select del listado arranca en el actual).
+  if (from === to) return true;
+  return vehicleEstatusTransitions[from].includes(to);
+}
+
 export const calidadExtintorSchema = z.enum(["EXCELENTE", "BUENA", "MALA"]);
 export type CalidadExtintor = z.infer<typeof calidadExtintorSchema>;
 

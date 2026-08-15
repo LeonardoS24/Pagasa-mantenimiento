@@ -487,7 +487,8 @@ export default async function PrintVehiclePage({
                       { label: "Válvula de servicio", value: formatDate(log.fechaFabricacionValvulaServicio) },
                       { label: "Válvula de máximo llenado", value: formatDate(log.fechaFabricacionValvulaMaximoLlenado) },
                       { label: "Válvula de alivio (seguridad)", value: formatDate(log.fechaFabricacionValvulaAlivio) },
-                      { label: "Responsable", value: log.responsable },
+                      { label: "Responsable de cambio/instalación", value: log.responsableCambio },
+                      { label: "Responsable de supervisión y control", value: log.responsableSupervision },
                     ],
                   }))}
                 />

@@ -78,11 +78,19 @@ export function CreateValveChangeLogForm({
         className="mt-4 space-y-3"
       >
         {vincularPieza && <input type="hidden" name="vincularPieza" value={vincularPieza} />}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="valv-responsable">
-            Responsable
-          </label>
-          <input id="valv-responsable" name="responsable" className={`max-w-xs ${inputClass}`} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="valv-responsableCambio">
+              Responsable de cambio/instalación
+            </label>
+            <input id="valv-responsableCambio" name="responsableCambio" className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="valv-responsableSupervision">
+              Responsable de supervisión y control
+            </label>
+            <input id="valv-responsableSupervision" name="responsableSupervision" className={inputClass} />
+          </div>
         </div>
 
         <div className="max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">

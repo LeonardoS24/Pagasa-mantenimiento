@@ -1,6 +1,7 @@
 import { daysUntil } from "@/lib/ultrasound-alerts";
 import { getExtinguisherAlertLevel } from "@/lib/extinguisher-alerts";
 import { getValveVencimiento, type ValveDates } from "@/lib/valve-alerts";
+import { getStationValveVencimiento, type StationValveDates } from "@/lib/station-valves";
 import { getHoseVencimiento } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection, type AlertType } from "@/lib/alert-visibility";
 
@@ -64,10 +65,19 @@ type SemaforoTechnicalSheet = {
 // alertas: una unidad dada de baja no tiene pendientes que mostrar).
 export function getVehicleSemaforoLevel(
   sheet: SemaforoTechnicalSheet | null | undefined,
-  sectionSlug: string
+  sectionSlug: string,
+  // Solo Estaciones/Planta: sus válvulas viven en su propia ficha del tanque
+  // (ver lib/station-valves.ts), no en la del vehículo.
+  stationTankSheet?: StationValveDates | null
 ): SemaforoLevel {
-  if (!sheet) return "none";
   let level: SemaforoLevel = "none";
+
+  if (stationTankSheet) {
+    const vencimiento = getStationValveVencimiento(stationTankSheet);
+    if (vencimiento) level = mostUrgent(level, semaforoFromDays(daysUntil(vencimiento)));
+  }
+
+  if (!sheet) return level;
 
   const dateChecks: Array<[AlertType, Date | null]> = [
     ["ultrasonido", sheet.fechaProximoUltrasonido],

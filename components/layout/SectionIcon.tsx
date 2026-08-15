@@ -72,6 +72,16 @@ const ICONS: Record<string, IconDef> = {
       </>
     ),
   },
+  "bitacora-de-estaciones": {
+    badge: "bg-teal-100 text-teal-700",
+    path: (
+      <>
+        <rect x="4" y="3.5" width="16" height="18" rx="1.5" />
+        <path d="M8.5 2h7v3h-7z" />
+        <path d="M7.5 10.5h9M7.5 14h9M7.5 17.5h5.5" />
+      </>
+    ),
+  },
   "bitacora-de-equipos": {
     badge: "bg-indigo-100 text-indigo-600",
     path: (

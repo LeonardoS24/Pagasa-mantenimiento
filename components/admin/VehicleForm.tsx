@@ -46,6 +46,9 @@ export function VehicleForm({
   // igual que una Estación (mismos campos), pero el texto del banner de
   // bloqueo dice "la planta" en vez de "la estación".
   stationLabel = "la estación",
+  // Estación: Dirección es opcional (puede no estar decidida al alta). Planta
+  // es una sola por ciudad y sí se conoce de entrada, así que ahí sí se pide.
+  direccionRequired = false,
   // true al editar una unidad ya existente (empieza bloqueada con un botón
   // "Editar", mismo patrón que TechnicalSheetForm.tsx, para no cambiar los
   // datos generales sin querer con solo dar clic). false en CreateVehicleForm
@@ -57,6 +60,7 @@ export function VehicleForm({
   submitLabel: string;
   isEstacion?: boolean;
   stationLabel?: string;
+  direccionRequired?: boolean;
   lockable?: boolean;
 }) {
   const [state, formAction] = useFormState(action, initialState);
@@ -137,12 +141,13 @@ export function VehicleForm({
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium text-ink" htmlFor="sucursal">
-                  Dirección (opcional)
+                  Dirección{!direccionRequired && " (opcional)"}
                 </label>
                 <textarea
                   id="sucursal"
                   name="sucursal"
                   rows={3}
+                  required={direccionRequired}
                   defaultValue={defaults?.sucursal}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
                 />

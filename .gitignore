@@ -35,3 +35,8 @@ next-env.d.ts
 
 # local Claude Code settings
 .claude/settings.local.json
+
+# Copia del worker de pdfjs-dist: la genera scripts/copy-pdf-worker.mjs en
+# postinstall a partir de node_modules, así que no se versiona (si se
+# versionara, quedaría desfasada al actualizar la librería).
+/public/pdf.worker.min.mjs

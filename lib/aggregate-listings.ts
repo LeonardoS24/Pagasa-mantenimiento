@@ -16,6 +16,7 @@ export interface AggregateVehicleRow {
   permiso: string | null;
   activo: boolean;
   motivoBaja: string | null;
+  estatus: string;
   citySlug: string;
   cityName: string;
   semaforoLevel: SemaforoLevel;
@@ -39,6 +40,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       permiso: true,
       activo: true,
       motivoBaja: true,
+      estatus: true,
       technicalSheet: true,
       stationTankTechnicalSheet: true,
       section: { select: { slug: true, city: { select: { slug: true, name: true, order: true } } } },
@@ -57,10 +59,13 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       permiso: r.permiso,
       activo: r.activo,
       motivoBaja: r.motivoBaja,
+      estatus: r.estatus,
       citySlug: r.section.city.slug,
       cityName: r.section.city.name,
       cityOrder: r.section.city.order,
-      semaforoLevel: r.activo ? getVehicleSemaforoLevel(r.technicalSheet, r.section.slug) : ("none" as const),
+      semaforoLevel: r.activo
+        ? getVehicleSemaforoLevel(r.technicalSheet, r.section.slug, r.stationTankTechnicalSheet)
+        : ("none" as const),
     }))
     .sort((a, b) => {
       if (a.activo !== b.activo) return a.activo ? -1 : 1;
@@ -132,4 +137,47 @@ export async function getAggregateEquipos(): Promise<AggregateEquipoRow[]> {
 export async function getHighCriticidadEquipos(): Promise<AggregateEquipoRow[]> {
   const equipos = await getAggregateEquipos();
   return equipos.filter((e) => e.activo && e.criticidad === "ALTA");
+}
+
+export interface VehicleInMaintenanceRow {
+  id: string;
+  numeroEconomico: string;
+  citySlug: string;
+  cityName: string;
+  sectionName: string;
+}
+
+// Todas las unidades activas en estatus EN_TALLER, de cualquier ciudad y
+// cualquier tipo de apartado (a diferencia de getAggregateVehicleRecords, que
+// acota a un solo sectionSlug): para el panel de Administración (ver
+// VehiclesInMaintenancePanel.tsx) con el botón de "Marcar operativa" a la
+// mano, mismo criterio que HighCriticidadEquiposPanel de que nunca pase
+// desapercibido. No incluye Estaciones/Planta (no aplican a "en taller").
+export async function getVehiclesInMaintenance(): Promise<VehicleInMaintenanceRow[]> {
+  const records = await prisma.vehicleRecord.findMany({
+    where: {
+      activo: true,
+      estatus: "EN_TALLER",
+      section: {
+        city: { slug: { not: AGGREGATE_CITY_SLUG } },
+        slug: { notIn: ["estaciones-de-carburacion", "planta-ficha-tecnica"] },
+      },
+    },
+    select: {
+      id: true,
+      numeroEconomico: true,
+      section: { select: { name: true, city: { select: { slug: true, name: true, order: true } } } },
+    },
+  });
+
+  return records
+    .map((r) => ({
+      id: r.id,
+      numeroEconomico: r.numeroEconomico,
+      citySlug: r.section.city.slug,
+      cityName: r.section.city.name,
+      sectionName: r.section.name,
+      cityOrder: r.section.city.order,
+    }))
+    .sort((a, b) => a.cityOrder - b.cityOrder || a.numeroEconomico.localeCompare(b.numeroEconomico));
 }

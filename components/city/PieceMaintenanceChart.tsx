@@ -41,7 +41,9 @@ function statLabel(stat: PieceMaintenanceStat): string {
 // propio de cada vehículo (ver el apartado de cada unidad), que además se
 // reinicia cada año en vez de cada mes.
 export type PieceMaintenanceScope =
-  | { type: "city"; cityId: string | null }
+  // sectionSlugs opcional: acota a un subconjunto de apartados (p.ej. solo
+  // Estaciones/Planta, ver Bitácora de estaciones) sin cambiar de ciudad.
+  | { type: "city"; cityId: string | null; sectionSlugs?: string[] }
   | { type: "vehicle"; vehicleRecordId: string };
 
 // Desglose de una fila del gráfico: qué mantenimientos concretos suman ese
@@ -70,7 +72,7 @@ function PieceBreakdown({
       const data =
         scope.type === "vehicle"
           ? await fetchMaintenanceLogsForPieceByVehicle(scope.vehicleRecordId, stat.categoria, stat.pieza, range)
-          : await fetchMaintenanceLogsForPiece(scope.cityId, stat.categoria, stat.pieza, range);
+          : await fetchMaintenanceLogsForPiece(scope.cityId, stat.categoria, stat.pieza, range, scope.sectionSlugs);
       setEntries(data);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

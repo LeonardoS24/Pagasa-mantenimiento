@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import type { VehicleRecord, VehicleTechnicalSheet } from "@prisma/client";
+import type { VehicleRecord, VehicleTechnicalSheet, StationTankTechnicalSheet } from "@prisma/client";
 import {
   getUltrasoundAlertLevel,
   ultrasoundAlertBadgeStyles,
@@ -42,6 +42,8 @@ import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertL
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { calidadMantenimientoLabels, calidadMantenimientoStyles, type CalidadMantenimiento } from "@/lib/vehicle-enums";
 import { getVehicleSemaforoLevel, semaforoDotStyles, semaforoLabels } from "@/lib/vehicle-semaforo";
+import { getStationValveVencimiento, getStationValveAlertLevel } from "@/lib/station-valves";
+import { VehicleEstatusControl } from "./VehicleEstatusControl";
 
 function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
   if (levels.includes("red")) return ultrasoundAlertRowStyles.red;
@@ -51,6 +53,8 @@ function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
 
 type VehicleRecordWithSheet = VehicleRecord & {
   technicalSheet: VehicleTechnicalSheet | null;
+  // Solo Estaciones/Planta: ahí viven sus válvulas (ver lib/station-valves.ts).
+  stationTankTechnicalSheet?: StationTankTechnicalSheet | null;
 };
 
 export function VehicleTable({
@@ -101,6 +105,7 @@ export function VehicleTable({
                 <th className="whitespace-nowrap px-4 py-2">Placas</th>
                 <th className="whitespace-nowrap px-4 py-2">Número de serie</th>
                 <th className="whitespace-nowrap px-4 py-2">Calidad</th>
+                <th className="whitespace-nowrap px-4 py-2">Estatus</th>
               </>
             )}
           </tr>
@@ -159,14 +164,20 @@ export function VehicleTable({
               ? getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera)
               : "none";
             const hoseVencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);
+            // Válvulas de una Estación/Planta: viven en su propia ficha del
+            // tanque, no en la del vehículo (ver lib/station-valves.ts).
+            const stationValveVencimiento = record.activo
+              ? getStationValveVencimiento(record.stationTankTechnicalSheet ?? {})
+              : null;
+            const stationValveAlertLevel = getStationValveAlertLevel(stationValveVencimiento);
             const semaforoLevel = record.activo
-              ? getVehicleSemaforoLevel(record.technicalSheet, sectionSlug)
+              ? getVehicleSemaforoLevel(record.technicalSheet, sectionSlug, record.stationTankTechnicalSheet)
               : "none";
             return (
               <Fragment key={record.id}>
                 {isFirstInactive && (
                   <tr aria-hidden="true">
-                    <td colSpan={isEstacion ? 5 : 7} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
+                    <td colSpan={isEstacion ? 5 : 8} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
                       <span className="text-xs font-semibold uppercase text-gray-500">
                         Dadas de baja
                       </span>
@@ -308,6 +319,13 @@ export function VehicleTable({
                       {hoseAlertLabel(hoseAlertLevel, hoseVencimiento)}
                     </span>
                   )}
+                  {stationValveAlertLevel !== "none" && stationValveVencimiento && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[stationValveAlertLevel]}`}
+                    >
+                      {valveAlertLabel(stationValveAlertLevel, stationValveVencimiento)}
+                    </span>
+                  )}
                 </td>
                 {isEstacion ? (
                   <>
@@ -329,6 +347,9 @@ export function VehicleTable({
                           {calidadMantenimientoLabels[record.calidad as CalidadMantenimiento]}
                         </span>
                       )}
+                    </td>
+                    <td className="relative z-10 whitespace-nowrap px-4 py-2">
+                      <VehicleEstatusControl vehicleId={record.id} estatus={record.estatus} />
                     </td>
                   </>
                 )}

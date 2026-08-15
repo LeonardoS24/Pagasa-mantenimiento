@@ -226,6 +226,112 @@ export const PIECE_CATALOG: Record<string, string[]> = {
     "Mezclador",
     "Interruptor (Switch) gas LP/Gasolina",
   ],
+
+  // ---------------------------------------------------------------------
+  // Piezas de Estaciones de carburación y Planta (ver
+  // STATION_PIECE_CATEGORIES abajo). Salen del listado que lleva el equipo
+  // ("Refacciones, piezas de estaciones.xlsx"). No se mezclan con las
+  // categorías de vehículo: una estación es una instalación fija, no una
+  // unidad, y en su mantenimiento no se registra nada de motor/frenos.
+  // ---------------------------------------------------------------------
+  "Equipo de despacho": [
+    "Tanque",
+    "Litrómetro",
+    "Registro",
+    "Bomba",
+    "Motor",
+    "Manguera",
+    "Manómetro",
+    "Termómetro",
+    'Válvula de pérdida mínima 1"',
+    'Pullaway 3/4"',
+    "Extintor",
+  ],
+  "Válvulas de estación": [
+    "Válvula de exceso de flujo",
+    "Válvula de no retroceso",
+    "Válvula de seguridad",
+    "Válvula check lock",
+    "Válvula de llenado",
+    "Válvula de servicio",
+    "Válvula de relevo hidrostático",
+    'Válvula de esfera de 3/4"',
+    'Válvula de esfera de 1"',
+    'Válvula de esfera de 1 1/4"',
+    'Válvula globo de 3/4"',
+    'Válvula globo de 1 1/4"',
+    'Válvula solenoide de 3/4" 120 V',
+    'Bay pass de 3/4"',
+  ],
+  "Tubería y conexiones": [
+    'Tubería de 1"',
+    'Tubería de 3/4"',
+    'Tubería eléctrica de 3/4"',
+    'Codo de 90° de 3/4"',
+    'Codo de 90° de 1"',
+    'Codo de 90° de 1 1/4"',
+    'Codo de 45° de 3/4"',
+    'Tuerca unión de 3/4"',
+    'Tuerca unión de 1"',
+    "Tuerca unión",
+    "Niple de 3/4 x 6",
+    "Niple de 3/4 x 4",
+    "Niple de 3/4 x 3",
+    "Niple de 6 x 1",
+    "Niple de 6 x 1 1/4",
+    "Niple flexible de 40 cm",
+    'Cople de 1 1/4"',
+    "Reducción bushing de 3/4 a 1/2",
+    "Reducción bushing de 1 a 3/4",
+    "Reducción bushing de 1 1/4 a 1/2",
+    'Reducción bushing de 1 1/4"',
+    'Tee de 3/4"',
+    'Tee de 1"',
+    'Tee de 1 1/4"',
+    'Filtro Sarco de 1 1/4"',
+  ],
+  "Electrónica y registro (UDS)": [
+    "Estructura de UDS micro",
+    "Tarjeta madre",
+    "Tarjeta fuente",
+    "Tarjeta de conexiones",
+    "Display 20 x 40 (chico)",
+    "Display 40 x 40 (grande)",
+    "Kit de comunicación",
+    "Fuente de 9 volts",
+    "Fuente de 24 volts",
+    "Sensor óptico",
+    "Teclado de uso rudo",
+    "Lámpara EVA",
+    "Radio de frecuencia",
+    "Regulador Isotel",
+    "Impresora de rollo",
+    "Pictel completo",
+  ],
+  "Instalación eléctrica": [
+    'Caja eléctrica GAU de 3/4"',
+    "Cable de tierra con pinza",
+    "Caja de controles de térmicos",
+    "Cableado eléctrico",
+    "Cables eléctricos",
+    "Lámpara de iluminación",
+  ],
+  "Obra e instalaciones": [
+    "Base para tanque de 5000 lts",
+    "Escalera metálica",
+    "Estructura de isleta con techumbre",
+    "Tinaco con su bomba",
+    "Lavamanos y accesorios",
+    "Sanitario y accesorios",
+    "Puerta de aluminio del baño",
+    "Puerta de aluminio de oficina",
+    "Ventana con cristales",
+    "Escritorio",
+    "Dispensador de agua",
+    "Caja fuerte",
+    "Alarma",
+    "Puerta de malla ciclónica en zona de almacenamiento",
+  ],
 };
 
 // "Otro" siempre va al final y no tiene lista fija propia — pero si ya se
@@ -236,15 +342,37 @@ export const PIECE_CATEGORY_OTRO = "Otro";
 
 const TANQUE_CATEGORY = "Tanque";
 const CARBURACION_CATEGORIES = ["Válvulas", "Sistema de carburación"];
-const SECTION_ONLY_CATEGORIES = [TANQUE_CATEGORY, ...CARBURACION_CATEGORIES];
+
+// Categorías propias de una Estación de carburación / Planta: nunca se
+// ofrecen al capturar el mantenimiento de un vehículo, ni al revés.
+export const STATION_PIECE_CATEGORIES = [
+  "Equipo de despacho",
+  "Válvulas de estación",
+  "Tubería y conexiones",
+  "Electrónica y registro (UDS)",
+  "Instalación eléctrica",
+  "Obra e instalaciones",
+];
+
+const STATION_SECTION_SLUGS = ["estaciones-de-carburacion", "planta-ficha-tecnica"];
+
+const SECTION_ONLY_CATEGORIES = [
+  TANQUE_CATEGORY,
+  ...CARBURACION_CATEGORIES,
+  ...STATION_PIECE_CATEGORIES,
+];
 
 // "Tanque" (tanque de carga) solo en Auto-Tanques, además de las categorías
 // genéricas de cualquier vehículo. Vehículo con tanque de carburación es
 // distinto a propósito: solo ve "Válvulas" y "Sistema de carburación" — nada
 // de las categorías genéricas (Motor, Transmisión, Frenos...), porque en el
 // mantenimiento de esa unidad solo se registra lo relacionado a su sistema
-// de gas LP, no el vehículo completo.
+// de gas LP, no el vehículo completo. Una Estación/Planta ve únicamente sus
+// propias categorías: es una instalación fija, no un vehículo.
 export function getPieceCategories(sectionSlug?: string): string[] {
+  if (sectionSlug && STATION_SECTION_SLUGS.includes(sectionSlug)) {
+    return [...STATION_PIECE_CATEGORIES, PIECE_CATEGORY_OTRO];
+  }
   if (sectionSlug === "vehiculo-con-tanque-de-carburacion") {
     return [...CARBURACION_CATEGORIES, PIECE_CATEGORY_OTRO];
   }
@@ -254,6 +382,28 @@ export function getPieceCategories(sectionSlug?: string): string[] {
   const categorias = [...base];
   if (sectionSlug === "auto-tanques") categorias.push(TANQUE_CATEGORY);
   return [...categorias, PIECE_CATEGORY_OTRO];
+}
+
+// Para el catálogo del formulario de órdenes (ver
+// components/admin/CreatePieceOrderForm.tsx): ahí no se está parado en un
+// apartado concreto, así que en vez de filtrar por sección se elige primero
+// para qué es la pieza y el catálogo se acota a ese grupo. Sin esto habría
+// que buscar entre todas las categorías juntas, que es justo lo que se
+// pidió evitar.
+export const PIECE_GROUPS = ["Unidades", "Estaciones de carburación"] as const;
+export type PieceGroup = (typeof PIECE_GROUPS)[number];
+
+// Valor centinela del selector de categoría en /admin/piezas: significa "no
+// es ninguna de las de la lista, voy a escribir una nueva". Vive aquí y no
+// en actions/piece-catalog-actions.ts porque ese archivo es "use server" y
+// ahí solo se pueden exportar funciones async.
+export const CATEGORIA_NUEVA = "__NUEVA__";
+
+export function getPieceCategoriesForGroup(grupo: PieceGroup): string[] {
+  if (grupo === "Estaciones de carburación") return [...STATION_PIECE_CATEGORIES];
+  return Object.keys(PIECE_CATALOG).filter(
+    (categoria) => !STATION_PIECE_CATEGORIES.includes(categoria)
+  );
 }
 
 // Todos los nombres de pieza ya conocidos por el catálogo fijo, sin importar

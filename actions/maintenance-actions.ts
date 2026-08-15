@@ -119,7 +119,7 @@ function masCercanoAHoyConKilometraje<T extends { fecha: Date; kilometraje: numb
 async function recalcularFichaTecnicaMantenimiento(vehicleId: string): Promise<void> {
   const logs = await prisma.maintenanceLog.findMany({
     where: { vehicleRecordId: vehicleId },
-    select: { fecha: true, kilometraje: true, tipoMantenimiento: true, calidad: true },
+    select: { fecha: true, kilometraje: true, tipoMantenimiento: true, calidad: true, estatus: true },
   });
   const logsPreventivo = logs.filter((log) => log.tipoMantenimiento === "Preventivo");
 
@@ -148,9 +148,29 @@ async function recalcularFichaTecnicaMantenimiento(vehicleId: string): Promise<v
     create: { vehicleRecordId: vehicleId, ...sheetFields },
   });
 
+  // Estatus operativo de la unidad (VehicleRecord.estatus, ver
+  // prisma/schema.prisma): EN_TALLER sola mientras quede algún mantenimiento
+  // sin terminar (SIN_ATENCION o EN_PROCESO), OPERATIVA cuando ya no queda
+  // ninguno. "Fuera de servicio" es manual (ver setVehicleEstatus en
+  // actions/vehicle-actions.ts) y este recálculo automático no la toca —
+  // solo un cambio a mano la puede sacar de ahí.
+  const hayMantenimientoAbierto = logs.some(
+    (log) => log.estatus === "SIN_ATENCION" || log.estatus === "EN_PROCESO"
+  );
+  const vehicleActual = await prisma.vehicleRecord.findUnique({
+    where: { id: vehicleId },
+    select: { estatus: true },
+  });
+  const nuevoEstatus =
+    vehicleActual?.estatus === "FUERA_DE_SERVICIO"
+      ? "FUERA_DE_SERVICIO"
+      : hayMantenimientoAbierto
+      ? "EN_TALLER"
+      : "OPERATIVA";
+
   await prisma.vehicleRecord.update({
     where: { id: vehicleId },
-    data: { calidad: masRecienteConCalidad?.calidad ?? null },
+    data: { calidad: masRecienteConCalidad?.calidad ?? null, estatus: nuevoEstatus },
   });
 }
 

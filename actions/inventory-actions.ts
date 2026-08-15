@@ -80,7 +80,7 @@ export async function getMantenimientosDeUnidad(
       take: 20,
     });
     for (const v of valvulas) {
-      agrega("VALVULAS", v.id, v.fechaInstalacion, v.responsable ?? "Cambio de válvulas");
+      agrega("VALVULAS", v.id, v.fechaInstalacion, v.responsableCambio ?? "Cambio de válvulas");
     }
 
     const correctivos = await prisma.valveCorrectiveMaintenanceLog.findMany({

@@ -18,7 +18,12 @@ export function CreateVehicleForm({
         {isPlanta ? "Agregar planta" : isEstacion ? "Agregar estación" : "Agregar número económico"}
       </summary>
       <div className="mt-3">
-        <VehicleForm action={action} submitLabel="Agregar" isEstacion={isEstacion} />
+        <VehicleForm
+          action={action}
+          submitLabel="Agregar"
+          isEstacion={isEstacion}
+          direccionRequired={isPlanta}
+        />
       </div>
     </details>
   );

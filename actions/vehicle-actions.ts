@@ -6,7 +6,15 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor } from "@/lib/auth";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
-import { combustibleSchema, calidadExtintorSchema } from "@/lib/vehicle-enums";
+import {
+  combustibleSchema,
+  calidadExtintorSchema,
+  vehicleEstatusSchema,
+  canTransitionVehicleEstatus,
+  vehicleEstatusLabels,
+  type VehicleEstatus,
+} from "@/lib/vehicle-enums";
+import { STATION_VALVE_FIELDS, stationValveLabels } from "@/lib/station-valves";
 import { collapseSpaces } from "@/lib/text-normalize";
 import { verifySessionPassword } from "@/lib/reauth";
 import { deleteVehicleDocumentFiles } from "@/lib/document-cleanup";
@@ -103,6 +111,8 @@ export async function createVehicleRecord(
     if (!parsed.data.anio || !parsed.data.placas) {
       return { error: "El año y las placas son requeridos." };
     }
+  } else if (section.slug === PLANTA_FICHA_TECNICA_SECTION_SLUG && !parsed.data.sucursal) {
+    return { error: "La dirección es requerida." };
   }
 
   const maxOrder = await prisma.vehicleRecord.aggregate({
@@ -156,6 +166,8 @@ export async function updateVehicleRecord(
     if (!parsed.data.anio || !parsed.data.placas) {
       return { error: "El año y las placas son requeridos." };
     }
+  } else if (vehicle.section.slug === PLANTA_FICHA_TECNICA_SECTION_SLUG && !parsed.data.sucursal) {
+    return { error: "La dirección es requerida." };
   }
 
   // VehicleForm siempre incluye el campo (Marca o Dirección, según el tipo
@@ -322,6 +334,25 @@ async function recordExtinguisherQualityChange(params: {
   });
 }
 
+// Nombre visible de cada válvula, para poder decir en el mensaje de error
+// cuál de todas tiene la fecha imposible (ver el superRefine de abajo y el
+// equivalente en actions/valve-actions.ts).
+const VALVULA_ETIQUETAS = [
+  ["fechaFabricacionValvulaLlenado", "válvula de llenado"],
+  ["fechaFabricacionValvulaNoRetroceso", "válvula de no retroceso (check)"],
+  ["fechaFabricacionValvulaBypass", "válvula de retroceso (bypass)"],
+  ["fechaFabricacionValvulaRetornoVapores", "válvula de retorno de vapores"],
+  ["fechaFabricacionValvulaServicio", "válvula de servicio de vapor"],
+  ["fechaFabricacionValvulaMaximoLlenado", "válvula de máximo llenado 90%"],
+  ["fechaFabricacionValvulaMaximoLlenado85", "válvula de máximo llenado 85%"],
+  ["fechaFabricacionValvulaAlivio", "válvula de seguridad"],
+  ["fechaFabricacionValvulaDescargaEmergencia", "válvula de descarga de emergencia"],
+] as const;
+
+function formatoCortoFecha(fecha: Date): string {
+  return fecha.toISOString().slice(0, 10).split("-").reverse().join("/");
+}
+
 const technicalSheetSchema = z.object({
   marca: optionalText(100),
   linea: optionalText(100),
@@ -382,6 +413,24 @@ const technicalSheetSchema = z.object({
   fechaFabricacionValvulaDescargaEmergencia: optionalDate,
   fechaInstalacionMangueras: optionalDate,
   fechaFabricacionManguera: optionalDate,
+}).superRefine((data, ctx) => {
+  // Una válvula no se puede instalar antes de existir. Si la fecha de
+  // instalación queda antes que la de fabricación de cualquiera de ellas es
+  // un error de captura, y además descuadra el cálculo del vencimiento (así
+  // quedó capturado LL100 en su momento: instalación 8 meses antes de la
+  // fabricación).
+  if (!data.fechaInstalacionValvulas) return;
+  for (const [campo, etiqueta] of VALVULA_ETIQUETAS) {
+    const fabricacion = data[campo];
+    if (!fabricacion) continue;
+    if (data.fechaInstalacionValvulas.getTime() >= fabricacion.getTime()) continue;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Error en las fechas: la instalación de las válvulas (${formatoCortoFecha(data.fechaInstalacionValvulas)}) es anterior a la fabricación de la ${etiqueta} (${formatoCortoFecha(fabricacion)}). Una válvula no puede instalarse antes de fabricarse.`,
+      path: ["fechaInstalacionValvulas"],
+    });
+    return;
+  }
 });
 
 export async function upsertTechnicalSheet(
@@ -631,6 +680,31 @@ const stationTankTechnicalSheetSchema = z.object({
   materialCabeza: optionalText(100),
   diametroInterior: optionalText(50),
   tara: optionalText(50),
+  // Válvulas del tanque fijo (ver lib/station-valves.ts).
+  fechaInstalacionValvulas: optionalDate,
+  fechaFabricacionValvulaExcesoFlujo: optionalDate,
+  fechaFabricacionValvulaNoRetroceso: optionalDate,
+  fechaFabricacionValvulaSeguridad: optionalDate,
+  fechaFabricacionValvulaLlenado: optionalDate,
+  fechaFabricacionValvulaServicio: optionalDate,
+  fechaFabricacionValvulaCheckLock: optionalDate,
+  fechaFabricacionValvulaRelevoHidrostatico: optionalDate,
+  fechaFabricacionValvulaVapor: optionalDate,
+}).superRefine((data, ctx) => {
+  // Misma regla que en la ficha técnica de una unidad: una válvula no se
+  // puede instalar antes de existir.
+  if (!data.fechaInstalacionValvulas) return;
+  for (const campo of STATION_VALVE_FIELDS) {
+    const fabricacion = data[campo];
+    if (!fabricacion) continue;
+    if (data.fechaInstalacionValvulas.getTime() >= fabricacion.getTime()) continue;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Error en las fechas: la instalación de las válvulas (${formatoCortoFecha(data.fechaInstalacionValvulas)}) es anterior a la fabricación de la ${stationValveLabels[campo].toLowerCase()} (${formatoCortoFecha(fabricacion)}). Una válvula no puede instalarse antes de fabricarse.`,
+      path: ["fechaInstalacionValvulas"],
+    });
+    return;
+  }
 });
 
 // Ficha técnica del tanque de una Estación de carburación: reemplaza la
@@ -672,6 +746,8 @@ export async function upsertStationTankTechnicalSheet(
     materialCabeza: formData.get("materialCabeza"),
     diametroInterior: formData.get("diametroInterior"),
     tara: formData.get("tara"),
+    fechaInstalacionValvulas: formData.get("fechaInstalacionValvulas"),
+    ...Object.fromEntries(STATION_VALVE_FIELDS.map((campo) => [campo, formData.get(campo)])),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -768,4 +844,75 @@ export async function updateCalidadExtintor(
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
   revalidatePath("/dashboard");
   return { success: "Calidad del extintor actualizada." };
+}
+
+// Botón rápido de estatus en el listado (ver components/city/VehicleEstatusControl.tsx):
+// mismo nivel de acceso que capturar un mantenimiento (requireEditor, no
+// requireElevatedEditor), porque es un cambio operativo del día a día, no un
+// dato general de la ficha. Marcar "Operativa" a mano cierra ahí mismo los
+// mantenimientos que seguían abiertos (mismos 2 estatus que la unidad
+// detecta sola como "en taller", ver recalcularFichaTecnicaMantenimiento en
+// actions/maintenance-actions.ts) — así el botón "ya volvió a andar" no dice
+// mentiras sobre si el mantenimiento sigue pendiente.
+export async function setVehicleEstatus(
+  vehicleId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireEditor();
+
+  const parsed = vehicleEstatusSchema.safeParse(formData.get("estatus"));
+  if (!parsed.success) {
+    return { error: "Estatus inválido." };
+  }
+
+  const vehicle = await prisma.vehicleRecord.findUnique({
+    where: { id: vehicleId },
+    include: { section: { include: { city: true } } },
+  });
+  if (!vehicle) {
+    return { error: "El registro no existe." };
+  }
+
+  // Solo se permiten los cambios de estatus que tienen sentido operativo (ver
+  // vehicleEstatusTransitions en lib/vehicle-enums.ts). En particular, una
+  // unidad Operativa no se manda a taller a mano: entra sola al registrarle
+  // un mantenimiento sin terminar.
+  const actual = vehicleEstatusSchema.safeParse(vehicle.estatus).success
+    ? (vehicle.estatus as VehicleEstatus)
+    : "OPERATIVA";
+  if (!canTransitionVehicleEstatus(actual, parsed.data)) {
+    return {
+      error:
+        actual === "OPERATIVA" && parsed.data === "EN_TALLER"
+          ? "Una unidad operativa entra a taller sola al registrarle un mantenimiento, no desde aquí."
+          : `No se puede pasar de ${vehicleEstatusLabels[actual]} a ${vehicleEstatusLabels[parsed.data]}.`,
+    };
+  }
+
+  await prisma.vehicleRecord.update({
+    where: { id: vehicleId },
+    data: { estatus: parsed.data },
+  });
+
+  if (parsed.data === "OPERATIVA") {
+    await prisma.maintenanceLog.updateMany({
+      where: { vehicleRecordId: vehicleId, estatus: { in: ["SIN_ATENCION", "EN_PROCESO"] } },
+      data: { estatus: "TERMINADO" },
+    });
+  }
+
+  const chain = await getSectionChain(vehicle.sectionId);
+  revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
+  revalidatePath(sectionBasePath(vehicle.section.city.slug, chain));
+  const bitacoraRoot = await prisma.section.findFirst({
+    where: { cityId: vehicle.section.cityId, parentId: null, slug: "bitacoras-de-unidades" },
+  });
+  if (bitacoraRoot) {
+    revalidatePath(sectionBasePath(vehicle.section.city.slug, [bitacoraRoot]));
+  }
+  revalidatePath("/ciudades/administracion/bitacoras-de-unidades");
+  revalidatePath("/dashboard");
+
+  return { success: "Estatus actualizado." };
 }

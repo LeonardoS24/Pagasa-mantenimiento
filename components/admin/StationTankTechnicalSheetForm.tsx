@@ -6,6 +6,14 @@ import type { StationTankTechnicalSheet } from "@prisma/client";
 import { upsertStationTankTechnicalSheet } from "@/actions/vehicle-actions";
 import type { ActionState } from "@/actions/user-actions";
 import { toDateInputValue } from "@/lib/dates";
+import {
+  STATION_VALVE_FIELDS,
+  stationValveLabels,
+  getStationValveVencimiento,
+  getStationValveAlertLevel,
+} from "@/lib/station-valves";
+import { valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import { SECTION_STYLES } from "@/lib/section-colors";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -67,6 +75,8 @@ export function StationTankTechnicalSheetForm({
   const [state, formAction] = useFormState(action, initialState);
   const [locked, setLocked] = useState(true);
   const formRef = useRef<HTMLFormElement>(null);
+  const vencimiento = sheet ? getStationValveVencimiento(sheet) : null;
+  const valveAlertLevel = getStationValveAlertLevel(vencimiento);
 
   function handleCancel() {
     formRef.current?.reset();
@@ -127,6 +137,51 @@ export function StationTankTechnicalSheetForm({
           <Field id="materialCabeza" label="Material cabeza" defaultValue={sheet?.materialCabeza} />
           <Field id="diametroInterior" label="Diámetro interior" defaultValue={sheet?.diametroInterior} />
           <Field id="tara" label="Tara" defaultValue={sheet?.tara} />
+        </div>
+
+        {/* Válvulas del tanque fijo: otro juego que el de un Auto-Tanque
+            (ver lib/station-valves.ts). Se captura la fecha grabada en cada
+            válvula y la fecha en que se instaló el juego completo. */}
+        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de válvulas</h3>
+            {valveAlertLevel !== "none" && vencimiento && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
+              >
+                {valveAlertLabel(valveAlertLevel, vencimiento)}
+              </span>
+            )}
+          </div>
+          <div className="mb-4 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
+            <label
+              className="mb-1 block text-sm font-medium text-ink"
+              htmlFor="fechaInstalacionValvulas"
+            >
+              Fecha de instalación del juego de válvulas
+            </label>
+            <input
+              id="fechaInstalacionValvulas"
+              name="fechaInstalacionValvulas"
+              type="date"
+              defaultValue={toDateInputValue(sheet?.fechaInstalacionValvulas)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
+            />
+          </div>
+          <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
+            Fecha de fabricación de cada válvula
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {STATION_VALVE_FIELDS.map((campo) => (
+              <Field
+                key={campo}
+                id={campo}
+                label={stationValveLabels[campo]}
+                type="date"
+                defaultValue={toDateInputValue(sheet?.[campo])}
+              />
+            ))}
+          </div>
         </div>
       </fieldset>
 
