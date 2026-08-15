@@ -37,7 +37,7 @@ export function ValveRedAlertToast() {
     <div className="w-80 rounded-lg border-2 border-red-800 bg-red-600 p-4 text-white shadow-xl">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold">
-          ¡URGENTE! <strong>{count}</strong> unidad{count === 1 ? "" : "es"} con el cambio de válvulas por
+          ¡URGENTE! <strong>{count}</strong> cambio{count === 1 ? "" : "s"} de válvulas (unidad o estación) por
           vencer en menos de una semana (o ya vencido) en tus ciudades.
         </p>
         <button

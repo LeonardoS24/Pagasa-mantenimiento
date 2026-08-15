@@ -78,3 +78,35 @@ export function getStationValveAlertLevel(vencimiento: Date | null): ValveAlertL
   if (daysLeft <= 30) return "yellow";
   return "none";
 }
+
+// Mismo texto que valveAlertLabel (lib/valve-alerts.ts) — no depende del
+// juego de válvulas, solo de nivel y fecha, así que se reutiliza tal cual
+// donde haga falta (ver ValveAlertsPanel).
+
+// Igual que valveAlertMessage (lib/valve-alerts.ts) pero con el vocabulario
+// de válvulas de estación (nombreEstacion en vez de numeroEconomico de
+// unidad, y el juego de 7 válvulas propio del tanque fijo). etiquetaTanque
+// se agrega cuando la estación tiene más de un tanque, para saber cuál de
+// los dos es.
+export function getStationValveAlertMessage(
+  level: ValveAlertLevel,
+  vencimiento: Date,
+  nombreEstacion: string,
+  valvulaMasAntigua?: StationValveField,
+  etiquetaTanque?: string
+): string | null {
+  if (level === "none") return null;
+  const daysLeft = daysUntil(vencimiento);
+  const nombreValvula = valvulaMasAntigua ? ` (${stationValveLabels[valvulaMasAntigua]})` : "";
+  const nombreCompleto = etiquetaTanque ? `${nombreEstacion} — ${etiquetaTanque}` : nombreEstacion;
+  if (level === "red") {
+    if (daysLeft < 0) {
+      return `¡URGENTE! El cambio de válvulas de la estación "${nombreCompleto}"${nombreValvula} está VENCIDO desde hace ${Math.abs(daysLeft)} día(s).`;
+    }
+    if (daysLeft === 0) {
+      return `¡URGENTE! El cambio de válvulas de la estación "${nombreCompleto}"${nombreValvula} vence HOY.`;
+    }
+    return `¡URGENTE! Solo falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para el cambio de válvulas de la estación "${nombreCompleto}"${nombreValvula}.`;
+  }
+  return `Atención: falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para el cambio de válvulas de la estación "${nombreCompleto}"${nombreValvula}.`;
+}

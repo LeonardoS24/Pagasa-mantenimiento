@@ -9,6 +9,8 @@ import { getMaintenanceAlertLevel } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, oldestValve } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
+import { getStationValveAlertLevel, getStationValveVencimiento, oldestStationValve } from "@/lib/station-valves";
+import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
 
 // Reúne las 9 alertas de vencimiento (ultrasonido, visual externa,
 // hermeticidad, visual interna, hidrostática, extintor, mantenimiento,
@@ -248,6 +250,47 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
 
+  // Válvulas de Estación de carburación / Planta: viven en su propia ficha
+  // del tanque (StationTankTechnicalSheet), no en la del vehículo, así que
+  // no las capta ninguno de los filtros de arriba — necesitan su propia
+  // consulta. Una estación con dos tanques (ver
+  // VehicleRecord.stationTankTechnicalSheets) puede mandar dos alertas, una
+  // por tanque, con la etiqueta para distinguirlas.
+  const stationRecords = await prisma.vehicleRecord.findMany({
+    where: {
+      activo: true,
+      section: { cityId: { in: cityIds }, slug: { in: ESTACION_LIKE_SECTION_SLUGS } },
+    },
+    include: {
+      stationTankTechnicalSheets: true,
+      section: { include: { city: true } },
+    },
+  });
+
+  const stationValveAlertVehicles = stationRecords
+    .flatMap((record) => {
+      if (!isAlertVisibleForSection("valvulas", record.section.slug)) return [];
+      const variosTanques = record.stationTankTechnicalSheets.length > 1;
+      return record.stationTankTechnicalSheets.map((tanque) => {
+        const level = getStationValveAlertLevel(getStationValveVencimiento(tanque));
+        if (level === "none") return null;
+        const vencimiento = getStationValveVencimiento(tanque);
+        if (!vencimiento) return null;
+        return {
+          id: record.id,
+          numeroEconomico: record.numeroEconomico,
+          citySlug: record.section.city.slug,
+          cityName: record.section.city.name,
+          vencimiento,
+          valvulaMasAntigua: oldestStationValve(tanque)?.key,
+          etiquetaTanque: variosTanques ? tanque.etiqueta : undefined,
+          level,
+        };
+      });
+    })
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
+
   return {
     alertVehicles,
     visualAlertVehicles,
@@ -258,5 +301,6 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     maintenanceAlertVehicles,
     valveAlertVehicles,
     hoseAlertVehicles,
+    stationValveAlertVehicles,
   };
 }

@@ -14,6 +14,7 @@ import { ExtinguisherAlertsPanel } from "@/components/dashboard/ExtinguisherAler
 import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlertsPanel";
 import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
 import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
+import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAlertsPanel";
 
 export default async function CityPage({
   params,
@@ -40,6 +41,7 @@ export default async function CityPage({
     maintenanceAlertVehicles,
     valveAlertVehicles,
     hoseAlertVehicles,
+    stationValveAlertVehicles,
   } = await getAllVehicleAlerts(alertCityIds);
 
   return (
@@ -79,6 +81,7 @@ export default async function CityPage({
       <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
       <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
       <ValveAlertsPanel vehicles={valveAlertVehicles} />
+      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
       <HoseAlertsPanel vehicles={hoseAlertVehicles} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

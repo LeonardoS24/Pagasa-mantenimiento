@@ -9,6 +9,7 @@ import { ExtinguisherAlertsPanel } from "@/components/dashboard/ExtinguisherAler
 import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlertsPanel";
 import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
 import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
+import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAlertsPanel";
 
 // Mismas 9 alertas que Inicio (ver lib/vehicle-alerts-summary.ts), pero de
 // TODAS las ciudades reales sin importar a cuáles tenga acceso asignado el
@@ -27,6 +28,7 @@ export default async function AdminAlertasPage() {
     maintenanceAlertVehicles,
     valveAlertVehicles,
     hoseAlertVehicles,
+    stationValveAlertVehicles,
   } = await getAllVehicleAlerts(cityIds);
 
   const totalAlertas =
@@ -38,7 +40,8 @@ export default async function AdminAlertasPage() {
     extinguisherAlertVehicles.length +
     maintenanceAlertVehicles.length +
     valveAlertVehicles.length +
-    hoseAlertVehicles.length;
+    hoseAlertVehicles.length +
+    stationValveAlertVehicles.length;
 
   return (
     <div>
@@ -55,6 +58,7 @@ export default async function AdminAlertasPage() {
       <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
       <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
       <ValveAlertsPanel vehicles={valveAlertVehicles} />
+      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
       <HoseAlertsPanel vehicles={hoseAlertVehicles} />
     </div>
   );
