@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { assertCityAccess } from "@/lib/access";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
@@ -13,7 +14,13 @@ import { EquipmentLogTable } from "@/components/city/EquipmentLogTable";
 import { DocumentList } from "@/components/city/DocumentList";
 import { UploadEquipoDocumentForm } from "@/components/admin/UploadEquipoDocumentForm";
 import { ConfirmDeleteWithPassword } from "@/components/admin/ConfirmDeleteWithPassword";
-import { updateEquipo, deleteEquipo, previewEquipoDeleteImpact } from "@/actions/equipo-actions";
+import { DarDeBajaEquipoForm } from "@/components/admin/DarDeBajaEquipoForm";
+import {
+  updateEquipo,
+  deleteEquipo,
+  previewEquipoDeleteImpact,
+  reactivarEquipo,
+} from "@/actions/equipo-actions";
 import { formatDate } from "@/lib/dates";
 import { BADGE_STYLES, equipoColorKey } from "@/lib/section-colors";
 import { tipoEquipoLabels, estadoEquipoLabels, criticidadEquipoLabels, type TipoEquipo, type EstadoEquipo, type CriticidadEquipo } from "@/lib/equipo-enums";
@@ -49,12 +56,24 @@ export default async function EquipoPage({
       section: { include: { city: true } },
       documents: { orderBy: { createdAt: "desc" } },
       equipmentLogs: { orderBy: { fecha: "desc" }, include: { documents: true } },
+      sustituidoPor: { select: { id: true, nombre: true, codigo: true } },
     },
   });
 
   if (!equipo || equipo.section.city.slug !== params.citySlug) {
     notFound();
   }
+
+  // Candidatos para "¿por cuál equipo se sustituyó?": equipos activos del
+  // mismo apartado (misma ciudad y, si es de una estación, la misma
+  // estación — ver Equipo.vehicleRecordId), sin incluirse a sí mismo.
+  const candidatosSustituto = isAdmin
+    ? await prisma.equipo.findMany({
+        where: { sectionId: equipo.sectionId, vehicleRecordId: equipo.vehicleRecordId, activo: true, id: { not: equipo.id } },
+        orderBy: { nombre: "asc" },
+        select: { id: true, nombre: true, codigo: true },
+      })
+    : [];
 
   const chain = await getSectionChain(equipo.sectionId);
   const breadcrumbItems: BreadcrumbItem[] = [
@@ -176,6 +195,45 @@ export default async function EquipoPage({
         <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Fotografías</h2>
         <DocumentList documents={fotografias} isAdmin={isAdmin} />
       </div>
+
+      {isAdmin && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Estatus del equipo</h2>
+          {!equipo.activo && equipo.motivoBaja && (
+            <p className="mb-3 rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-ink">
+              <span className="font-medium text-orange-800">Motivo de la baja: </span>
+              {equipo.motivoBaja}
+            </p>
+          )}
+          {!equipo.activo && equipo.sustituidoPor && (
+            <p className="mb-3 text-sm text-ink">
+              <span className="font-medium text-ink">Sustituido por: </span>
+              <Link
+                href={`/ciudades/${equipo.section.city.slug}/equipo/${equipo.sustituidoPor.id}`}
+                className="text-primary hover:underline"
+              >
+                {equipo.sustituidoPor.codigo || equipo.sustituidoPor.nombre}
+              </Link>
+            </p>
+          )}
+          {equipo.activo ? (
+            <DarDeBajaEquipoForm
+              equipoId={equipo.id}
+              nombre={equipo.nombre}
+              candidatos={candidatosSustituto}
+            />
+          ) : (
+            <form action={reactivarEquipo.bind(null, equipo.id)}>
+              <button
+                type="submit"
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark"
+              >
+                Reactivar equipo
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {isAdmin && (
         <div className="mt-10 rounded-lg border border-accent/30 bg-accent/5 p-5">

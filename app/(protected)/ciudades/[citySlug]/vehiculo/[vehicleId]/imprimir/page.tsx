@@ -34,7 +34,7 @@ const vehiclePrintInclude = {
   section: { include: { city: true } },
   documents: { orderBy: { createdAt: "desc" as const } },
   technicalSheet: true,
-  stationTankTechnicalSheet: true,
+  stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" as const } },
   maintenanceLogs: {
     orderBy: { fecha: "desc" as const },
     include: {
@@ -404,11 +404,25 @@ export default async function PrintVehiclePage({
               </div>
             )}
 
-            {isEstacionLike && (
-              <Section title="Ficha técnica del tanque">
-                <StationTankTechnicalSheetView sheet={record.stationTankTechnicalSheet} />
-              </Section>
-            )}
+            {isEstacionLike &&
+              (record.stationTankTechnicalSheets.length > 0 ? (
+                record.stationTankTechnicalSheets.map((tanque) => (
+                  <Section
+                    key={tanque.id}
+                    title={
+                      record.stationTankTechnicalSheets.length > 1
+                        ? `Ficha técnica del tanque — ${tanque.etiqueta}`
+                        : "Ficha técnica del tanque"
+                    }
+                  >
+                    <StationTankTechnicalSheetView sheet={tanque} />
+                  </Section>
+                ))
+              ) : (
+                <Section title="Ficha técnica del tanque">
+                  <StationTankTechnicalSheetView sheet={null} />
+                </Section>
+              ))}
 
             <Section title="Ficha técnica">
               <TechnicalSheetView

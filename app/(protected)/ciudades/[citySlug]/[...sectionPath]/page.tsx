@@ -148,12 +148,12 @@ export default async function SectionPage({
           prisma.vehicleRecord.findMany({
             where: { sectionId: current.id, activo: true },
             orderBy: { order: "asc" },
-            include: { technicalSheet: true, stationTankTechnicalSheet: true },
+            include: { technicalSheet: true, stationTankTechnicalSheets: true },
           }),
           prisma.vehicleRecord.findMany({
             where: { sectionId: current.id, activo: false },
             orderBy: { fechaBaja: "desc" },
-            include: { technicalSheet: true, stationTankTechnicalSheet: true },
+            include: { technicalSheet: true, stationTankTechnicalSheets: true },
           }),
         ]);
         return [...activeRecords, ...inactiveRecords];
@@ -188,7 +188,7 @@ export default async function SectionPage({
         activo: r.activo,
         motivoBaja: r.motivoBaja,
         semaforoLevel: r.activo
-          ? getVehicleSemaforoLevel(r.technicalSheet, "planta-ficha-tecnica", r.stationTankTechnicalSheet)
+          ? getVehicleSemaforoLevel(r.technicalSheet, "planta-ficha-tecnica", r.stationTankTechnicalSheets)
           : "none",
         citySlug: city.slug,
       }));

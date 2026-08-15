@@ -29,10 +29,14 @@ export function YearlyDueList({
           <p className="text-sm text-ink">Ninguna unidad tiene {typeLabel.toLowerCase()} pendiente este año.</p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {due.map((item) => {
+            {due.map((item, i) => {
               const overdue = item.dueDate ? item.dueDate.getTime() < today.getTime() : false;
               return (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                // Una estación con dos tanques (ver lib/station-valves.ts)
+                // puede repetir el mismo id dos veces, una por tanque — el
+                // índice desempata la key sin afectar el link, que sí debe
+                // seguir usando el id real de la unidad.
+                <li key={`${item.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <span className="text-sm text-ink">
                     <span className="font-medium text-primary">{item.numeroEconomico}</span>{" "}
                     <span className="text-gray-500">({item.cityName})</span>
@@ -67,8 +71,8 @@ export function YearlyDueList({
             Ya registrado este año
           </h2>
           <ul className="divide-y divide-green-100">
-            {completed.map((item) => (
-              <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            {completed.map((item, i) => (
+              <li key={`${item.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="text-sm text-ink">
                   <span className="font-medium text-primary">{item.numeroEconomico}</span>{" "}
                   <span className="text-gray-500">({item.cityName})</span>

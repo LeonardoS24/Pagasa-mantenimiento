@@ -54,7 +54,8 @@ function worstRowStyle(...levels: ("none" | "yellow" | "red")[]): string {
 type VehicleRecordWithSheet = VehicleRecord & {
   technicalSheet: VehicleTechnicalSheet | null;
   // Solo Estaciones/Planta: ahí viven sus válvulas (ver lib/station-valves.ts).
-  stationTankTechnicalSheet?: StationTankTechnicalSheet | null;
+  // Normalmente un tanque, a veces dos.
+  stationTankTechnicalSheets?: StationTankTechnicalSheet[];
 };
 
 export function VehicleTable({
@@ -165,13 +166,18 @@ export function VehicleTable({
               : "none";
             const hoseVencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);
             // Válvulas de una Estación/Planta: viven en su propia ficha del
-            // tanque, no en la del vehículo (ver lib/station-valves.ts).
+            // tanque, no en la del vehículo (ver lib/station-valves.ts). Con
+            // dos tanques, se muestra el vencimiento más próximo de los dos.
+            const stationTanques = record.stationTankTechnicalSheets ?? [];
             const stationValveVencimiento = record.activo
-              ? getStationValveVencimiento(record.stationTankTechnicalSheet ?? {})
+              ? stationTanques
+                  .map((t) => getStationValveVencimiento(t))
+                  .filter((f): f is Date => f !== null)
+                  .sort((a, b) => a.getTime() - b.getTime())[0] ?? null
               : null;
             const stationValveAlertLevel = getStationValveAlertLevel(stationValveVencimiento);
             const semaforoLevel = record.activo
-              ? getVehicleSemaforoLevel(record.technicalSheet, sectionSlug, record.stationTankTechnicalSheet)
+              ? getVehicleSemaforoLevel(record.technicalSheet, sectionSlug, stationTanques)
               : "none";
             return (
               <Fragment key={record.id}>

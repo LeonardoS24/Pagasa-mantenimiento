@@ -42,7 +42,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       motivoBaja: true,
       estatus: true,
       technicalSheet: true,
-      stationTankTechnicalSheet: true,
+      stationTankTechnicalSheets: true,
       section: { select: { slug: true, city: { select: { slug: true, name: true, order: true } } } },
     },
   });
@@ -54,7 +54,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       sucursal: r.sucursal,
       anio: r.anio,
       placas: r.placas,
-      serie: r.stationTankTechnicalSheet?.numeroSerie ?? r.technicalSheet?.serie ?? null,
+      serie: r.stationTankTechnicalSheets[0]?.numeroSerie ?? r.technicalSheet?.serie ?? null,
       permisionaria: r.permisionaria,
       permiso: r.permiso,
       activo: r.activo,
@@ -64,7 +64,7 @@ export async function getAggregateVehicleRecords(sectionSlug: string): Promise<A
       cityName: r.section.city.name,
       cityOrder: r.section.city.order,
       semaforoLevel: r.activo
-        ? getVehicleSemaforoLevel(r.technicalSheet, r.section.slug, r.stationTankTechnicalSheet)
+        ? getVehicleSemaforoLevel(r.technicalSheet, r.section.slug, r.stationTankTechnicalSheets)
         : ("none" as const),
     }))
     .sort((a, b) => {

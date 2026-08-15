@@ -315,7 +315,7 @@ export async function getYearlySummary(
     where: { activo: true, section: { cityId: { in: cityIds } } },
     include: {
       technicalSheet: true,
-      stationTankTechnicalSheet: true,
+      stationTankTechnicalSheets: true,
       section: { include: { city: true } },
     },
   });
@@ -338,21 +338,37 @@ export async function getYearlySummary(
   const completed: YearlySummaryCompletedItem[] = [];
 
   for (const v of inScope) {
-    const base = {
-      id: v.id,
-      numeroEconomico: v.numeroEconomico,
-      citySlug: v.section.city.slug,
-      cityName: v.section.city.name,
-    };
     const fechaRegistro = logDates.get(v.id);
-    const dueDate = getDueDate(type, v.technicalSheet, ambito, v.stationTankTechnicalSheet);
+    // Válvulas de estación: cada tanque tiene su propio juego (ver
+    // lib/station-valves.ts), así que una estación con dos tanques aparece
+    // como dos renglones — uno por tanque, ya que pueden vencer en fechas
+    // distintas. El resto de los tipos sigue siendo un solo renglón por
+    // unidad, igual que antes.
+    const tanques: (StationValveDates | null)[] =
+      type === "valvulas" && ambito === "ESTACIONES"
+        ? v.stationTankTechnicalSheets.length > 0
+          ? v.stationTankTechnicalSheets
+          : [null]
+        : [v.stationTankTechnicalSheets[0] ?? null];
 
-    if (fechaRegistro) {
-      completed.push({ ...base, dueDate, fechaRegistro });
-    } else if (dueDate && dueDate.getTime() < yearEnd.getTime()) {
-      due.push({ ...base, dueDate });
-    } else if (!dueDate) {
-      missing.push({ ...base, dueDate: null });
+    for (const tanque of tanques) {
+      const sufijo =
+        tanques.length > 1 && tanque && "etiqueta" in tanque ? ` (${tanque.etiqueta})` : "";
+      const base = {
+        id: v.id,
+        numeroEconomico: `${v.numeroEconomico}${sufijo}`,
+        citySlug: v.section.city.slug,
+        cityName: v.section.city.name,
+      };
+      const dueDate = getDueDate(type, v.technicalSheet, ambito, tanque);
+
+      if (fechaRegistro) {
+        completed.push({ ...base, dueDate, fechaRegistro });
+      } else if (dueDate && dueDate.getTime() < yearEnd.getTime()) {
+        due.push({ ...base, dueDate });
+      } else if (!dueDate) {
+        missing.push({ ...base, dueDate: null });
+      }
     }
   }
 

@@ -23,7 +23,7 @@ import type {
 
 type RecordWithSheet = VehicleRecord & {
   technicalSheet: VehicleTechnicalSheet | null;
-  stationTankTechnicalSheet: StationTankTechnicalSheet | null;
+  stationTankTechnicalSheets: StationTankTechnicalSheet[];
   section: { name: string; city: { name: string; slug: string }; parent: { name: string } | null };
 };
 
@@ -44,7 +44,8 @@ function vehicleMatchedGroups(
   soloGrupos?: string[]
 ): string[] {
   const sheet = record.technicalSheet;
-  const tanque = record.stationTankTechnicalSheet;
+  // Una estación con dos tanques (ver lib/station-valves.ts) busca en
+  // ambos: no importa cuál de los dos tiene el dato, igual debe encontrarse.
   const matchers: { group: string; value: string | null | undefined }[] = [
     { group: "Datos generales", value: record.numeroEconomico },
     { group: "Datos generales", value: record.placas },
@@ -54,15 +55,17 @@ function vehicleMatchedGroups(
     // Estación / Planta
     { group: "Estación · Datos", value: record.permisionaria },
     { group: "Estación · Datos", value: record.permiso },
-    { group: "Estación · Tanque", value: tanque?.numeroSerie },
-    { group: "Estación · Tanque", value: tanque?.marca },
-    { group: "Estación · Tanque", value: tanque?.modelo },
-    { group: "Estación · Tanque", value: tanque?.tipo },
-    { group: "Estación · Tanque", value: tanque?.anioFabricacion },
-    { group: "Estación · Tanque", value: tanque?.capacidad },
-    { group: "Estación · Tanque", value: tanque?.presionDiseno },
-    { group: "Estación · Tanque", value: tanque?.materialCuerpo },
-    { group: "Estación · Tanque", value: tanque?.materialCabeza },
+    ...record.stationTankTechnicalSheets.flatMap((tanque) => [
+      { group: "Estación · Tanque", value: tanque.numeroSerie },
+      { group: "Estación · Tanque", value: tanque.marca },
+      { group: "Estación · Tanque", value: tanque.modelo },
+      { group: "Estación · Tanque", value: tanque.tipo },
+      { group: "Estación · Tanque", value: tanque.anioFabricacion },
+      { group: "Estación · Tanque", value: tanque.capacidad },
+      { group: "Estación · Tanque", value: tanque.presionDiseno },
+      { group: "Estación · Tanque", value: tanque.materialCuerpo },
+      { group: "Estación · Tanque", value: tanque.materialCabeza },
+    ]),
     // Chofer y póliza
     { group: "Ficha técnica · Chofer y póliza", value: sheet?.chofer },
     { group: "Ficha técnica · Chofer y póliza", value: sheet?.numeroPoliza },
@@ -171,7 +174,7 @@ export default async function BuscarPage({
         include: {
           section: { include: { city: true, parent: true } },
           technicalSheet: true,
-          stationTankTechnicalSheet: true,
+          stationTankTechnicalSheets: true,
         },
       })
     : [];

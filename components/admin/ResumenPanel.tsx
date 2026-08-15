@@ -242,8 +242,8 @@ async function ResumenMissingList({ year, ambito }: { year: number; ambito: Resu
             {group.label} — sin información ({group.items.length})
           </h2>
           <ul className="divide-y divide-gray-100">
-            {group.items.map((item) => (
-              <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            {group.items.map((item, i) => (
+              <li key={`${item.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="text-sm text-ink">
                   <span className="font-medium text-primary">{item.numeroEconomico}</span>{" "}
                   <span className="text-gray-500">({item.cityName})</span>

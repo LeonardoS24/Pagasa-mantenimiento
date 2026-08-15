@@ -67,13 +67,19 @@ export function getVehicleSemaforoLevel(
   sheet: SemaforoTechnicalSheet | null | undefined,
   sectionSlug: string,
   // Solo Estaciones/Planta: sus válvulas viven en su propia ficha del tanque
-  // (ver lib/station-valves.ts), no en la del vehículo.
-  stationTankSheet?: StationValveDates | null
+  // (ver lib/station-valves.ts), no en la del vehículo. Normalmente un solo
+  // tanque, a veces dos — se toma el más urgente de todos.
+  stationTankSheets?: StationValveDates | StationValveDates[] | null
 ): SemaforoLevel {
   let level: SemaforoLevel = "none";
 
-  if (stationTankSheet) {
-    const vencimiento = getStationValveVencimiento(stationTankSheet);
+  const tanques = stationTankSheets
+    ? Array.isArray(stationTankSheets)
+      ? stationTankSheets
+      : [stationTankSheets]
+    : [];
+  for (const tanque of tanques) {
+    const vencimiento = getStationValveVencimiento(tanque);
     if (vencimiento) level = mostUrgent(level, semaforoFromDays(daysUntil(vencimiento)));
   }
 

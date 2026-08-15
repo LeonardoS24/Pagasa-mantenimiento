@@ -239,22 +239,26 @@ const APARTADOS_ESTACION: { slug: string; nombreHoja: string }[] = [
 ];
 
 type StationRecord = VehicleRecord & {
-  stationTankTechnicalSheet: StationTankTechnicalSheet | null;
+  stationTankTechnicalSheets: StationTankTechnicalSheet[];
   technicalSheet: VehicleTechnicalSheet | null;
 };
 
 const EMPTY_STATION: StationRecord = {
   ...EMPTY_VEHICLE,
-  stationTankTechnicalSheet: null,
+  stationTankTechnicalSheets: [],
 };
 
-function stationRow(r: StationRecord) {
-  const tanque = r.stationTankTechnicalSheet;
+// Una fila por cada tanque de la estación (casi siempre uno solo, "Tanque
+// 1"; algunas tienen dos — ver lib/station-valves.ts). tanque llega ya
+// resuelto desde el llamador en vez de derivarse aquí, para poder generar
+// una fila por cada uno sin repetir esta función.
+function stationRow(r: StationRecord, tanque: StationTankTechnicalSheet | null) {
   const s = r.technicalSheet;
   const vencimientoValvulas = tanque ? getStationValveVencimiento(tanque) : null;
 
   return {
     Nombre: r.numeroEconomico,
+    Tanque: tanque?.etiqueta ?? "Tanque 1",
     Estado: r.activo ? "Activo" : "Dado de baja",
     "Fecha de baja": d(r.fechaBaja),
     "Motivo de baja": t(r.motivoBaja),
@@ -350,12 +354,16 @@ export async function buildCityFleetWorkbook(citySlug: string): Promise<{ buffer
   for (const { slug, nombreHoja } of APARTADOS_ESTACION) {
     const registros = await prisma.vehicleRecord.findMany({
       where: { section: { slug, cityId: city.id } },
-      include: { stationTankTechnicalSheet: true, technicalSheet: true },
+      include: { stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" } }, technicalSheet: true },
       orderBy: [{ activo: "desc" }, { numeroEconomico: "asc" }],
     });
 
-    const rows = registros.map((r) => stationRow(r));
-    const headerRow = rows[0] ?? stationRow(EMPTY_STATION);
+    const rows = registros.flatMap((r) =>
+      r.stationTankTechnicalSheets.length > 0
+        ? r.stationTankTechnicalSheets.map((tanque) => stationRow(r, tanque))
+        : [stationRow(r, null)]
+    );
+    const headerRow = rows[0] ?? stationRow(EMPTY_STATION, null);
     const worksheet =
       rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
     worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));

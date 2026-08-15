@@ -68,17 +68,21 @@ function SubmitButton() {
 // en el schema), sin mezclar los datos generales de la estación.
 export function StationTankTechnicalSheetForm({
   vehicleId,
+  etiqueta = "Tanque 1",
   sheet,
   camposExtra = [],
   valoresExtra = {},
 }: {
   vehicleId: string;
+  // "Tanque 1" o "Tanque 2" (ver VehicleRecord.stationTankTechnicalSheets):
+  // casi siempre "Tanque 1", la inmensa mayoría de estaciones solo tiene uno.
+  etiqueta?: string;
   sheet: StationTankTechnicalSheet | null;
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
   camposExtra?: CustomFieldDef[];
   valoresExtra?: Record<string, string>;
 }) {
-  const action = upsertStationTankTechnicalSheet.bind(null, vehicleId);
+  const action = upsertStationTankTechnicalSheet.bind(null, vehicleId, etiqueta);
   const [state, formAction] = useFormState(action, initialState);
   const [locked, setLocked] = useState(true);
   const formRef = useRef<HTMLFormElement>(null);

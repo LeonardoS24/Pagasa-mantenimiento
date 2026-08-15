@@ -692,7 +692,6 @@ const stationTankTechnicalSheetSchema = z.object({
   fechaFabricacionValvulaLlenado: optionalDate,
   fechaFabricacionValvulaServicio: optionalDate,
   fechaFabricacionValvulaCheckLock: optionalDate,
-  fechaFabricacionValvulaRelevoHidrostatico: optionalDate,
   fechaFabricacionValvulaVapor: optionalDate,
 }).superRefine((data, ctx) => {
   // Misma regla que en la ficha técnica de una unidad: una válvula no se
@@ -718,8 +717,13 @@ const stationTankTechnicalSheetSchema = z.object({
 // captura la fecha de fabricación y esas 3 todavía están vacías, se calculan
 // solas a 10 años, igual que ya hace upsertTechnicalSheet para el resto de
 // las unidades.
+//
+// etiqueta identifica CUÁL tanque se está guardando ("Tanque 1" o
+// "Tanque 2", ver comentario en VehicleRecord.stationTankTechnicalSheets):
+// la inmensa mayoría de estaciones solo usa "Tanque 1".
 export async function upsertStationTankTechnicalSheet(
   vehicleId: string,
+  etiqueta: string,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
@@ -760,16 +764,20 @@ export async function upsertStationTankTechnicalSheet(
   const sheetData = parsed.data;
 
   await prisma.stationTankTechnicalSheet.upsert({
-    where: { vehicleRecordId: vehicleId },
+    where: { vehicleRecordId_etiqueta: { vehicleRecordId: vehicleId, etiqueta } },
     update: sheetData,
-    create: { vehicleRecordId: vehicleId, ...sheetData },
+    create: { vehicleRecordId: vehicleId, etiqueta, ...sheetData },
   });
 
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts):
-  // viven en su propia tabla, no en las columnas de la ficha.
-  await saveCustomFieldValues(vehicleId, formData, "ESTACION");
+  // viven en su propia tabla, no en las columnas de la ficha. Solo aplican al
+  // tanque principal: no tendría sentido duplicarlos por cada tanque.
+  if (etiqueta === "Tanque 1") {
+    await saveCustomFieldValues(vehicleId, formData, "ESTACION");
+  }
 
   if (
+    etiqueta === "Tanque 1" &&
     sheetData.fechaFabricacion &&
     !vehicle.technicalSheet?.fechaProximaInspeccionVisualInterna &&
     !vehicle.technicalSheet?.fechaProximaPruebaHidrostatica &&

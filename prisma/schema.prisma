@@ -173,8 +173,16 @@ model VehicleRecord {
   // abajo): reemplaza la sección "Tanque" de VehicleTechnicalSheet con campos
   // propios de recipiente a presión. Las fechas de vencimiento de las 5
   // inspecciones periódicas siguen viviendo en VehicleTechnicalSheet (mismo
-  // sistema de alertas que cualquier otro tanque).
-  stationTankTechnicalSheet    StationTankTechnicalSheet?
+  // sistema de alertas que cualquier otro tanque) — son de la estación, no
+  // de un tanque en particular.
+  //
+  // Normalmente es una sola (etiqueta "Tanque 1"), pero algunas estaciones
+  // tienen dos tanques físicos (dos números de serie, dos ultrasonidos):
+  // para esas, un segundo registro con etiqueta "Tanque 2" — cada uno con
+  // sus propios datos de recipiente y su propio juego de válvulas (ver
+  // lib/station-valves.ts), que es lo que de verdad cambia entre un tanque y
+  // otro dentro de la misma estación.
+  stationTankTechnicalSheets   StationTankTechnicalSheet[]
   // Solo para "Estaciones de carburación": equipos propios de esa estación
   // (ver Equipo.vehicleRecordId), aparte de los "Equipos de planta" a nivel
   // ciudad.
@@ -350,8 +358,12 @@ model VehicleTechnicalSheet {
 model StationTankTechnicalSheet {
   id String @id @default(cuid())
 
-  vehicleRecordId String        @unique
+  vehicleRecordId String
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+  // "Tanque 1" (la inmensa mayoría de estaciones) o "Tanque 2", cuando la
+  // estación tiene un segundo tanque físico (ver comentario en
+  // VehicleRecord.stationTankTechnicalSheets).
+  etiqueta        String @default("Tanque 1")
 
   numeroSerie          String?
   marca                String?
@@ -390,6 +402,7 @@ model StationTankTechnicalSheet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([vehicleRecordId, etiqueta])
   @@map("station_tank_technical_sheets")
 }
 
@@ -1024,9 +1037,16 @@ model Equipo {
   // Se da de baja automáticamente cuando se registra un mantenimiento tipo
   // "Cambio" en su bitácora (ver actions/equipment-log-actions.ts): el
   // equipo se reemplaza por uno nuevo, y este se conserva como historial en
-  // vez de borrarse.
-  activo    Boolean   @default(true)
-  fechaBaja DateTime?
+  // vez de borrarse. También se puede dar de baja directo con el botón
+  // "Dar de baja" (ver actions/equipo-actions.ts: darDeBajaEquipo), pidiendo
+  // el motivo y, si ya se sabe, por cuál equipo existente se sustituyó.
+  activo     Boolean   @default(true)
+  fechaBaja  DateTime?
+  motivoBaja String?
+
+  sustituidoPorId String?
+  sustituidoPor   Equipo?  @relation("EquipoSustitucion", fields: [sustituidoPorId], references: [id], onDelete: SetNull)
+  sustituyeA      Equipo[] @relation("EquipoSustitucion")
 
   // Comunes a los 3 tipos
   codigo                  String?

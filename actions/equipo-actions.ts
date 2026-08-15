@@ -214,6 +214,88 @@ export async function updateEquipo(
   return { success: "Equipo actualizado." };
 }
 
+// Dar de baja un equipo NO lo elimina: sigue visible en la tabla marcado
+// como "Dado de baja", con su ficha técnica, bitácora y documentos intactos
+// (mismo criterio que dar de baja una unidad, ver setVehicleActive en
+// actions/vehicle-actions.ts). A diferencia de esa, aquí el motivo es
+// obligatorio y se puede ligar de una vez al equipo que lo sustituye, si ya
+// se sabe cuál es — distinto del mecanismo automático de "Cambio" en la
+// bitácora (que siempre crea un equipo nuevo en blanco): aquí se elige uno
+// que ya existe.
+const darDeBajaSchema = z.object({
+  motivo: z.preprocess(
+    (value) => String(value ?? "").trim(),
+    z.string().min(1, "El motivo de la baja es requerido").max(500)
+  ),
+  sustituidoPorId: z.preprocess((value) => {
+    const text = String(value ?? "").trim();
+    return text.length > 0 ? text : undefined;
+  }, z.string().optional()),
+});
+
+export async function darDeBajaEquipo(
+  equipoId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireElevatedEditor();
+
+  const parsed = darDeBajaSchema.safeParse({
+    motivo: formData.get("motivo"),
+    sustituidoPorId: formData.get("sustituidoPorId"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const equipo = await prisma.equipo.findUnique({
+    where: { id: equipoId },
+    include: { section: { include: { city: true } } },
+  });
+  if (!equipo) return { error: "El equipo no existe." };
+
+  let sustituidoPorId: string | null = null;
+  if (parsed.data.sustituidoPorId) {
+    const sustituto = await prisma.equipo.findUnique({ where: { id: parsed.data.sustituidoPorId } });
+    if (!sustituto || sustituto.sectionId !== equipo.sectionId) {
+      return { error: "El equipo sustituto seleccionado no es válido." };
+    }
+    if (sustituto.id === equipo.id) {
+      return { error: "Un equipo no puede sustituirse a sí mismo." };
+    }
+    sustituidoPorId = sustituto.id;
+  }
+
+  await prisma.equipo.update({
+    where: { id: equipoId },
+    data: { activo: false, fechaBaja: new Date(), motivoBaja: parsed.data.motivo, sustituidoPorId },
+  });
+
+  const chain = await getSectionChain(equipo.sectionId);
+  revalidatePath(sectionBasePath(equipo.section.city.slug, chain));
+  revalidatePath(`/ciudades/${equipo.section.city.slug}/equipo/${equipoId}`);
+  return { success: "Equipo dado de baja." };
+}
+
+export async function reactivarEquipo(equipoId: string): Promise<void> {
+  await requireElevatedEditor();
+
+  const equipo = await prisma.equipo.findUnique({
+    where: { id: equipoId },
+    include: { section: { include: { city: true } } },
+  });
+  if (!equipo) return;
+
+  await prisma.equipo.update({
+    where: { id: equipoId },
+    data: { activo: true, fechaBaja: null, motivoBaja: null, sustituidoPorId: null },
+  });
+
+  const chain = await getSectionChain(equipo.sectionId);
+  revalidatePath(sectionBasePath(equipo.section.city.slug, chain));
+  revalidatePath(`/ciudades/${equipo.section.city.slug}/equipo/${equipoId}`);
+}
+
 export async function previewEquipoDeleteImpact(equipoId: string) {
   await requireElevatedEditor();
   return { impacto: await getEquipoDeleteImpact(equipoId), pideContrasena: true };

@@ -111,7 +111,7 @@ export default async function VehicleDetailPage({
       section: { include: { city: true } },
       documents: { orderBy: { createdAt: "desc" } },
       technicalSheet: true,
-      stationTankTechnicalSheet: true,
+      stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" } },
       equipos: { orderBy: { order: "asc" } },
       maintenanceLogs: {
         orderBy: { fecha: "desc" },
@@ -230,6 +230,10 @@ export default async function VehicleDetailPage({
   // sigue gateado en isEstacionCarburacion a secas.
   const isPlanta = vehicle.section.slug === "planta-ficha-tecnica";
   const isEstacionLike = isEstacionCarburacion || isPlanta;
+  // Casi toda estación tiene un solo tanque físico ("Tanque 1"); algunas
+  // tienen dos (ver VehicleRecord.stationTankTechnicalSheets en el schema).
+  const tanque1 = vehicle.stationTankTechnicalSheets.find((t) => t.etiqueta === "Tanque 1") ?? null;
+  const tanque2 = vehicle.stationTankTechnicalSheets.find((t) => t.etiqueta === "Tanque 2") ?? null;
   const useDeliveryFormat =
     vehicle.section.slug === "vehiculo-de-reparto" ||
     vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
@@ -503,23 +507,53 @@ export default async function VehicleDetailPage({
 
       <div id={isEstacionLike ? "valvulas" : undefined} className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         {isEstacionLike && (
-          <div className="mb-6">
-            <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
-              Ficha técnica del tanque
-            </h2>
-            {isAdmin ? (
-              <StationTankTechnicalSheetForm
-              vehicleId={vehicle.id}
-              sheet={vehicle.stationTankTechnicalSheet}
-              camposExtra={camposEstacion}
-              valoresExtra={valoresCampos}
-            />
+          <div className="mb-6 space-y-6">
+            <div>
+              <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
+                Ficha técnica del tanque{tanque2 ? " — Tanque 1" : ""}
+              </h2>
+              {isAdmin ? (
+                <StationTankTechnicalSheetForm
+                  vehicleId={vehicle.id}
+                  etiqueta="Tanque 1"
+                  sheet={tanque1}
+                  camposExtra={camposEstacion}
+                  valoresExtra={valoresCampos}
+                />
+              ) : (
+                <StationTankTechnicalSheetView
+                  sheet={tanque1}
+                  camposExtra={camposEstacion}
+                  valoresExtra={valoresCampos}
+                />
+              )}
+            </div>
+
+            {tanque2 ? (
+              <div className="border-t border-gray-200 pt-6">
+                <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
+                  Ficha técnica del tanque — Tanque 2
+                </h2>
+                {isAdmin ? (
+                  <StationTankTechnicalSheetForm vehicleId={vehicle.id} etiqueta="Tanque 2" sheet={tanque2} />
+                ) : (
+                  <StationTankTechnicalSheetView sheet={tanque2} />
+                )}
+              </div>
             ) : (
-              <StationTankTechnicalSheetView
-              sheet={vehicle.stationTankTechnicalSheet}
-              camposExtra={camposEstacion}
-              valoresExtra={valoresCampos}
-            />
+              isAdmin && (
+                <details className="border-t border-gray-200 pt-4">
+                  <summary className="cursor-pointer text-sm font-medium text-primary">
+                    + Esta estación tiene un segundo tanque
+                  </summary>
+                  <div className="mt-4">
+                    <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
+                      Ficha técnica del tanque — Tanque 2
+                    </h2>
+                    <StationTankTechnicalSheetForm vehicleId={vehicle.id} etiqueta="Tanque 2" sheet={null} />
+                  </div>
+                </details>
+              )
             )}
           </div>
         )}
