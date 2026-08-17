@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireElevatedEditor, requireEditor } from "@/lib/auth";
+import { requireElevatedEditor, requireEditor, requireUser } from "@/lib/auth";
+import { assertSectionAccess } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import { sectionBasePath } from "@/lib/section-path";
@@ -28,9 +29,16 @@ import type { ActionState } from "./user-actions";
 export async function sweepExpiredPorUtilizar(sectionId: string): Promise<void> {
   // Todo lo exportado desde un archivo "use server" queda expuesto como
   // endpoint que el navegador puede llamar directo, aunque aquí solo se use
-  // desde la página de Inventarios. Sin esta guarda, cualquiera podría
-  // marcar piezas como utilizadas en cualquier apartado.
-  await requireEditor();
+  // desde la página de Inventarios. Sin guarda, cualquiera podría marcar
+  // piezas como utilizadas en cualquier apartado.
+  //
+  // Antes esto era requireEditor(), que lanza para un LECTOR: como la página
+  // de Inventarios llama este barrido al renderizar, a un LECTOR se le rompía
+  // la página entera al abrirla. Es un barrido por tiempo, no una edición que
+  // alguien pida, así que basta con sesión y acceso a la ciudad del apartado.
+  const user = await requireUser();
+  await assertSectionAccess(user, sectionId);
+
   const threshold = new Date(Date.now() - INVENTORY_POR_UTILIZAR_DAYS * 24 * 60 * 60 * 1000);
   await prisma.inventoryItem.updateMany({
     where: { sectionId, estado: "POR_UTILIZAR", fechaPorUtilizarDesde: { lte: threshold } },

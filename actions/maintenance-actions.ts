@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { assertVehicleAccess } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
@@ -205,6 +206,8 @@ export async function createMaintenanceLog(
   const editor = await requireEditor();
   const sessionError = await checkSessionUserExists(editor);
   if (sessionError) return { error: sessionError };
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, vehicleId);
 
   const parsed = createLogSchema.safeParse({
     tipoMantenimiento: formData.get("tipoMantenimiento"),

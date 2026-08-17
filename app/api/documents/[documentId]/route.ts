@@ -53,6 +53,13 @@ export async function GET(
         "Content-Type": document.mimeType,
         "Content-Disposition": `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(document.fileName)}`,
         "Content-Length": String(document.size),
+        // El tipo se valida al subir (ver readPdfFromForm), pero ese dato lo
+        // declara el navegador de quien sube: alguien podría mandar un
+        // archivo diciendo que es PDF sin serlo. Con nosniff el navegador se
+        // queda con el Content-Type de arriba en vez de adivinar por el
+        // contenido, así un archivo mal etiquetado no puede acabar
+        // ejecutándose como página dentro del sistema.
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch {

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor } from "@/lib/auth";
+import { assertSectionAccess, assertEquipoAccess } from "@/lib/access";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { tipoEquipoSchema, estadoEquipoSchema, criticidadEquipoSchema } from "@/lib/equipo-enums";
 import { saveDocumentFile, equipoOwnerKey, readOptionalPdfFiles, readOptionalImageFiles } from "@/lib/documents";
@@ -117,6 +118,8 @@ export async function createEquipo(
   formData: FormData
 ): Promise<ActionState> {
   const editor = await requireEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertSectionAccess(editor, sectionId);
 
   const parsed = parseEquipoForm(formData);
   if (!parsed.success) {
@@ -191,7 +194,9 @@ export async function updateEquipo(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireEditor();
+  const editor = await requireEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(editor, equipoId);
 
   const parsed = parseEquipoForm(formData);
   if (!parsed.success) {
@@ -238,7 +243,9 @@ export async function darDeBajaEquipo(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(editor, equipoId);
 
   const parsed = darDeBajaSchema.safeParse({
     motivo: formData.get("motivo"),
@@ -278,7 +285,9 @@ export async function darDeBajaEquipo(
 }
 
 export async function reactivarEquipo(equipoId: string): Promise<void> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(editor, equipoId);
 
   const equipo = await prisma.equipo.findUnique({
     where: { id: equipoId },
@@ -297,7 +306,9 @@ export async function reactivarEquipo(equipoId: string): Promise<void> {
 }
 
 export async function previewEquipoDeleteImpact(equipoId: string) {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(editor, equipoId);
   return { impacto: await getEquipoDeleteImpact(equipoId), pideContrasena: true };
 }
 
@@ -307,6 +318,8 @@ export async function deleteEquipo(
   formData: FormData
 ): Promise<ActionState> {
   const admin = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(admin, equipoId);
 
   const passwordError = await verifySessionPassword(admin, String(formData.get("password") ?? ""));
   if (passwordError) return { error: passwordError };

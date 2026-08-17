@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { assertCityAccessById } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import { saveDocumentFile, ultrasoundLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
@@ -90,6 +91,12 @@ export async function createUltrasoundLog(
   if (!vehicle) {
     return { error: "El registro no existe." };
   }
+
+  // El rol dice si puede editar, no si puede editar ESTO: vehicleId llega
+  // del navegador y esta acción es un endpoint llamable directo, así que sin
+  // esto un USUARIO de una ciudad podía escribir en la bitácora de otra
+  // (ver lib/access.ts).
+  await assertCityAccessById(editor, vehicle.section.cityId);
 
   const fechaProximoUltrasonido = addFiveYears(parsed.data.fechaRealizacion);
 

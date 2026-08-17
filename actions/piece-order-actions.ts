@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, requireUser, checkSessionUserExists } from "@/lib/auth";
+import { assertSectionAccess } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import { sectionBasePath } from "@/lib/section-path";
@@ -120,6 +121,8 @@ export async function createPieceOrder(
   const editor = await requireEditor();
   const sessionError = await checkSessionUserExists(editor);
   if (sessionError) return { error: sessionError };
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertSectionAccess(editor, sectionId);
 
   const parsed = createPieceOrderSchema.safeParse({
     tipo: formData.get("tipo"),
@@ -262,6 +265,15 @@ export async function updatePieceOrderEstado(
 // sweepExpiredPorUtilizar en actions/inventory-actions.ts). No toca los
 // InventoryItem ya generados al aceptarse: eso pasó aparte, en su momento.
 export async function sweepExpiredAcceptedOrders(sectionId: string): Promise<void> {
+  // Esto es un barrido por tiempo que dispara el simple hecho de abrir la
+  // página, no una edición que alguien pida: por eso pide sesión y acceso a
+  // la ciudad, pero NO rol de editor. Con requireEditor un LECTOR se
+  // encontraría la página rota (lanza), y sin ninguna guarda cualquiera
+  // podía barrer las órdenes de una ciudad ajena mandando su sectionId (todo
+  // lo exportado desde "use server" es un endpoint llamable directo).
+  const user = await requireUser();
+  await assertSectionAccess(user, sectionId);
+
   const threshold = new Date(Date.now() - PIECE_ORDER_ACEPTADA_DAYS * 24 * 60 * 60 * 1000);
   await prisma.pieceOrder.updateMany({
     where: { sectionId, estado: "ACEPTADA", fechaAceptada: { lte: threshold } },

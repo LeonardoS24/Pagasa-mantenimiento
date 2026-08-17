@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { assertSectionAccess, assertVehicleAccess, assertEquipoAccess } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import {
@@ -74,6 +75,8 @@ export async function uploadDocument(
   const editor = await requireEditor();
   const sessionError = await checkSessionUserExists(editor);
   if (sessionError) return { error: sessionError };
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertSectionAccess(editor, sectionId);
 
   const section = await prisma.section.findUnique({
     where: { id: sectionId },
@@ -114,6 +117,8 @@ export async function uploadVehicleDocument(
   const editor = await requireEditor();
   const sessionError = await checkSessionUserExists(editor);
   if (sessionError) return { error: sessionError };
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, vehicleRecordId);
 
   const file = readPdfFromForm(formData);
   if (!(file instanceof File)) return file;
@@ -622,6 +627,8 @@ export async function uploadEquipoDocument(
   const editor = await requireEditor();
   const sessionError = await checkSessionUserExists(editor);
   if (sessionError) return { error: sessionError };
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(editor, equipoId);
 
   const file = readPdfFromForm(formData);
   if (!(file instanceof File)) return file;
