@@ -8,6 +8,15 @@ import {
   getStationValveVencimiento,
   getStationValveAlertLevel,
 } from "@/lib/station-valves";
+import {
+  PLANTA_INSTRUMENT_FIELDS,
+  plantaInstrumentLabels,
+  instrumentFabricacionField,
+  instrumentCambioField,
+  instrumentInstalacionField,
+  getPlantaInstrumentVencimiento,
+  getPlantaInstrumentAlertLevel,
+} from "@/lib/planta-tank-instruments";
 import { valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { SECTION_STYLES } from "@/lib/section-colors";
 
@@ -28,15 +37,25 @@ export function StationTankTechnicalSheetView({
   sheet,
   camposExtra = [],
   valoresExtra = {},
+  isPlanta = false,
 }: {
   sheet: StationTankTechnicalSheet | null;
   camposExtra?: CustomFieldDef[];
   valoresExtra?: Record<string, string>;
+  isPlanta?: boolean;
 }) {
   const tieneValvulas =
     !!sheet && (!!sheet.fechaInstalacionValvulas || STATION_VALVE_FIELDS.some((campo) => sheet[campo]));
   const vencimiento = sheet ? getStationValveVencimiento(sheet) : null;
   const valveAlertLevel = getStationValveAlertLevel(vencimiento);
+  const tieneInstrumentos =
+    !!sheet &&
+    PLANTA_INSTRUMENT_FIELDS.some(
+      (campo) =>
+        sheet[instrumentFabricacionField(campo)] ||
+        sheet[instrumentCambioField(campo)] ||
+        sheet[instrumentInstalacionField(campo)]
+    );
 
   return (
     <div className="space-y-4">
@@ -60,37 +79,74 @@ export function StationTankTechnicalSheetView({
         <CustomFieldItems campos={camposExtra} seccion="tanque" valores={valoresExtra} />
       </dl>
 
-      {tieneValvulas && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de válvulas</h3>
-            {valveAlertLevel !== "none" && vencimiento && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
-              >
-                {valveAlertLabel(valveAlertLevel, vencimiento)}
-              </span>
-            )}
-          </div>
-          {sheet?.fechaInstalacionValvulas && (
-            <div className="mb-4 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
-              <dt className="text-xs font-semibold uppercase text-gray-500">
-                Fecha de instalación del juego de válvulas
-              </dt>
-              <dd className="text-ink">{formatDate(sheet.fechaInstalacionValvulas)}</dd>
+      {isPlanta
+        ? tieneInstrumentos && (
+            <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+              <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+                Válvulas e instrumentos del tanque
+              </h3>
+              <div className="space-y-4">
+                {PLANTA_INSTRUMENT_FIELDS.map((campo) => {
+                  const instrumentoVencimiento = sheet ? getPlantaInstrumentVencimiento(sheet, campo) : null;
+                  const instrumentoAlertLevel = getPlantaInstrumentAlertLevel(instrumentoVencimiento);
+                  const fabricacion = sheet?.[instrumentFabricacionField(campo)];
+                  const cambio = sheet?.[instrumentCambioField(campo)];
+                  const instalacion = sheet?.[instrumentInstalacionField(campo)];
+                  if (!fabricacion && !cambio && !instalacion) return null;
+                  return (
+                    <div key={campo} className="rounded-md border border-gray-200 bg-white p-3">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm font-medium text-ink">{plantaInstrumentLabels[campo]}</h4>
+                        {instrumentoAlertLevel !== "none" && instrumentoVencimiento && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[instrumentoAlertLevel]}`}
+                          >
+                            {valveAlertLabel(instrumentoAlertLevel, instrumentoVencimiento)}
+                          </span>
+                        )}
+                      </div>
+                      <dl className="grid gap-3 sm:grid-cols-3">
+                        <Item label="Fecha de fabricación" value={fabricacion ? formatDate(fabricacion) : null} />
+                        <Item label="Fecha de cambio" value={cambio ? formatDate(cambio) : null} />
+                        <Item label="Fecha de instalación" value={instalacion ? formatDate(instalacion) : null} />
+                      </dl>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        : tieneValvulas && (
+            <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de válvulas</h3>
+                {valveAlertLevel !== "none" && vencimiento && (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
+                  >
+                    {valveAlertLabel(valveAlertLevel, vencimiento)}
+                  </span>
+                )}
+              </div>
+              {sheet?.fechaInstalacionValvulas && (
+                <div className="mb-4 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
+                  <dt className="text-xs font-semibold uppercase text-gray-500">
+                    Fecha de instalación del juego de válvulas
+                  </dt>
+                  <dd className="text-ink">{formatDate(sheet.fechaInstalacionValvulas)}</dd>
+                </div>
+              )}
+              <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {STATION_VALVE_FIELDS.map((campo) => (
+                  <Item
+                    key={campo}
+                    label={stationValveLabels[campo]}
+                    value={sheet?.[campo] ? formatDate(sheet[campo]!) : null}
+                  />
+                ))}
+              </dl>
             </div>
           )}
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {STATION_VALVE_FIELDS.map((campo) => (
-              <Item
-                key={campo}
-                label={stationValveLabels[campo]}
-                value={sheet?.[campo] ? formatDate(sheet[campo]!) : null}
-              />
-            ))}
-          </dl>
-        </div>
-      )}
     </div>
   );
 }

@@ -373,8 +373,8 @@ export default async function PrintVehiclePage({
       {printRecords.map((record, index) => {
         const isTanqueCarburacion = record.section.slug === "vehiculo-con-tanque-de-carburacion";
         const isAutoTanques = record.section.slug === "auto-tanques";
-        const isEstacionLike =
-          record.section.slug === "estaciones-de-carburacion" || record.section.slug === "planta-ficha-tecnica";
+        const isPlantaRecord = record.section.slug === "planta-ficha-tecnica";
+        const isEstacionLike = record.section.slug === "estaciones-de-carburacion" || isPlantaRecord;
         const useDeliveryFormat =
           record.section.slug === "vehiculo-de-reparto" ||
           record.section.slug === "vehiculo-con-tanque-de-carburacion";
@@ -415,12 +415,12 @@ export default async function PrintVehiclePage({
                         : "Ficha técnica del tanque"
                     }
                   >
-                    <StationTankTechnicalSheetView sheet={tanque} />
+                    <StationTankTechnicalSheetView sheet={tanque} isPlanta={isPlantaRecord} />
                   </Section>
                 ))
               ) : (
                 <Section title="Ficha técnica del tanque">
-                  <StationTankTechnicalSheetView sheet={null} />
+                  <StationTankTechnicalSheetView sheet={null} isPlanta={isPlantaRecord} />
                 </Section>
               ))}
 

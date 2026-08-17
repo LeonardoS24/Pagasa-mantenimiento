@@ -5,6 +5,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import type { ActionState } from "@/actions/user-actions";
 import { tipoEquipoSchema, tipoEquipoLabels, estadoEquipoSchema, estadoEquipoLabels, criticidadEquipoSchema, criticidadEquipoLabels } from "@/lib/equipo-enums";
 import { SECTION_STYLES, equipoColorKey } from "@/lib/section-colors";
+import { PLANT_AREA_NAMES } from "@/lib/plant-areas";
 import { toDateInputValue } from "@/lib/dates";
 import { FormMessage } from "./FormMessage";
 
@@ -98,11 +99,17 @@ export function EquipoForm({
   defaults,
   submitLabel,
   allowFiles = false,
+  isPlanta = false,
 }: {
   action: EquipoFormAction;
   defaults?: EquipoFormDefaults;
   submitLabel: string;
   allowFiles?: boolean;
+  // "Equipos de planta" (ver Section "equipos" anidada en "planta"): la
+  // ubicación se elige de las 15 áreas fijas de la planta (ver
+  // lib/plant-areas.ts) en vez de escribirse libre, como en el resto de los
+  // equipos (estaciones, etc.).
+  isPlanta?: boolean;
 }) {
   const [state, formAction] = useFormState(action, initialState);
   const [tipoEquipo, setTipoEquipo] = useState(defaults?.tipoEquipo ?? "MECANICO");
@@ -155,7 +162,23 @@ export function EquipoForm({
           type="date"
           defaultValue={toDateInputValue(defaults?.fechaInstalacion)}
         />
-        <Field label="Ubicación" name="ubicacion" defaultValue={defaults?.ubicacion} />
+        {isPlanta ? (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="ubicacion">
+              Ubicación
+            </label>
+            <select id="ubicacion" name="ubicacion" defaultValue={defaults?.ubicacion ?? ""} className={inputClass}>
+              <option value="">— Sin especificar —</option>
+              {PLANT_AREA_NAMES.map((nombre) => (
+                <option key={nombre} value={nombre}>
+                  {nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <Field label="Ubicación" name="ubicacion" defaultValue={defaults?.ubicacion} />
+        )}
         <Field label="Responsable" name="responsable" defaultValue={defaults?.responsable} />
         <div>
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="estado">

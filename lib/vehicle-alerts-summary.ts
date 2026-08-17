@@ -10,6 +10,11 @@ import { getValveAlertLevel, getValveVencimiento, oldestValve } from "@/lib/valv
 import { getHoseAlertLevel, getHoseVencimiento } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { getStationValveAlertLevel, getStationValveVencimiento, oldestStationValve } from "@/lib/station-valves";
+import {
+  PLANTA_INSTRUMENT_FIELDS,
+  getPlantaInstrumentVencimiento,
+  getPlantaInstrumentAlertLevel,
+} from "@/lib/planta-tank-instruments";
 import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
 
 // Reúne las 9 alertas de vencimiento (ultrasonido, visual externa,
@@ -291,6 +296,36 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
 
+  // Válvulas e instrumentos de un tanque de Planta (ver
+  // lib/planta-tank-instruments.ts): a diferencia de las de Estación (una
+  // sola alerta combinada arriba), cada instrumento manda su propia alerta
+  // por separado — reusa stationRecords, acotado a "planta-ficha-tecnica".
+  const plantaInstrumentAlertVehicles = stationRecords
+    .filter((record) => record.section.slug === "planta-ficha-tecnica")
+    .flatMap((record) => {
+      if (!isAlertVisibleForSection("valvulas", record.section.slug)) return [];
+      const variosTanques = record.stationTankTechnicalSheets.length > 1;
+      return record.stationTankTechnicalSheets.flatMap((tanque) =>
+        PLANTA_INSTRUMENT_FIELDS.map((campo) => {
+          const vencimiento = getPlantaInstrumentVencimiento(tanque, campo);
+          const level = getPlantaInstrumentAlertLevel(vencimiento);
+          if (level === "none" || !vencimiento) return null;
+          return {
+            id: record.id,
+            numeroEconomico: record.numeroEconomico,
+            citySlug: record.section.city.slug,
+            cityName: record.section.city.name,
+            vencimiento,
+            campo,
+            etiquetaTanque: variosTanques ? tanque.etiqueta : undefined,
+            level,
+          };
+        })
+      );
+    })
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
+
   return {
     alertVehicles,
     visualAlertVehicles,
@@ -302,5 +337,6 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     valveAlertVehicles,
     hoseAlertVehicles,
     stationValveAlertVehicles,
+    plantaInstrumentAlertVehicles,
   };
 }

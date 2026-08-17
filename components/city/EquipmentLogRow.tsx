@@ -6,7 +6,12 @@ import { useFormState, useFormStatus } from "react-dom";
 import type { EquipmentLog, Document } from "@prisma/client";
 import { deleteEquipmentLog, updateEquipmentLog } from "@/actions/equipment-log-actions";
 import type { ActionState } from "@/actions/user-actions";
-import { equipmentLogTipoOptions, criticidadEquipoSchema, criticidadEquipoLabels } from "@/lib/equipo-enums";
+import {
+  equipmentLogTipoOptions,
+  plantaEquipmentLogTipoOptions,
+  criticidadEquipoSchema,
+  criticidadEquipoLabels,
+} from "@/lib/equipo-enums";
 import { formatDate, toDateInputValue } from "@/lib/dates";
 import { DocumentList } from "./DocumentList";
 import { UploadEquipmentLogDocumentForm } from "@/components/admin/UploadEquipmentLogDocumentForm";
@@ -32,9 +37,10 @@ function SubmitButton() {
   );
 }
 
-function EditEquipmentLogForm({ log }: { log: EquipmentLog }) {
+function EditEquipmentLogForm({ log, isPlanta }: { log: EquipmentLog; isPlanta: boolean }) {
   const action = updateEquipmentLog.bind(null, log.id);
   const [state, formAction] = useFormState(action, initialState);
+  const tipoOptions = isPlanta ? plantaEquipmentLogTipoOptions : equipmentLogTipoOptions;
 
   return (
     <form action={formAction} className="mt-3 space-y-2 rounded-md bg-gray-50 p-3">
@@ -44,7 +50,7 @@ function EditEquipmentLogForm({ log }: { log: EquipmentLog }) {
             Tipo de mantenimiento
           </label>
           <select id={`tipo-${log.id}`} name="tipoMantenimiento" defaultValue={log.tipoMantenimiento} className={inputClass}>
-            {equipmentLogTipoOptions.map((opt) => (
+            {tipoOptions.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
@@ -120,10 +126,11 @@ function EditEquipmentLogForm({ log }: { log: EquipmentLog }) {
           className={inputClass}
         />
       </div>
-      {log.tipoMantenimiento === "Cambio" && (
+      {(log.tipoMantenimiento === "Cambio" || log.tipoMantenimiento === "Reemplazo") && (
         <p className="text-xs text-gray-500">
-          Este registro ya se aplicó como &quot;Cambio&quot; (dio de baja el equipo y creó uno nuevo).
-          Cambiarle el tipo aquí no deshace ni repite ese efecto, solo corrige el dato.
+          Este registro ya se aplicó como &quot;{log.tipoMantenimiento}&quot; (dio de baja el equipo y
+          creó uno nuevo). Cambiarle el tipo aquí no deshace ni repite ese efecto, solo corrige el
+          dato.
         </p>
       )}
       <SubmitButton />
@@ -137,10 +144,12 @@ export function EquipmentLogRow({
   log,
   canEdit,
   isAdmin,
+  isPlanta = false,
 }: {
   log: EquipmentLogWithDocuments;
   canEdit: boolean;
   isAdmin: boolean;
+  isPlanta?: boolean;
 }) {
   // Desglose de CityEquipmentLogFeed (ver components/city/CityEquipmentLogFeed.tsx):
   // sus links a este equipo llevan ?equipoLog=<id> para llegar directo a este
@@ -195,7 +204,7 @@ export function EquipmentLogRow({
             )}
           </dl>
 
-          {isAdmin && <EditEquipmentLogForm log={log} />}
+          {isAdmin && <EditEquipmentLogForm log={log} isPlanta={isPlanta} />}
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Documentos (PDF o imagen)</p>

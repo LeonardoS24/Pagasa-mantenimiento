@@ -51,3 +51,22 @@ export const criticidadEquipoStyles: Record<CriticidadEquipo, string> = {
 export const equipmentLogTipoSchema = z.enum(["Preventivo", "Correctivo", "Predictivo", "Cambio"]);
 export type EquipmentLogTipo = z.infer<typeof equipmentLogTipoSchema>;
 export const equipmentLogTipoOptions = equipmentLogTipoSchema.options;
+
+// Equipos de Planta (ver Section "equipos" anidada en "planta"): en vez de
+// Preventivo/Correctivo/Predictivo/Cambio, se elige qué se le hizo al equipo.
+// "Reemplazo" ocupa el lugar de "Cambio": da de baja el equipo actual y crea
+// uno nuevo en su lugar, mismo mecanismo (ver actions/equipment-log-actions.ts).
+export const plantaEquipmentLogTipoSchema = z.enum([
+  "Inspección",
+  "Prueba",
+  "Calibración",
+  "Reemplazo",
+  "Certificación",
+]);
+export type PlantaEquipmentLogTipo = z.infer<typeof plantaEquipmentLogTipoSchema>;
+export const plantaEquipmentLogTipoOptions = plantaEquipmentLogTipoSchema.options;
+
+// Validación del lado del servidor: acepta cualquiera de los dos juegos, sin
+// necesidad de que la Server Action sepa si el equipo es de Planta o no (esa
+// distinción ya se hizo en el formulario, al elegir qué lista mostrar).
+export const anyEquipmentLogTipoSchema = z.union([equipmentLogTipoSchema, plantaEquipmentLogTipoSchema]);

@@ -3,7 +3,12 @@
 import { useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { createEquipmentLog } from "@/actions/equipment-log-actions";
-import { equipmentLogTipoOptions, criticidadEquipoSchema, criticidadEquipoLabels } from "@/lib/equipo-enums";
+import {
+  equipmentLogTipoOptions,
+  plantaEquipmentLogTipoOptions,
+  criticidadEquipoSchema,
+  criticidadEquipoLabels,
+} from "@/lib/equipo-enums";
 import type { ActionState } from "@/actions/user-actions";
 import { FormMessage } from "./FormMessage";
 
@@ -25,11 +30,22 @@ function SubmitButton() {
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
-export function CreateEquipmentLogForm({ equipoId }: { equipoId: string }) {
+export function CreateEquipmentLogForm({
+  equipoId,
+  isPlanta = false,
+}: {
+  equipoId: string;
+  // Equipos de Planta (ver lib/equipo-enums.ts: plantaEquipmentLogTipoSchema):
+  // Inspección/Prueba/Calibración/Reemplazo/Certificación en vez de
+  // Preventivo/Correctivo/Predictivo/Cambio.
+  isPlanta?: boolean;
+}) {
   const action = createEquipmentLog.bind(null, equipoId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
-  const [tipo, setTipo] = useState("Preventivo");
+  const tipoOptions = isPlanta ? plantaEquipmentLogTipoOptions : equipmentLogTipoOptions;
+  const tipoCambio = isPlanta ? "Reemplazo" : "Cambio";
+  const [tipo, setTipo] = useState(isPlanta ? "Inspección" : "Preventivo");
 
   return (
     <details className="rounded-lg border border-dashed border-gray-300 bg-white p-4">
@@ -58,7 +74,7 @@ export function CreateEquipmentLogForm({ equipoId }: { equipoId: string }) {
               onChange={(e) => setTipo(e.target.value)}
               className={inputClass}
             >
-              {equipmentLogTipoOptions.map((opt) => (
+              {tipoOptions.map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
                 </option>
@@ -122,7 +138,7 @@ export function CreateEquipmentLogForm({ equipoId }: { equipoId: string }) {
           />
         </div>
 
-        {tipo === "Cambio" && (
+        {tipo === tipoCambio && (
           <p className="rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-xs text-orange-900">
             Al aceptar, este equipo se dará de baja y se creará uno nuevo del mismo tipo en su
             lugar. Se te llevará directo a su ficha técnica para llenarla.

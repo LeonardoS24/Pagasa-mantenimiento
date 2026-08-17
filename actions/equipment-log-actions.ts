@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, requireUser, checkSessionUserExists } from "@/lib/auth";
+import { assertEquipoAccess } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
-import { equipmentLogTipoSchema, criticidadEquipoSchema } from "@/lib/equipo-enums";
+import { anyEquipmentLogTipoSchema, criticidadEquipoSchema } from "@/lib/equipo-enums";
 import { saveDocumentFile, equipmentLogOwnerKey, readOptionalPdfFiles } from "@/lib/documents";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import { assertCanViewCity } from "./record-drilldown-actions";
@@ -31,7 +32,7 @@ const requiredDate = z.preprocess((value) => {
 }, z.date({ required_error: "La fecha es requerida", invalid_type_error: "Fecha inválida" }));
 
 const createLogSchema = z.object({
-  tipoMantenimiento: equipmentLogTipoSchema,
+  tipoMantenimiento: anyEquipmentLogTipoSchema,
   descripcion: requiredText("La descripción", 1000),
   responsable: optionalText(150),
   fecha: requiredDate,
@@ -119,6 +120,8 @@ export async function createEquipmentLog(
   const editor = await requireEditor();
   const sessionError = await checkSessionUserExists(editor);
   if (sessionError) return { error: sessionError };
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(editor, equipoId);
 
   const parsed = createLogSchema.safeParse({
     tipoMantenimiento: formData.get("tipoMantenimiento"),
@@ -174,14 +177,16 @@ export async function createEquipmentLog(
     await recalcularCriticidadEquipo(hermano.id);
   }
 
-  // "Cambio": el equipo se reemplaza por uno nuevo. Se da de baja el actual
-  // (se conserva como historial, igual que una unidad) y se crea uno nuevo
-  // del mismo tipo en la misma sección, con la ficha técnica en blanco para
-  // llenarla de inmediato — no tendría sentido copiar los datos del equipo
-  // que se acaba de reemplazar. vehicleRecordId se conserva: si no, un
-  // equipo de una estación en particular "perdería" la estación al
-  // reemplazarse y pasaría a verse como un equipo genérico de la ciudad.
-  if (parsed.data.tipoMantenimiento === "Cambio") {
+  // "Cambio" (equipos normales) o "Reemplazo" (equipos de Planta, ver
+  // lib/equipo-enums.ts: plantaEquipmentLogTipoSchema): el equipo se
+  // reemplaza por uno nuevo. Se da de baja el actual (se conserva como
+  // historial, igual que una unidad) y se crea uno nuevo del mismo tipo en
+  // la misma sección, con la ficha técnica en blanco para llenarla de
+  // inmediato — no tendría sentido copiar los datos del equipo que se acaba
+  // de reemplazar. vehicleRecordId se conserva: si no, un equipo de una
+  // estación en particular "perdería" la estación al reemplazarse y pasaría
+  // a verse como un equipo genérico de la ciudad.
+  if (parsed.data.tipoMantenimiento === "Cambio" || parsed.data.tipoMantenimiento === "Reemplazo") {
     await prisma.equipo.update({
       where: { id: equipoId },
       data: { activo: false, fechaBaja: parsed.data.fecha },
@@ -233,7 +238,7 @@ export async function createEquipmentLog(
 }
 
 const updateLogSchema = z.object({
-  tipoMantenimiento: equipmentLogTipoSchema,
+  tipoMantenimiento: anyEquipmentLogTipoSchema,
   descripcion: requiredText("La descripción", 1000),
   responsable: optionalText(150),
   fecha: requiredDate,

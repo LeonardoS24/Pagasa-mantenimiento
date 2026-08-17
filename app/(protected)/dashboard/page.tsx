@@ -11,6 +11,7 @@ import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlerts
 import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
 import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
 import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAlertsPanel";
+import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstrumentAlertsPanel";
 import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
 
 export default async function DashboardPage() {
@@ -29,6 +30,7 @@ export default async function DashboardPage() {
     valveAlertVehicles,
     hoseAlertVehicles,
     stationValveAlertVehicles,
+    plantaInstrumentAlertVehicles,
   } = await getAllVehicleAlerts(cities.map((city) => city.id));
 
   return (
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
       <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
       <ValveAlertsPanel vehicles={valveAlertVehicles} />
       <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
+      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} />
       <HoseAlertsPanel vehicles={hoseAlertVehicles} />
 
       <form action="/buscar" method="GET" className="mb-8">

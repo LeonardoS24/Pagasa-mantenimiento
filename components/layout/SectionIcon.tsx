@@ -62,6 +62,19 @@ const ICONS: Record<string, IconDef> = {
     ),
   },
   "planta-ficha-tecnica": { badge: "bg-primary/10 text-primary", path: null },
+  // "Áreas de planta" (ver scripts/add-areas-de-planta-section.mjs): tercer
+  // hijo de "Planta", mismo ícono de checklist que "Programa de
+  // mantenimiento" pero con otro color para diferenciarlo.
+  "areas-de-planta": {
+    badge: "bg-amber-50 text-amber-600",
+    path: (
+      <>
+        <rect x="3" y="4.5" width="18" height="16" rx="1.5" />
+        <path d="M8.5 2h7v3h-7z" />
+        <path d="m7.5 12 2 2 3.5-4M7.5 17h9" />
+      </>
+    ),
+  },
   "bitacoras-de-unidades": {
     badge: "bg-accent/10 text-accent/80",
     path: (

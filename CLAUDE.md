@@ -1,0 +1,152 @@
+# Sistema Integral de Mantenimiento — Grupo Pagasa
+
+Sistema web interno para el mantenimiento de la flota, estaciones de carburación
+y plantas almacenadoras de gas LP de Grupo Pagasa.
+
+## Lo primero que hay que saber
+
+**Esto es el sistema real en producción, no un entorno de pruebas.** La base de
+datos tiene los datos reales de la empresa. De ahí dos reglas que no se rompen:
+
+1. **Todo lo que se cree para probar se borra y se verifica en 0.** Los scripts
+   de verificación van en `scripts/_*.mts` (ese prefijo marca "temporal") y se
+   eliminan al terminar.
+2. **Ninguna función borra ni reinicia bitácoras de mantenimiento.** El historial
+   no se toca. Dar de baja una unidad o un equipo lo marca inactivo y conserva
+   todo; nunca lo elimina.
+
+## Stack
+
+Next.js 14.2.35 (App Router) · TypeScript · Tailwind · Prisma + SQLite ·
+iron-session · zod en cada Server Action. **Toda la interfaz está en español**,
+igual que los nombres de campos, comentarios y mensajes.
+
+## Vocabulario del dominio (los nombres engañan)
+
+Esto es lo que más tiempo cuesta re-descubrir:
+
+- **`VehicleRecord`** no es solo "vehículo": es cualquier registro de un apartado
+  de unidades, **incluidas las estaciones de carburación y las plantas**.
+- En **Estaciones y Planta**, `numeroEconomico` se reutiliza como **"Nombre"** y
+  `sucursal` como **"Dirección"**. En un vehículo normal, `sucursal` es la
+  **"Marca"** (así lo usa el equipo desde antes del sistema). `anio`/`placas` no
+  aplican a estaciones ni plantas.
+- **`Equipo.vehicleRecordId`**: si viene lleno, el equipo pertenece a esa
+  estación en particular; si es `null`, es un equipo de planta a nivel ciudad.
+
+## Estructura de apartados (`Section`)
+
+Los apartados viven en la base (el ADMIN los edita), y **el comportamiento de
+cada página se decide por el `slug`**, no por una ruta fija. La ruta catch-all
+`app/(protected)/ciudades/[citySlug]/[...sectionPath]` resuelve la cadena de
+slugs y de ahí salen banderas como `isVehicleSection`, `isEquiposSection`,
+`isPlantaFichaTecnicaSection`, `isAreasDePlantaSection`.
+
+`Planta` (slug `planta`, nivel superior) tiene **tres hijos**:
+
+| slug                   | nombre visible    | qué es |
+|------------------------|-------------------|--------|
+| `planta-ficha-tecnica` | Planta            | Ficha técnica del tanque + inspecciones + permisos |
+| `equipos`              | Equipos de planta | Equipos de la planta a nivel ciudad |
+| `areas-de-planta`      | Áreas de planta   | Las 15 áreas operativas con su checklist |
+
+`ESTACION_LIKE_SECTION_SLUGS` (`lib/estacion-sections.ts`) = estaciones + planta:
+comparten el modelo de ficha técnica del tanque.
+
+**"Administración"** es una ciudad agregada (`lib/aggregate-city.ts`): no tiene
+flota propia, combina los datos de todas las ciudades reales.
+
+## Los TRES sistemas de válvulas (no se mezclan a propósito)
+
+Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
+
+1. **Unidades** (`VehicleTechnicalSheet`, `lib/valve-alerts.ts`) — 9 válvulas.
+2. **Estaciones de carburación** (`StationTankTechnicalSheet`,
+   `lib/station-valves.ts`) — 7 válvulas, solo fecha de fabricación de cada una,
+   y **una sola alerta combinada**: vence 5 años después de la más antigua.
+3. **Planta** (mismas columnas de `StationTankTechnicalSheet`,
+   `lib/planta-tank-instruments.ts`) — 5 instrumentos (máximo llenado, manómetro,
+   termómetro, exceso de flujo/no retroceso, relevo de presión), cada uno con
+   **3 fechas** (fabricación / cambio / instalación) y **alerta propia por
+   separado**, a 5 años del cambio o, si nunca se cambió, de la fabricación.
+
+Una estación puede tener 2 tanques físicos: `stationTankTechnicalSheets` es 1:N
+con `etiqueta` ("Tanque 1", "Tanque 2") y único por `[vehicleRecordId, etiqueta]`.
+
+## Sistema de alertas
+
+**`lib/vehicle-alerts-summary.ts` → `getAllVehicleAlerts(cityIds)` es la única
+fuente.** Alimenta las tres pantallas: Inicio (`/dashboard`), la portada de cada
+ciudad y `/admin/alertas`. Devuelve 11 arreglos (ultrasonido, visual externa,
+hermeticidad, visual interna, hidrostática, extintor, mantenimiento, válvulas de
+unidad, mangueras, válvulas de estación, instrumentos de planta).
+
+Al agregar un tipo de alerta hay que tocar **cuatro** lugares o queda a medias:
+`getAllVehicleAlerts`, su panel en `components/dashboard/`, las tres páginas que
+lo pintan, y `countValveRedAlerts` (`lib/login-alerts.ts`) si cuenta para el
+aviso rojo al iniciar sesión.
+
+Umbrales: **rojo** ≤ 7 días, **amarillo** ≤ 30 días.
+
+**Ciclo de revisión de tanques:** la primera vence a los **10 años** de la fecha
+de fabricación (se calcula al dar de alta el tanque); de ahí en adelante, cada
+revisión registrada agenda la siguiente **5 años** después (`addFiveYears` en
+`internal-visual-inspection-actions.ts` e `hydrostatic-test-actions.ts`). Aplica
+a Planta y a Estaciones.
+
+## Seguridad — dos capas, ambas obligatorias
+
+**1. Rol** (`lib/auth.ts`): `requireUser` / `requireEditor` / `requireAdmin` /
+`requireElevatedEditor`. Roles: `ADMIN`, `USUARIO` (edita, no administra),
+`LECTOR` (solo ve). `requireUser` **relee el rol de la base en cada request**, no
+de la cookie. `requireElevatedEditor` deja pasar a un USUARIO solo dentro de su
+horario de acceso ampliado (`lib/elevated-access.ts`).
+
+**2. Pertenencia a la ciudad** (`lib/access.ts`): `assertSectionAccess`,
+`assertVehicleAccess`, `assertEquipoAccess`, `assertCityAccessById`.
+
+> **Al escribir cualquier Server Action nueva, hay que poner las dos.** El rol
+> contesta *"¿puede editar?"*, no *"¿puede editar **esto**?"*. Todo lo exportado
+> desde un archivo `"use server"` es un endpoint que el navegador puede llamar
+> directo con el id que sea: sin la segunda capa, un USUARIO de una ciudad puede
+> escribir en otra. Las páginas usan `assertCityAccess(user, citySlug)` porque
+> conocen el slug por la URL; las acciones no, por eso son helpers aparte.
+
+Ojo con `requireEditor()` en código que corre **al renderizar una página**:
+**lanza** para un LECTOR y rompe la página entera. Para barridos automáticos por
+tiempo va `requireUser()` + acceso a la ciudad, sin exigir rol de editor.
+
+Otros puntos: borrar registros pide la contraseña del admin
+(`lib/reauth.ts`) y queda en la bitácora de auditoría (`lib/activity-log.ts`,
+solo acepta `"ELIMINAR"` o `"EDITAR"`). Las subidas se validan por lista blanca
+de MIME y se sirven con `nosniff`. La cookie va **sin `secure`** a propósito
+porque el sistema se sirve por HTTP en la red local; se activa con
+`COOKIE_SECURE=true` el día que haya HTTPS.
+
+## Convenciones de trabajo
+
+- **Migraciones en Windows:** `npx prisma migrate dev --name <nombre>` funciona
+  para agregar columnas. Para cambios destructivos o de llaves foráneas hay que
+  parar el servidor (`preview_stop`), escribir el `migration.sql` a mano con el
+  patrón de SQLite (`PRAGMA defer_foreign_keys` + crear tabla nueva + copiar +
+  renombrar), correr `migrate deploy` y `generate`.
+- **Verificar contra datos reales**: el navegador integrado se cae con
+  frecuencia; lo confiable es un script `scripts/_test-*.mts` que importe de
+  `../lib/*` y llame las mismas consultas, correrlo con `npx tsx`, y borrarlo.
+- **Antes de dar algo por terminado**: `npx tsc --noEmit` y `npm run build`.
+- **Listas extensibles** (checklists, catálogo de piezas, campos de ficha): el
+  patrón es lista fija en el código + tabla de "extras" que el ADMIN agrega,
+  unidas por una función `*-runtime.ts`. Nunca leer la constante directo.
+- **Commits**: mensaje en español, en presente, explicando el *porqué*.
+
+## Estado y pendientes
+
+- **Bloqueado:** importar los **4 tanques y 2 compresores de la Planta de
+  Hermosillo** desde un documento de Word. Falta la ruta del archivo; se buscó
+  en las carpetas de Pagasa accesibles y no aparece.
+- **Por llegar:** el desglose del checklist de mantenimiento **por área** de
+  planta. La base hoy es "Limpieza" e "Inspección de equipos" para las 15 áreas;
+  ya está hecho para recibir ítems por área sin tocar código
+  (`lib/plant-area-checklist-runtime.ts` + tabla `PlantAreaChecklistItem`).
+- **En la lista, sin empezar:** chat entre usuarios con avisos, y notificaciones
+  del navegador para las alertas.

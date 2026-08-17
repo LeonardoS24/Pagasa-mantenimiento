@@ -110,7 +110,8 @@ export function CreateHydrostaticTestLogForm({
 
         <p className="text-xs text-ink">
           Al aceptar, la ficha técnica actualizará automáticamente su “última prueba hidrostática”
-          y la fecha próxima se recorrerá 10 años a partir de esta fecha.
+          y la fecha próxima se recorrerá 5 años a partir de esta fecha (la primera prueba, desde
+          la fabricación del tanque, vence a los 10 años; de ahí en adelante cada 5).
         </p>
 
         <FormMessage state={state} />

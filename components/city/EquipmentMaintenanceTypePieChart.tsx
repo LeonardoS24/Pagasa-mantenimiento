@@ -12,12 +12,18 @@ import { formatDate } from "@/lib/dates";
 
 // Mismos 3 colores validados que MaintenanceTypePieChart para
 // Preventivo/Correctivo/Predictivo, más un cuarto para "Cambio" (exclusivo
-// de equipos, ver lib/equipo-enums.ts).
+// de equipos, ver lib/equipo-enums.ts), y 5 más para los tipos exclusivos de
+// equipos de Planta (ver plantaEquipmentLogTipoSchema).
 const TIPO_COLORS: Record<string, string> = {
   Preventivo: "#059669",
   Correctivo: "#EA580C",
   Predictivo: "#2563EB",
   Cambio: "#7C3AED",
+  Inspección: "#0891B2",
+  Prueba: "#CA8A04",
+  Calibración: "#DB2777",
+  Reemplazo: "#7C3AED",
+  Certificación: "#16A34A",
 };
 
 const SIZE = 200;

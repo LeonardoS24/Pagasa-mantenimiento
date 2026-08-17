@@ -113,7 +113,9 @@ export function CreateInternalVisualInspectionLogForm({
 
         <p className="text-xs text-ink">
           Al aceptar, la ficha técnica actualizará automáticamente su “última inspección visual
-          interna” y la fecha próxima se recorrerá 10 años a partir de esta fecha.
+          interna” y la fecha próxima se recorrerá 5 años a partir de esta fecha (la primera
+          inspección, desde la fabricación del tanque, vence a los 10 años; de ahí en adelante
+          cada 5).
         </p>
 
         <FormMessage state={state} />

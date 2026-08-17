@@ -60,6 +60,7 @@ model User {
   vehicleRecords                 VehicleRecord[]
   equipos                        Equipo[]
   activityLogs                   ActivityLog[]
+  plantAreaMaintenanceLogs       PlantAreaMaintenanceLog[]
 
   @@map("users")
 }
@@ -96,6 +97,7 @@ model Section {
   pieceOrders    PieceOrder[]
   inventoryItems InventoryItem[]
   equipos        Equipo[]
+  plantAreaMaintenanceLogs PlantAreaMaintenanceLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -399,6 +401,28 @@ model StationTankTechnicalSheet {
   fechaFabricacionValvulaCheckLock          DateTime?
   fechaFabricacionValvulaVapor              DateTime?
 
+  // Válvulas e instrumentos de un tanque de Planta (ver
+  // lib/planta-tank-instruments.ts): solo se usan cuando este registro es de
+  // Planta, no de una Estación de carburación (que sigue usando el juego de
+  // arriba, un solo vencimiento combinado). A diferencia de las válvulas de
+  // estación, cada instrumento aquí lleva sus 3 fechas propias
+  // (fabricación/cambio/instalación) y su propia alerta por separado.
+  maximoLlenadoFechaFabricacion              DateTime?
+  maximoLlenadoFechaCambio                   DateTime?
+  maximoLlenadoFechaInstalacion              DateTime?
+  manometroFechaFabricacion                  DateTime?
+  manometroFechaCambio                       DateTime?
+  manometroFechaInstalacion                  DateTime?
+  termometroFechaFabricacion                 DateTime?
+  termometroFechaCambio                      DateTime?
+  termometroFechaInstalacion                 DateTime?
+  excesoFlujoNoRetrocesoFechaFabricacion     DateTime?
+  excesoFlujoNoRetrocesoFechaCambio          DateTime?
+  excesoFlujoNoRetrocesoFechaInstalacion     DateTime?
+  relevoPresionFechaFabricacion              DateTime?
+  relevoPresionFechaCambio                   DateTime?
+  relevoPresionFechaInstalacion              DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -543,6 +567,51 @@ model ChecklistItemExtra {
 
   @@unique([lista, nombre])
   @@map("checklist_items_extra")
+}
+
+// Registro de mantenimiento de una de las 15 áreas operativas fijas de Planta
+// (ver lib/plant-areas.ts: A–O, texto exacto del reglamento). Las áreas no
+// son filas de una tabla propia, solo una lista fija del código — aquí solo
+// se guarda la clave (A–O) de cuál fue.
+model PlantAreaMaintenanceLog {
+  id String @id @default(cuid())
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  area String
+
+  fecha DateTime
+  // [{item, hecho, observacion}], ver lib/plant-area-checklist-runtime.ts:
+  // lista base del código ("Limpieza", "Inspección de equipos") más los
+  // ítems que un ADMIN agregue por área desde el panel (PlantAreaChecklistItem).
+  checklist String
+
+  responsable   String?
+  observaciones String?
+
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@map("plant_area_maintenance_logs")
+}
+
+// Ítems que un ADMIN agrega al checklist de mantenimiento de un área de
+// Planta en particular (ver PlantAreaMaintenanceLog arriba), sumándose a la
+// lista base fija del código ("Limpieza", "Inspección de equipos"). Mismo
+// patrón que ChecklistItemExtra, pero por área en vez de por lista.
+model PlantAreaChecklistItem {
+  id    String @id @default(cuid())
+  area  String
+  nombre String
+  orden Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([area, nombre])
+  @@map("plant_area_checklist_items")
 }
 
 model LearnedPiece {

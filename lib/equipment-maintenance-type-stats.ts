@@ -10,8 +10,22 @@ export interface EquipmentMaintenanceTypeStat {
 
 // Orden fijo, igual que MaintenanceTypeStat: Preventivo/Correctivo/Predictivo
 // primero (mismos 3 que las unidades) y "Cambio" al final, exclusivo de
-// equipos (ver equipmentLogTipoSchema en lib/equipo-enums.ts).
-const TIPOS: string[] = ["Preventivo", "Correctivo", "Predictivo", "Cambio"];
+// equipos (ver equipmentLogTipoSchema en lib/equipo-enums.ts). Esta gráfica
+// combina TODOS los equipos de la ciudad (Planta y estaciones juntos), así
+// que también incluye los 5 tipos exclusivos de equipos de Planta (ver
+// plantaEquipmentLogTipoSchema) — si no, sus registros desaparecerían del
+// desglose en vez de solo mostrarse sin color propio.
+const TIPOS: string[] = [
+  "Preventivo",
+  "Correctivo",
+  "Predictivo",
+  "Cambio",
+  "Inspección",
+  "Prueba",
+  "Calibración",
+  "Reemplazo",
+  "Certificación",
+];
 
 function cityFilter(cityId: string | null) {
   return cityId ? { section: { cityId } } : { section: { city: { slug: { not: AGGREGATE_CITY_SLUG } } } };

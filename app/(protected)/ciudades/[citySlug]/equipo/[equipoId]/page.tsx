@@ -76,6 +76,9 @@ export default async function EquipoPage({
     : [];
 
   const chain = await getSectionChain(equipo.sectionId);
+  // "Equipos de planta" (ver Section "equipos" anidada en "planta"): la
+  // ubicación se elige de las 15 áreas fijas de Planta (ver EquipoForm).
+  const isPlantaEquipo = chain[0]?.slug === "planta" && equipo.section.slug === "equipos";
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Inicio", href: "/dashboard" },
     { label: equipo.section.city.name, href: `/ciudades/${equipo.section.city.slug}` },
@@ -112,7 +115,12 @@ export default async function EquipoPage({
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">Ficha técnica</h2>
         {isEditor ? (
-          <EquipoForm action={updateEquipo.bind(null, equipo.id)} defaults={equipo} submitLabel="Guardar cambios" />
+          <EquipoForm
+            action={updateEquipo.bind(null, equipo.id)}
+            defaults={equipo}
+            submitLabel="Guardar cambios"
+            isPlanta={isPlantaEquipo}
+          />
         ) : (
           <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Código del equipo" value={equipo.codigo} />
@@ -178,8 +186,13 @@ export default async function EquipoPage({
       <div className="mb-8">
         <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Bitácora de mantenimiento</h2>
         <div className="space-y-3">
-          {isEditor && <CreateEquipmentLogForm equipoId={equipo.id} />}
-          <EquipmentLogTable logs={equipo.equipmentLogs} canEdit={isEditor} isAdmin={isAdmin} />
+          {isEditor && <CreateEquipmentLogForm equipoId={equipo.id} isPlanta={isPlantaEquipo} />}
+          <EquipmentLogTable
+            logs={equipo.equipmentLogs}
+            canEdit={isEditor}
+            isAdmin={isAdmin}
+            isPlanta={isPlantaEquipo}
+          />
         </div>
       </div>
 

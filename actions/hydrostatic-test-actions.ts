@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { assertCityAccessById } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import {
@@ -38,8 +39,14 @@ const createHydrostaticTestLogSchema = z.object({
   fechaRealizacion: requiredDate,
 });
 
-function addTenYears(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear() + 10, date.getUTCMonth(), date.getUTCDate()));
+// Igual que la inspección visual interna (ver
+// actions/internal-visual-inspection-actions.ts): la primera prueba vence a
+// los 10 años de fabricación (calculado una sola vez al dar de alta el
+// tanque, ver actions/vehicle-actions.ts), pero cada prueba ya realizada
+// agenda la siguiente 5 años después — aplica tanto a Planta como a
+// Estaciones de carburación.
+function addFiveYears(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear() + 5, date.getUTCMonth(), date.getUTCDate()));
 }
 
 export async function createHydrostaticTestLog(
@@ -73,6 +80,12 @@ export async function createHydrostaticTestLog(
     return { error: "El registro no existe." };
   }
 
+  // El rol dice si puede editar, no si puede editar ESTO: vehicleId llega
+  // del navegador y esta acción es un endpoint llamable directo, así que sin
+  // esto un USUARIO de una ciudad podía escribir en la bitácora de otra
+  // (ver lib/access.ts).
+  await assertCityAccessById(editor, vehicle.section.cityId);
+
   const log = await prisma.hydrostaticTestLog.create({
     data: {
       vehicleRecordId: vehicleId,
@@ -96,19 +109,20 @@ export async function createHydrostaticTestLog(
     });
   }
 
-  // Igual que la inspección visual interna: vence cada 10 años, así que la
-  // fecha próxima se recalcula sola como fechaRealizacion + 10 años.
+  // La primera prueba vence a los 10 años de fabricación; de ahí en
+  // adelante, cada prueba ya realizada agenda la siguiente 5 años después
+  // (ver addFiveYears arriba).
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
     update: {
       ultimaPruebaHidrostatica: parsed.data.fechaRealizacion,
-      fechaProximaPruebaHidrostatica: addTenYears(parsed.data.fechaRealizacion),
+      fechaProximaPruebaHidrostatica: addFiveYears(parsed.data.fechaRealizacion),
       ...(parsed.data.numeroPrueba ? { numeroUltimaPruebaHidrostatica: parsed.data.numeroPrueba } : {}),
     },
     create: {
       vehicleRecordId: vehicleId,
       ultimaPruebaHidrostatica: parsed.data.fechaRealizacion,
-      fechaProximaPruebaHidrostatica: addTenYears(parsed.data.fechaRealizacion),
+      fechaProximaPruebaHidrostatica: addFiveYears(parsed.data.fechaRealizacion),
       numeroUltimaPruebaHidrostatica: parsed.data.numeroPrueba,
     },
   });

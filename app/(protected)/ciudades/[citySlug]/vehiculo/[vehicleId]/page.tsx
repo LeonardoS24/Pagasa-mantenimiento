@@ -519,12 +519,14 @@ export default async function VehicleDetailPage({
                   sheet={tanque1}
                   camposExtra={camposEstacion}
                   valoresExtra={valoresCampos}
+                  isPlanta={isPlanta}
                 />
               ) : (
                 <StationTankTechnicalSheetView
                   sheet={tanque1}
                   camposExtra={camposEstacion}
                   valoresExtra={valoresCampos}
+                  isPlanta={isPlanta}
                 />
               )}
             </div>
@@ -535,9 +537,14 @@ export default async function VehicleDetailPage({
                   Ficha técnica del tanque — Tanque 2
                 </h2>
                 {isAdmin ? (
-                  <StationTankTechnicalSheetForm vehicleId={vehicle.id} etiqueta="Tanque 2" sheet={tanque2} />
+                  <StationTankTechnicalSheetForm
+                    vehicleId={vehicle.id}
+                    etiqueta="Tanque 2"
+                    sheet={tanque2}
+                    isPlanta={isPlanta}
+                  />
                 ) : (
-                  <StationTankTechnicalSheetView sheet={tanque2} />
+                  <StationTankTechnicalSheetView sheet={tanque2} isPlanta={isPlanta} />
                 )}
               </div>
             ) : (
@@ -550,7 +557,12 @@ export default async function VehicleDetailPage({
                     <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
                       Ficha técnica del tanque — Tanque 2
                     </h2>
-                    <StationTankTechnicalSheetForm vehicleId={vehicle.id} etiqueta="Tanque 2" sheet={null} />
+                    <StationTankTechnicalSheetForm
+                      vehicleId={vehicle.id}
+                      etiqueta="Tanque 2"
+                      sheet={null}
+                      isPlanta={isPlanta}
+                    />
                   </div>
                 </details>
               )

@@ -3,6 +3,7 @@ import { getValveAlertLevel } from "./valve-alerts";
 import { isAlertVisibleForSection } from "./alert-visibility";
 import { PIECE_ORDER_UNRESOLVED_STATES } from "./inventory-enums";
 import { getStationValveAlertLevel, getStationValveVencimiento } from "./station-valves";
+import { PLANTA_INSTRUMENT_FIELDS, getPlantaInstrumentVencimiento, getPlantaInstrumentAlertLevel } from "./planta-tank-instruments";
 import { ESTACION_LIKE_SECTION_SLUGS } from "./estacion-sections";
 
 // Cuántas órdenes de prioridad ALTA (unidad en mal estado, ver
@@ -68,6 +69,22 @@ export async function countValveRedAlerts(cityIds: string[]): Promise<number> {
     if (!isAlertVisibleForSection("valvulas", record.section.slug)) continue;
     for (const tanque of record.stationTankTechnicalSheets) {
       if (getStationValveAlertLevel(getStationValveVencimiento(tanque)) === "red") count++;
+    }
+  }
+
+  // Válvulas e instrumentos de tanques de Planta (ver
+  // lib/planta-tank-instruments.ts): cada instrumento en rojo cuenta aparte,
+  // igual que cada tanque en rojo de arriba.
+  const plantaRecords = await prisma.vehicleRecord.findMany({
+    where: { activo: true, section: { cityId: { in: cityIds }, slug: "planta-ficha-tecnica" } },
+    select: { section: { select: { slug: true } }, stationTankTechnicalSheets: true },
+  });
+  for (const record of plantaRecords) {
+    if (!isAlertVisibleForSection("valvulas", record.section.slug)) continue;
+    for (const tanque of record.stationTankTechnicalSheets) {
+      for (const campo of PLANTA_INSTRUMENT_FIELDS) {
+        if (getPlantaInstrumentAlertLevel(getPlantaInstrumentVencimiento(tanque, campo)) === "red") count++;
+      }
     }
   }
 

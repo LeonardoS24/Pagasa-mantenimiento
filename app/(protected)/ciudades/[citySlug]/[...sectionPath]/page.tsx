@@ -42,6 +42,7 @@ import {
 import { VehiclesInMaintenancePanel } from "@/components/city/VehiclesInMaintenancePanel";
 import { AggregateVehicleTable } from "@/components/city/AggregateVehicleTable";
 import { PlantaCardGrid, type PlantaCardData } from "@/components/city/PlantaCardGrid";
+import { PlantAreaCardGrid } from "@/components/city/PlantAreaCardGrid";
 import { getVehicleSemaforoLevel } from "@/lib/vehicle-semaforo";
 import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
 import { AggregateEquipoTable } from "@/components/city/AggregateEquipoTable";
@@ -126,6 +127,15 @@ export default async function SectionPage({
   // planta" (ver isEquiposSection arriba).
   const isPlantaFichaTecnicaSection =
     chain.length === 2 && chain[0].slug === "planta" && current.slug === "planta-ficha-tecnica";
+  // "Áreas de planta" (ver scripts/add-areas-de-planta-section.mjs): tercer
+  // hijo de "Planta", junto a "planta-ficha-tecnica" y "equipos" (ver arriba).
+  // Las 15 áreas (A–O, ver lib/plant-areas.ts) no son Section propias: es una
+  // lista fija del código, así que este apartado siempre tiene 0 hijos en BD
+  // y en vez del listado de sub-apartados muestra un recuadro por área (ver
+  // PlantAreaCardGrid), cada uno llevando a su propia página de checklist
+  // (app/(protected)/ciudades/[citySlug]/area-planta/[areaClave]).
+  const isAreasDePlantaSection =
+    chain.length === 2 && chain[0].slug === "planta" && current.slug === "areas-de-planta";
   const isVehicleSection =
     (children.length === 0 && !isBitacoraFeed && isUnderUnidadDistribucion) ||
     isEstacionTopLevelSection ||
@@ -524,10 +534,12 @@ export default async function SectionPage({
           ) : (
             <>
               <EquipoTable equipos={equipos} citySlug={city.slug} />
-              {isEditor && <CreateEquipoForm sectionId={current.id} />}
+              {isEditor && <CreateEquipoForm sectionId={current.id} isPlanta />}
             </>
           )}
         </div>
+      ) : isAreasDePlantaSection ? (
+        <PlantAreaCardGrid citySlug={city.slug} />
       ) : isOrdenDePieza ? (
         <div className="space-y-6">
           {showOrderMonthPicker && (
@@ -608,7 +620,7 @@ export default async function SectionPage({
           "Próximamente" arriba (aunque sí hubiera archivos) seguida de esta
           misma lista, lo cual se veía como si el apartado no funcionara. Sin
           esa caja, esta tarjeta ya es el contenido principal de la página. */}
-      {!isVehicleSection && !isEquiposSection && !isResumenSection && (
+      {!isVehicleSection && !isEquiposSection && !isResumenSection && !isAreasDePlantaSection && (
         <div className="mt-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             {allowsOfficeDocs ? "Documentos (PDF, imagen, Word, Excel, PowerPoint, CSV o TXT)" : "Documentos (PDF o imagen)"}

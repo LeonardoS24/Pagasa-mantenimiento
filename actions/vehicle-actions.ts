@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor } from "@/lib/auth";
+import { assertSectionAccess, assertVehicleAccess } from "@/lib/access";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import {
   combustibleSchema,
@@ -15,6 +16,13 @@ import {
   type VehicleEstatus,
 } from "@/lib/vehicle-enums";
 import { STATION_VALVE_FIELDS, stationValveLabels } from "@/lib/station-valves";
+import {
+  PLANTA_INSTRUMENT_FIELDS,
+  plantaInstrumentLabels,
+  instrumentFabricacionField,
+  instrumentCambioField,
+  instrumentInstalacionField,
+} from "@/lib/planta-tank-instruments";
 import { saveCustomFieldValues } from "@/lib/custom-fields-runtime";
 import { collapseSpaces } from "@/lib/text-normalize";
 import { verifySessionPassword } from "@/lib/reauth";
@@ -91,6 +99,8 @@ export async function createVehicleRecord(
   formData: FormData
 ): Promise<ActionState> {
   const editor = await requireEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertSectionAccess(editor, sectionId);
 
   const parsed = parseVehicleForm(formData);
   if (!parsed.success) {
@@ -146,7 +156,9 @@ export async function updateVehicleRecord(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, vehicleId);
 
   const parsed = parseVehicleForm(formData);
   if (!parsed.success) {
@@ -187,7 +199,9 @@ export async function updateVehicleRecord(
 
 // Solo para pintar la confirmación: no borra nada.
 export async function previewVehicleDeleteImpact(vehicleId: string) {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, vehicleId);
   return { impacto: await getVehicleDeleteImpact(vehicleId), pideContrasena: true };
 }
 
@@ -201,6 +215,8 @@ export async function deleteVehicleRecord(
   formData: FormData
 ): Promise<ActionState> {
   const admin = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede borrar, no si puede borrar ESTO.
+  await assertVehicleAccess(admin, vehicleId);
 
   const passwordError = await verifySessionPassword(admin, formData.get("password"));
   if (passwordError) {
@@ -241,7 +257,9 @@ const PAIRED_VEHICLE_SECTION_SLUGS: Record<string, string> = {
 // AggregateVehicleTable, la página de la unidad, /imprimir y el feed de
 // Bitácora de unidades (lib/city-unit-log-feed.ts).
 export async function setVehicleActive(vehicleId: string, activo: boolean, formData?: FormData) {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, vehicleId);
 
   const motivo = activo ? null : optionalText(500).parse(formData?.get("motivo"));
 
@@ -443,6 +461,10 @@ export async function upsertTechnicalSheet(
   // bitácoras/cambios y descargar/subir documentos, pero no modificar los
   // valores de la ficha técnica directamente.
   const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  // La ficha técnica es justo lo que alimenta las alertas de vencimiento, así
+  // que escribirla en una ciudad ajena falsearía sus alertas.
+  await assertVehicleAccess(editor, vehicleId);
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },
@@ -693,20 +715,57 @@ const stationTankTechnicalSheetSchema = z.object({
   fechaFabricacionValvulaServicio: optionalDate,
   fechaFabricacionValvulaCheckLock: optionalDate,
   fechaFabricacionValvulaVapor: optionalDate,
+  // Válvulas e instrumentos de un tanque de Planta (ver
+  // lib/planta-tank-instruments.ts): cada uno con sus 3 fechas propias.
+  maximoLlenadoFechaFabricacion: optionalDate,
+  maximoLlenadoFechaCambio: optionalDate,
+  maximoLlenadoFechaInstalacion: optionalDate,
+  manometroFechaFabricacion: optionalDate,
+  manometroFechaCambio: optionalDate,
+  manometroFechaInstalacion: optionalDate,
+  termometroFechaFabricacion: optionalDate,
+  termometroFechaCambio: optionalDate,
+  termometroFechaInstalacion: optionalDate,
+  excesoFlujoNoRetrocesoFechaFabricacion: optionalDate,
+  excesoFlujoNoRetrocesoFechaCambio: optionalDate,
+  excesoFlujoNoRetrocesoFechaInstalacion: optionalDate,
+  relevoPresionFechaFabricacion: optionalDate,
+  relevoPresionFechaCambio: optionalDate,
+  relevoPresionFechaInstalacion: optionalDate,
 }).superRefine((data, ctx) => {
   // Misma regla que en la ficha técnica de una unidad: una válvula no se
   // puede instalar antes de existir.
-  if (!data.fechaInstalacionValvulas) return;
-  for (const campo of STATION_VALVE_FIELDS) {
-    const fabricacion = data[campo];
+  if (data.fechaInstalacionValvulas) {
+    for (const campo of STATION_VALVE_FIELDS) {
+      const fabricacion = data[campo];
+      if (!fabricacion) continue;
+      if (data.fechaInstalacionValvulas.getTime() >= fabricacion.getTime()) continue;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Error en las fechas: la instalación de las válvulas (${formatoCortoFecha(data.fechaInstalacionValvulas)}) es anterior a la fabricación de la ${stationValveLabels[campo].toLowerCase()} (${formatoCortoFecha(fabricacion)}). Una válvula no puede instalarse antes de fabricarse.`,
+        path: ["fechaInstalacionValvulas"],
+      });
+      return;
+    }
+  }
+
+  // Misma regla, por instrumento: ni el cambio ni la instalación pueden ser
+  // anteriores a la fecha de fabricación de ese mismo instrumento.
+  for (const campo of PLANTA_INSTRUMENT_FIELDS) {
+    const fabricacion = data[instrumentFabricacionField(campo)];
     if (!fabricacion) continue;
-    if (data.fechaInstalacionValvulas.getTime() >= fabricacion.getTime()) continue;
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Error en las fechas: la instalación de las válvulas (${formatoCortoFecha(data.fechaInstalacionValvulas)}) es anterior a la fabricación de la ${stationValveLabels[campo].toLowerCase()} (${formatoCortoFecha(fabricacion)}). Una válvula no puede instalarse antes de fabricarse.`,
-      path: ["fechaInstalacionValvulas"],
-    });
-    return;
+    for (const [otroLabel, otraFecha] of [
+      ["cambio", data[instrumentCambioField(campo)]],
+      ["instalación", data[instrumentInstalacionField(campo)]],
+    ] as const) {
+      if (!otraFecha) continue;
+      if (otraFecha.getTime() >= fabricacion.getTime()) continue;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Error en las fechas: la fecha de ${otroLabel} de "${plantaInstrumentLabels[campo]}" (${formatoCortoFecha(otraFecha)}) es anterior a su fabricación (${formatoCortoFecha(fabricacion)}).`,
+        path: [otroLabel === "cambio" ? instrumentCambioField(campo) : instrumentInstalacionField(campo)],
+      });
+    }
   }
 });
 
@@ -727,7 +786,9 @@ export async function upsertStationTankTechnicalSheet(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, vehicleId);
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },
@@ -756,6 +817,13 @@ export async function upsertStationTankTechnicalSheet(
     tara: formData.get("tara"),
     fechaInstalacionValvulas: formData.get("fechaInstalacionValvulas"),
     ...Object.fromEntries(STATION_VALVE_FIELDS.map((campo) => [campo, formData.get(campo)])),
+    ...Object.fromEntries(
+      PLANTA_INSTRUMENT_FIELDS.flatMap((campo) => [
+        [instrumentFabricacionField(campo), formData.get(instrumentFabricacionField(campo))],
+        [instrumentCambioField(campo), formData.get(instrumentCambioField(campo))],
+        [instrumentInstalacionField(campo), formData.get(instrumentInstalacionField(campo))],
+      ])
+    ),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -814,6 +882,8 @@ export async function updateCalidadExtintor(
   formData: FormData
 ): Promise<ActionState> {
   const editor = await requireElevatedEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, vehicleId);
 
   const parsed = calidadExtintorSchema.safeParse(formData.get("calidadExtintor"));
   if (!parsed.success) {
@@ -875,7 +945,9 @@ export async function setVehicleEstatus(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireEditor();
+  const editor = await requireEditor();
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, vehicleId);
 
   const parsed = vehicleEstatusSchema.safeParse(formData.get("estatus"));
   if (!parsed.success) {

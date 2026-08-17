@@ -14,6 +14,15 @@ import {
   getStationValveVencimiento,
   getStationValveAlertLevel,
 } from "@/lib/station-valves";
+import {
+  PLANTA_INSTRUMENT_FIELDS,
+  plantaInstrumentLabels,
+  instrumentFabricacionField,
+  instrumentCambioField,
+  instrumentInstalacionField,
+  getPlantaInstrumentVencimiento,
+  getPlantaInstrumentAlertLevel,
+} from "@/lib/planta-tank-instruments";
 import { valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { SECTION_STYLES } from "@/lib/section-colors";
 import { FormMessage } from "./FormMessage";
@@ -72,6 +81,7 @@ export function StationTankTechnicalSheetForm({
   sheet,
   camposExtra = [],
   valoresExtra = {},
+  isPlanta = false,
 }: {
   vehicleId: string;
   // "Tanque 1" o "Tanque 2" (ver VehicleRecord.stationTankTechnicalSheets):
@@ -81,6 +91,10 @@ export function StationTankTechnicalSheetForm({
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
   camposExtra?: CustomFieldDef[];
   valoresExtra?: Record<string, string>;
+  // Tanque de Planta (ver lib/planta-tank-instruments.ts): en vez del juego
+  // de 7 válvulas de Estación con un solo vencimiento combinado, muestra 5
+  // instrumentos con sus 3 fechas propias y su propia alerta cada uno.
+  isPlanta?: boolean;
 }) {
   const action = upsertStationTankTechnicalSheet.bind(null, vehicleId, etiqueta);
   const [state, formAction] = useFormState(action, initialState);
@@ -151,51 +165,105 @@ export function StationTankTechnicalSheetForm({
           <CustomFieldInputs campos={camposExtra} seccion="tanque" valores={valoresExtra} />
         </div>
 
-        {/* Válvulas del tanque fijo: otro juego que el de un Auto-Tanque
-            (ver lib/station-valves.ts). Se captura la fecha grabada en cada
-            válvula y la fecha en que se instaló el juego completo. */}
-        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de válvulas</h3>
-            {valveAlertLevel !== "none" && vencimiento && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
+        {isPlanta ? (
+          /* Válvulas e instrumentos de un tanque de Planta (ver
+              lib/planta-tank-instruments.ts): cada uno con sus 3 fechas
+              propias y su propia alerta, a diferencia del juego combinado de
+              Estación de abajo. */
+          <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+            <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+              Válvulas e instrumentos del tanque
+            </h3>
+            <div className="space-y-4">
+              {PLANTA_INSTRUMENT_FIELDS.map((campo) => {
+                const dates = sheet ?? {};
+                const instrumentoVencimiento = getPlantaInstrumentVencimiento(dates, campo);
+                const instrumentoAlertLevel = getPlantaInstrumentAlertLevel(instrumentoVencimiento);
+                return (
+                  <div key={campo} className="rounded-md border border-gray-200 bg-white p-3">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <h4 className="text-sm font-medium text-ink">{plantaInstrumentLabels[campo]}</h4>
+                      {instrumentoAlertLevel !== "none" && instrumentoVencimiento && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[instrumentoAlertLevel]}`}
+                        >
+                          {valveAlertLabel(instrumentoAlertLevel, instrumentoVencimiento)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <Field
+                        id={instrumentFabricacionField(campo)}
+                        label="Fecha de fabricación"
+                        type="date"
+                        defaultValue={toDateInputValue(sheet?.[instrumentFabricacionField(campo)])}
+                      />
+                      <Field
+                        id={instrumentCambioField(campo)}
+                        label="Fecha de cambio"
+                        type="date"
+                        defaultValue={toDateInputValue(sheet?.[instrumentCambioField(campo)])}
+                      />
+                      <Field
+                        id={instrumentInstalacionField(campo)}
+                        label="Fecha de instalación"
+                        type="date"
+                        defaultValue={toDateInputValue(sheet?.[instrumentInstalacionField(campo)])}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
+            </div>
+          </div>
+        ) : (
+          /* Válvulas del tanque fijo: otro juego que el de un Auto-Tanque
+              (ver lib/station-valves.ts). Se captura la fecha grabada en cada
+              válvula y la fecha en que se instaló el juego completo. */
+          <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de válvulas</h3>
+              {valveAlertLevel !== "none" && vencimiento && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${valveAlertBadgeStyles[valveAlertLevel]}`}
+                >
+                  {valveAlertLabel(valveAlertLevel, vencimiento)}
+                </span>
+              )}
+            </div>
+            <div className="mb-4 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
+              <label
+                className="mb-1 block text-sm font-medium text-ink"
+                htmlFor="fechaInstalacionValvulas"
               >
-                {valveAlertLabel(valveAlertLevel, vencimiento)}
-              </span>
-            )}
-          </div>
-          <div className="mb-4 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
-            <label
-              className="mb-1 block text-sm font-medium text-ink"
-              htmlFor="fechaInstalacionValvulas"
-            >
-              Fecha de instalación del juego de válvulas
-            </label>
-            <input
-              id="fechaInstalacionValvulas"
-              name="fechaInstalacionValvulas"
-              type="date"
-              defaultValue={toDateInputValue(sheet?.fechaInstalacionValvulas)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
-            />
-          </div>
-          <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
-            Fecha de fabricación de cada válvula
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {STATION_VALVE_FIELDS.map((campo) => (
-              <Field
-                key={campo}
-                id={campo}
-                label={stationValveLabels[campo]}
+                Fecha de instalación del juego de válvulas
+              </label>
+              <input
+                id="fechaInstalacionValvulas"
+                name="fechaInstalacionValvulas"
                 type="date"
-                defaultValue={toDateInputValue(sheet?.[campo])}
+                defaultValue={toDateInputValue(sheet?.fechaInstalacionValvulas)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
               />
-            ))}
-            <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
+            </div>
+            <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
+              Fecha de fabricación de cada válvula
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {STATION_VALVE_FIELDS.map((campo) => (
+                <Field
+                  key={campo}
+                  id={campo}
+                  label={stationValveLabels[campo]}
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.[campo])}
+                />
+              ))}
+              <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
+            </div>
           </div>
-        </div>
+        )}
       </fieldset>
 
       <FormMessage state={state} />

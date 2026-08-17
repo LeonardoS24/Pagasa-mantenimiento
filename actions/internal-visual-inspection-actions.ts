@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
+import { assertCityAccessById } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import {
@@ -38,8 +39,14 @@ const createInternalVisualInspectionLogSchema = z.object({
   fechaRealizacion: requiredDate,
 });
 
-function addTenYears(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear() + 10, date.getUTCMonth(), date.getUTCDate()));
+// La primera revisión vence a los 10 años de la fecha de fabricación del
+// tanque (ver addTenYears/fechaProximaInspeccionVisualInterna en
+// actions/vehicle-actions.ts, calculado una sola vez al dar de alta el
+// tanque). A partir de ahí, cada revisión ya realizada (registrada aquí)
+// vuelve a agendar la siguiente 5 años después, no 10 — aplica tanto a
+// Planta como a Estaciones de carburación (mismo campo, mismo mecanismo).
+function addFiveYears(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear() + 5, date.getUTCMonth(), date.getUTCDate()));
 }
 
 export async function createInternalVisualInspectionLog(
@@ -73,6 +80,12 @@ export async function createInternalVisualInspectionLog(
     return { error: "El registro no existe." };
   }
 
+  // El rol dice si puede editar, no si puede editar ESTO: vehicleId llega
+  // del navegador y esta acción es un endpoint llamable directo, así que sin
+  // esto un USUARIO de una ciudad podía escribir en la bitácora de otra
+  // (ver lib/access.ts).
+  await assertCityAccessById(editor, vehicle.section.cityId);
+
   const log = await prisma.internalVisualInspectionLog.create({
     data: {
       vehicleRecordId: vehicleId,
@@ -97,13 +110,14 @@ export async function createInternalVisualInspectionLog(
   }
 
   // A diferencia de ultrasonido/visual externa/hermeticidad, aquí SÍ se
-  // recalcula automáticamente la fecha próxima: este ciclo vence cada 10
-  // años, así que el siguiente vencimiento es fechaRealizacion + 10 años.
+  // recalcula automáticamente la fecha próxima: la primera revisión vence a
+  // los 10 años de fabricación, pero de ahí en adelante cada revisión ya
+  // realizada agenda la siguiente 5 años después (ver addFiveYears arriba).
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
     update: {
       ultimaInspeccionVisualInterna: parsed.data.fechaRealizacion,
-      fechaProximaInspeccionVisualInterna: addTenYears(parsed.data.fechaRealizacion),
+      fechaProximaInspeccionVisualInterna: addFiveYears(parsed.data.fechaRealizacion),
       ...(parsed.data.numeroInspeccion
         ? { numeroUltimaInspeccionVisualInterna: parsed.data.numeroInspeccion }
         : {}),
@@ -111,7 +125,7 @@ export async function createInternalVisualInspectionLog(
     create: {
       vehicleRecordId: vehicleId,
       ultimaInspeccionVisualInterna: parsed.data.fechaRealizacion,
-      fechaProximaInspeccionVisualInterna: addTenYears(parsed.data.fechaRealizacion),
+      fechaProximaInspeccionVisualInterna: addFiveYears(parsed.data.fechaRealizacion),
       numeroUltimaInspeccionVisualInterna: parsed.data.numeroInspeccion,
     },
   });

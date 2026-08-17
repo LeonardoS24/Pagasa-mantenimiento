@@ -974,10 +974,10 @@ export function TechnicalSheetForm({
           <CustomFieldInputs campos={camposExtra} seccion="visualInterna" valores={valoresExtra} />
         </div>
         <p className="mt-2 text-xs text-ink">
-          Vence cada 10 años a partir de la fecha de fabricación del tanque. Si se deja vacía, se
-          calcula sola al guardar; cada vez que se acepte un registro nuevo se recorre otros 10
-          años. Marca en amarillo/rojo con advertencias en el panel de alertas del inicio, igual
-          que las demás pruebas.
+          La primera vence a los 10 años de la fecha de fabricación del tanque; si se deja vacía,
+          se calcula sola al guardar. De ahí en adelante, cada vez que se acepte un registro nuevo
+          se recorre 5 años, no 10. Marca en amarillo/rojo con advertencias en el panel de alertas
+          del inicio, igual que las demás pruebas.
         </p>
       </div>
 
@@ -1037,8 +1037,8 @@ export function TechnicalSheetForm({
           <CustomFieldInputs campos={camposExtra} seccion="hidrostatica" valores={valoresExtra} />
         </div>
         <p className="mt-2 text-xs text-ink">
-          Vence cada 10 años a partir de la fecha de fabricación del tanque, con el mismo cálculo
-          automático que la inspección visual interna.
+          La primera vence a los 10 años de la fecha de fabricación del tanque y de ahí en
+          adelante cada 5, con el mismo cálculo automático que la inspección visual interna.
         </p>
       </div>
       </>
