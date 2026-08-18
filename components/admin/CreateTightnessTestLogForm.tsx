@@ -26,12 +26,14 @@ const inputClass =
 
 export function CreateTightnessTestLogForm({
   vehicleId,
+  stationTankTechnicalSheetId,
   ultimaPruebaHermeticidad,
 }: {
   vehicleId: string;
+  stationTankTechnicalSheetId?: string | null;
   ultimaPruebaHermeticidad: string;
 }) {
-  const action = createTightnessTestLog.bind(null, vehicleId);
+  const action = createTightnessTestLog.bind(null, vehicleId, stationTankTechnicalSheetId ?? null);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 

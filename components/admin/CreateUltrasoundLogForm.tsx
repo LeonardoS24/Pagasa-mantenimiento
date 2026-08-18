@@ -26,12 +26,14 @@ const inputClass =
 
 export function CreateUltrasoundLogForm({
   vehicleId,
+  stationTankTechnicalSheetId,
   ultimoUltrasonido,
 }: {
   vehicleId: string;
+  stationTankTechnicalSheetId?: string | null;
   ultimoUltrasonido: string;
 }) {
-  const action = createUltrasoundLog.bind(null, vehicleId);
+  const action = createUltrasoundLog.bind(null, vehicleId, stationTankTechnicalSheetId ?? null);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 

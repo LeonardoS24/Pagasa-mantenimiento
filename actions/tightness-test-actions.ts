@@ -43,6 +43,7 @@ const createTightnessTestLogSchema = z.object({
 
 export async function createTightnessTestLog(
   vehicleId: string,
+  stationTankTechnicalSheetId: string | null,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
@@ -79,9 +80,22 @@ export async function createTightnessTestLog(
   // (ver lib/access.ts).
   await assertCityAccessById(editor, vehicle.section.cityId);
 
+  // Cuando la estación/planta tiene varios tanques, cada uno lleva su propio
+  // ciclo de prueba de hermeticidad; se valida que el id en verdad sea un
+  // tanque de este registro antes de escribir en él.
+  let tank: { id: string } | null = null;
+  if (stationTankTechnicalSheetId) {
+    tank = await prisma.stationTankTechnicalSheet.findFirst({
+      where: { id: stationTankTechnicalSheetId, vehicleRecordId: vehicleId },
+      select: { id: true },
+    });
+    if (!tank) return { error: "El tanque no corresponde a este registro." };
+  }
+
   const log = await prisma.tightnessTestLog.create({
     data: {
       vehicleRecordId: vehicleId,
+      stationTankTechnicalSheetId: tank?.id ?? null,
       createdById: editor.userId,
       ...parsed.data,
     },
@@ -104,21 +118,33 @@ export async function createTightnessTestLog(
 
   // Al aceptar el registro, la ficha técnica refleja automáticamente la
   // prueba recién realizada como la "última prueba de hermeticidad" y la
-  // fecha capturada como la "próxima" (la que dispara la alerta).
-  await prisma.vehicleTechnicalSheet.upsert({
-    where: { vehicleRecordId: vehicleId },
-    update: {
-      ultimaPruebaHermeticidad: parsed.data.fechaRealizacion,
-      fechaProximaPruebaHermeticidad: parsed.data.fechaProximaPrueba,
-      ...(parsed.data.numeroPrueba ? { numeroUltimaPruebaHermeticidad: parsed.data.numeroPrueba } : {}),
-    },
-    create: {
-      vehicleRecordId: vehicleId,
-      ultimaPruebaHermeticidad: parsed.data.fechaRealizacion,
-      fechaProximaPruebaHermeticidad: parsed.data.fechaProximaPrueba,
-      numeroUltimaPruebaHermeticidad: parsed.data.numeroPrueba,
-    },
-  });
+  // fecha capturada como la "próxima" (la que dispara la alerta). Si es de
+  // un tanque específico, se guarda en ESE tanque.
+  if (tank) {
+    await prisma.stationTankTechnicalSheet.update({
+      where: { id: tank.id },
+      data: {
+        ultimaPruebaHermeticidad: parsed.data.fechaRealizacion,
+        fechaProximaPruebaHermeticidad: parsed.data.fechaProximaPrueba,
+        ...(parsed.data.numeroPrueba ? { numeroUltimaPruebaHermeticidad: parsed.data.numeroPrueba } : {}),
+      },
+    });
+  } else {
+    await prisma.vehicleTechnicalSheet.upsert({
+      where: { vehicleRecordId: vehicleId },
+      update: {
+        ultimaPruebaHermeticidad: parsed.data.fechaRealizacion,
+        fechaProximaPruebaHermeticidad: parsed.data.fechaProximaPrueba,
+        ...(parsed.data.numeroPrueba ? { numeroUltimaPruebaHermeticidad: parsed.data.numeroPrueba } : {}),
+      },
+      create: {
+        vehicleRecordId: vehicleId,
+        ultimaPruebaHermeticidad: parsed.data.fechaRealizacion,
+        fechaProximaPruebaHermeticidad: parsed.data.fechaProximaPrueba,
+        numeroUltimaPruebaHermeticidad: parsed.data.numeroPrueba,
+      },
+    });
+  }
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
   return { success: "Prueba de hermeticidad registrada y ficha técnica actualizada." };

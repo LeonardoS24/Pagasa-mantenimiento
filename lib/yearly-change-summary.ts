@@ -1,8 +1,9 @@
+import type { StationTankTechnicalSheet } from "@prisma/client";
 import { prisma } from "./prisma";
 import { isAlertVisibleForSection, type AlertType } from "./alert-visibility";
 import { getValveVencimiento, type ValveDates } from "./valve-alerts";
 import { getHoseVencimiento } from "./hose-alerts";
-import { getStationValveVencimiento, type StationValveDates } from "./station-valves";
+import { getStationValveVencimiento } from "./station-valves";
 import { ESTACION_LIKE_SECTION_SLUGS } from "./estacion-sections";
 
 // A qué ámbito pertenece el resumen: una unidad normal o una Estación de
@@ -52,6 +53,26 @@ export const STATION_SUMMARY_TYPES: YearlySummaryTypeId[] = [
 
 export function summaryTypesForAmbito(ambito: ResumenAmbito): YearlySummaryTypeId[] {
   return ambito === "ESTACIONES" ? STATION_SUMMARY_TYPES : YEARLY_SUMMARY_TYPES;
+}
+
+// Los 5 tipos que, para una estación/planta con más de un tanque físico,
+// viven por separado en cada StationTankTechnicalSheet en vez de en la ficha
+// compartida (ver app/(protected)/ciudades/[citySlug]/vehiculo/[vehicleId]/page.tsx
+// e isMultiTanque ahí) — "valvulas" ya tenía su propio manejo por tanque
+// aparte, y extintor/mangueras no aplican a una estación fija.
+const INSPECTION_TYPES_WITH_TANK: YearlySummaryTypeId[] = [
+  "ultrasonido",
+  "visualExterna",
+  "visualInterna",
+  "hermeticidad",
+  "hidrostatica",
+];
+
+// Clave para juntar bitácoras con su tanque: sin tanque (estación de un solo
+// tanque, o cualquier tipo/ámbito que no aplique) usa solo el id del
+// registro, igual que siempre.
+function tankLogKey(vehicleRecordId: string, stationTankTechnicalSheetId?: string | null): string {
+  return stationTankTechnicalSheetId ? `${vehicleRecordId}:${stationTankTechnicalSheetId}` : vehicleRecordId;
 }
 
 export const yearlySummaryLabels: Record<YearlySummaryTypeId, string> = {
@@ -108,6 +129,7 @@ export const yearlySummaryAnchors: Record<YearlySummaryTypeId, string> = {
 export interface YearlySummaryItem {
   id: string;
   numeroEconomico: string;
+  sectionSlug: string;
   citySlug: string;
   cityName: string;
   dueDate: Date | null;
@@ -146,10 +168,31 @@ function getDueDate(
   type: YearlySummaryTypeId,
   sheet: TechnicalSheetLike,
   ambito: ResumenAmbito,
-  stationSheet?: StationValveDates | null
+  stationSheet?: StationTankTechnicalSheet | null,
+  useTankFields?: boolean
 ): Date | null {
   if (type === "valvulas" && ambito === "ESTACIONES") {
     return stationSheet ? getStationValveVencimiento(stationSheet) : null;
+  }
+  // Estación/planta con varios tanques: para estos 5 tipos, cada tanque
+  // agenda su propia fecha próxima (ver StationTankTechnicalSheet), no la
+  // ficha compartida del registro.
+  if (useTankFields) {
+    if (!stationSheet) return null;
+    switch (type) {
+      case "ultrasonido":
+        return stationSheet.fechaProximoUltrasonido;
+      case "visualExterna":
+        return stationSheet.fechaProximaInspeccionVisual;
+      case "visualInterna":
+        return stationSheet.fechaProximaInspeccionVisualInterna;
+      case "hermeticidad":
+        return stationSheet.fechaProximaPruebaHermeticidad;
+      case "hidrostatica":
+        return stationSheet.fechaProximaPruebaHidrostatica;
+      default:
+        return null;
+    }
   }
   if (!sheet) return null;
   switch (type) {
@@ -204,7 +247,11 @@ async function getLogDatesThisYear(
   if (type === "valvulas" && ambito === "ESTACIONES") return new Map();
 
   const where = { vehicleRecordId: { in: vehicleIds } };
-  let rows: { vehicleRecordId: string; fecha: Date }[];
+  // Los 5 tipos con tanque (ver INSPECTION_TYPES_WITH_TANK) sí guardan
+  // stationTankTechnicalSheetId en su bitácora: para una estación/planta con
+  // varios tanques, la fecha "ya registrada" hay que juntarla por tanque, no
+  // por registro completo (ver tankLogKey).
+  let rows: { key: string; fecha: Date }[];
 
   switch (type) {
     case "extintor":
@@ -214,52 +261,52 @@ async function getLogDatesThisYear(
           select: { vehicleRecordId: true, fechaRealizacion: true },
           orderBy: { fechaRealizacion: "desc" },
         })
-      ).map((r) => ({ vehicleRecordId: r.vehicleRecordId, fecha: r.fechaRealizacion }));
+      ).map((r) => ({ key: r.vehicleRecordId, fecha: r.fechaRealizacion }));
       break;
     case "ultrasonido":
       rows = (
         await prisma.ultrasoundLog.findMany({
           where: { ...where, fechaRealizacion: { gte: yearStart, lt: yearEnd } },
-          select: { vehicleRecordId: true, fechaRealizacion: true },
+          select: { vehicleRecordId: true, stationTankTechnicalSheetId: true, fechaRealizacion: true },
           orderBy: { fechaRealizacion: "desc" },
         })
-      ).map((r) => ({ vehicleRecordId: r.vehicleRecordId, fecha: r.fechaRealizacion }));
+      ).map((r) => ({ key: tankLogKey(r.vehicleRecordId, r.stationTankTechnicalSheetId), fecha: r.fechaRealizacion }));
       break;
     case "visualExterna":
       rows = (
         await prisma.visualInspectionLog.findMany({
           where: { ...where, fechaRealizacion: { gte: yearStart, lt: yearEnd } },
-          select: { vehicleRecordId: true, fechaRealizacion: true },
+          select: { vehicleRecordId: true, stationTankTechnicalSheetId: true, fechaRealizacion: true },
           orderBy: { fechaRealizacion: "desc" },
         })
-      ).map((r) => ({ vehicleRecordId: r.vehicleRecordId, fecha: r.fechaRealizacion }));
+      ).map((r) => ({ key: tankLogKey(r.vehicleRecordId, r.stationTankTechnicalSheetId), fecha: r.fechaRealizacion }));
       break;
     case "visualInterna":
       rows = (
         await prisma.internalVisualInspectionLog.findMany({
           where: { ...where, fechaRealizacion: { gte: yearStart, lt: yearEnd } },
-          select: { vehicleRecordId: true, fechaRealizacion: true },
+          select: { vehicleRecordId: true, stationTankTechnicalSheetId: true, fechaRealizacion: true },
           orderBy: { fechaRealizacion: "desc" },
         })
-      ).map((r) => ({ vehicleRecordId: r.vehicleRecordId, fecha: r.fechaRealizacion }));
+      ).map((r) => ({ key: tankLogKey(r.vehicleRecordId, r.stationTankTechnicalSheetId), fecha: r.fechaRealizacion }));
       break;
     case "hermeticidad":
       rows = (
         await prisma.tightnessTestLog.findMany({
           where: { ...where, fechaRealizacion: { gte: yearStart, lt: yearEnd } },
-          select: { vehicleRecordId: true, fechaRealizacion: true },
+          select: { vehicleRecordId: true, stationTankTechnicalSheetId: true, fechaRealizacion: true },
           orderBy: { fechaRealizacion: "desc" },
         })
-      ).map((r) => ({ vehicleRecordId: r.vehicleRecordId, fecha: r.fechaRealizacion }));
+      ).map((r) => ({ key: tankLogKey(r.vehicleRecordId, r.stationTankTechnicalSheetId), fecha: r.fechaRealizacion }));
       break;
     case "hidrostatica":
       rows = (
         await prisma.hydrostaticTestLog.findMany({
           where: { ...where, fechaRealizacion: { gte: yearStart, lt: yearEnd } },
-          select: { vehicleRecordId: true, fechaRealizacion: true },
+          select: { vehicleRecordId: true, stationTankTechnicalSheetId: true, fechaRealizacion: true },
           orderBy: { fechaRealizacion: "desc" },
         })
-      ).map((r) => ({ vehicleRecordId: r.vehicleRecordId, fecha: r.fechaRealizacion }));
+      ).map((r) => ({ key: tankLogKey(r.vehicleRecordId, r.stationTankTechnicalSheetId), fecha: r.fechaRealizacion }));
       break;
     case "valvulas":
       rows = (
@@ -268,7 +315,7 @@ async function getLogDatesThisYear(
           select: { vehicleRecordId: true, fechaInstalacion: true },
           orderBy: { fechaInstalacion: "desc" },
         })
-      ).map((r) => ({ vehicleRecordId: r.vehicleRecordId, fecha: r.fechaInstalacion }));
+      ).map((r) => ({ key: r.vehicleRecordId, fecha: r.fechaInstalacion }));
       break;
     case "mangueras":
       rows = (
@@ -277,14 +324,14 @@ async function getLogDatesThisYear(
           select: { vehicleRecordId: true, fechaInstalacion: true },
           orderBy: { fechaInstalacion: "desc" },
         })
-      ).map((r) => ({ vehicleRecordId: r.vehicleRecordId, fecha: r.fechaInstalacion }));
+      ).map((r) => ({ key: r.vehicleRecordId, fecha: r.fechaInstalacion }));
       break;
   }
 
   const map = new Map<string, Date>();
   for (const row of rows) {
-    // orderBy desc: la primera vez que se ve una unidad es su fecha más reciente.
-    if (!map.has(row.vehicleRecordId)) map.set(row.vehicleRecordId, row.fecha);
+    // orderBy desc: la primera vez que se ve una clave es su fecha más reciente.
+    if (!map.has(row.key)) map.set(row.key, row.fecha);
   }
   return map;
 }
@@ -338,29 +385,33 @@ export async function getYearlySummary(
   const completed: YearlySummaryCompletedItem[] = [];
 
   for (const v of inScope) {
-    const fechaRegistro = logDates.get(v.id);
-    // Válvulas de estación: cada tanque tiene su propio juego (ver
-    // lib/station-valves.ts), así que una estación con dos tanques aparece
-    // como dos renglones — uno por tanque, ya que pueden vencer en fechas
-    // distintas. El resto de los tipos sigue siendo un solo renglón por
-    // unidad, igual que antes.
-    const tanques: (StationValveDates | null)[] =
-      type === "valvulas" && ambito === "ESTACIONES"
-        ? v.stationTankTechnicalSheets.length > 0
-          ? v.stationTankTechnicalSheets
-          : [null]
-        : [v.stationTankTechnicalSheets[0] ?? null];
+    const isMultiTanqueRecord = v.stationTankTechnicalSheets.length > 1;
+    // Cuándo se abre un renglón por tanque en vez de uno por registro:
+    // válvulas de estación siempre (juego propio de cada tanque, ver
+    // lib/station-valves.ts), y los 5 tipos de inspección solo cuando el
+    // registro de verdad tiene más de un tanque (con uno solo, la fecha
+    // sigue viviendo en la ficha compartida, igual que siempre).
+    const useTankFields =
+      ambito === "ESTACIONES" && INSPECTION_TYPES_WITH_TANK.includes(type) && isMultiTanqueRecord;
+    const usesTankLoop = ambito === "ESTACIONES" && (type === "valvulas" || useTankFields);
+
+    const tanques: (StationTankTechnicalSheet | null)[] = usesTankLoop
+      ? v.stationTankTechnicalSheets.length > 0
+        ? v.stationTankTechnicalSheets
+        : [null]
+      : [v.stationTankTechnicalSheets[0] ?? null];
 
     for (const tanque of tanques) {
-      const sufijo =
-        tanques.length > 1 && tanque && "etiqueta" in tanque ? ` (${tanque.etiqueta})` : "";
+      const sufijo = tanques.length > 1 && tanque ? ` (${tanque.etiqueta})` : "";
       const base = {
         id: v.id,
         numeroEconomico: `${v.numeroEconomico}${sufijo}`,
+        sectionSlug: v.section.slug,
         citySlug: v.section.city.slug,
         cityName: v.section.city.name,
       };
-      const dueDate = getDueDate(type, v.technicalSheet, ambito, tanque);
+      const dueDate = getDueDate(type, v.technicalSheet, ambito, tanque, useTankFields);
+      const fechaRegistro = logDates.get(useTankFields && tanque ? tankLogKey(v.id, tanque.id) : v.id);
 
       if (fechaRegistro) {
         completed.push({ ...base, dueDate, fechaRegistro });

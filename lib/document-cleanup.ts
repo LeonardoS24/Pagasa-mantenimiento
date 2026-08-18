@@ -13,6 +13,7 @@ const camposDeDueno = {
   internalVisualInspectionLogId: true,
   hydrostaticTestLogId: true,
   extinguisherChangeLogId: true,
+  insurancePolicyLogId: true,
   valveChangeLogId: true,
   valveCorrectiveMaintenanceLogId: true,
   hoseChangeLogId: true,

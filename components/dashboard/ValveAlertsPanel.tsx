@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { verRecordLabel } from "@/lib/section-labels";
 import {
   valveAlertBadgeStyles,
   valveAlertRowStyles,
@@ -10,6 +11,7 @@ import {
 
 type AlertVehicle = {
   id: string;
+  sectionSlug: string;
   numeroEconomico: string;
   citySlug: string;
   cityName: string;
@@ -52,7 +54,7 @@ export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
                 href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}`}
                 className="text-xs font-medium text-primary hover:underline"
               >
-                Ver unidad →
+                {verRecordLabel(vehicle.sectionSlug)} →
               </Link>
             </span>
           </li>

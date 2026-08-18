@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
+import { verRecordLabel } from "@/lib/section-labels";
 import type { YearlySummaryItem, YearlySummaryCompletedItem } from "@/lib/yearly-change-summary";
 
 // Vista compartida por las 8 pestañas de tipo en Admin > Resumen: la lista
@@ -55,7 +56,7 @@ export function YearlyDueList({
                       href={`/ciudades/${item.citySlug}/vehiculo/${item.id}#${anchor}`}
                       className="text-xs font-medium text-primary hover:underline"
                     >
-                      Ver unidad →
+                      {verRecordLabel(item.sectionSlug)} →
                     </Link>
                   </span>
                 </li>
@@ -85,7 +86,7 @@ export function YearlyDueList({
                     href={`/ciudades/${item.citySlug}/vehiculo/${item.id}#${anchor}`}
                     className="text-xs font-medium text-primary hover:underline"
                   >
-                    Ver unidad →
+                    {verRecordLabel(item.sectionSlug)} →
                   </Link>
                 </span>
               </li>

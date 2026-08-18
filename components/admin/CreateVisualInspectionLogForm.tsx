@@ -26,12 +26,14 @@ const inputClass =
 
 export function CreateVisualInspectionLogForm({
   vehicleId,
+  stationTankTechnicalSheetId,
   ultimaInspeccionVisual,
 }: {
   vehicleId: string;
+  stationTankTechnicalSheetId?: string | null;
   ultimaInspeccionVisual: string;
 }) {
-  const action = createVisualInspectionLog.bind(null, vehicleId);
+  const action = createVisualInspectionLog.bind(null, vehicleId, stationTankTechnicalSheetId ?? null);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 

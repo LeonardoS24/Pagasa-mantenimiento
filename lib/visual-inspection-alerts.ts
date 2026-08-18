@@ -42,18 +42,20 @@ export function visualInspectionAlertLabel(level: VisualInspectionAlertLevel, fe
 export function visualInspectionAlertMessage(
   level: VisualInspectionAlertLevel,
   fecha: Date,
-  numeroEconomico: string
+  numeroEconomico: string,
+  etiquetaTanque?: string
 ): string | null {
   if (level === "none") return null;
+  const nombre = etiquetaTanque ? `${numeroEconomico} — ${etiquetaTanque}` : numeroEconomico;
   const daysLeft = daysUntil(fecha);
   if (level === "red") {
     if (daysLeft < 0) {
-      return `¡URGENTE! La inspección visual externa del tanque de "${numeroEconomico}" está VENCIDA desde hace ${Math.abs(daysLeft)} día(s).`;
+      return `¡URGENTE! La inspección visual externa del tanque de "${nombre}" está VENCIDA desde hace ${Math.abs(daysLeft)} día(s).`;
     }
     if (daysLeft === 0) {
-      return `¡URGENTE! La inspección visual externa del tanque de "${numeroEconomico}" vence HOY.`;
+      return `¡URGENTE! La inspección visual externa del tanque de "${nombre}" vence HOY.`;
     }
-    return `¡URGENTE! Solo falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para la inspección visual externa del tanque de "${numeroEconomico}".`;
+    return `¡URGENTE! Solo falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para la inspección visual externa del tanque de "${nombre}".`;
   }
-  return `Atención: falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para la próxima inspección visual externa del tanque de "${numeroEconomico}".`;
+  return `Atención: falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para la próxima inspección visual externa del tanque de "${nombre}".`;
 }

@@ -23,6 +23,7 @@ import {
   equipoOwnerKey,
   equipmentLogOwnerKey,
   MAX_DOCUMENT_SIZE,
+  insurancePolicyLogOwnerKey,
 } from "@/lib/documents";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import type { ActionState } from "./user-actions";
@@ -453,6 +454,51 @@ export async function uploadHydrostaticTestLogDocument(
   return { success: "PDF subido correctamente." };
 }
 
+export async function uploadInsurancePolicyDocument(
+  insurancePolicyLogId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const sessionError = await checkSessionUserExists(editor);
+  if (sessionError) return { error: sessionError };
+
+  const file = readPdfFromForm(formData);
+  if (!(file instanceof File)) return file;
+
+  const log = await prisma.insurancePolicyLog.findUnique({
+    where: { id: insurancePolicyLogId },
+    include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+  });
+  if (!log) {
+    return { error: "El registro no existe." };
+  }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, log.vehicleRecordId);
+
+  const { storedName } = await saveDocumentFile(
+    insurancePolicyLogOwnerKey(insurancePolicyLogId),
+    file
+  );
+
+  await prisma.document.create({
+    data: {
+      sectionId: log.vehicleRecord.sectionId,
+      insurancePolicyLogId,
+      fileName: file.name,
+      storedName,
+      mimeType: file.type,
+      size: file.size,
+      uploadedById: editor.userId,
+    },
+  });
+
+  revalidatePath(
+    `/ciudades/${log.vehicleRecord.section.city.slug}/vehiculo/${log.vehicleRecordId}`
+  );
+  return { success: "Documento subido correctamente." };
+}
+
 export async function uploadExtinguisherChangeLogDocument(
   extinguisherChangeLogId: string,
   _prevState: ActionState,
@@ -745,6 +791,9 @@ export async function deleteDocument(
       },
       equipo: { include: { section: { include: { city: true } } } },
       equipmentLog: { include: { equipo: { include: { section: { include: { city: true } } } } } },
+      insurancePolicyLog: {
+        include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
+      },
     },
   });
   if (!document) {
@@ -783,9 +832,11 @@ export async function deleteDocument(
                         ? equipmentLogOwnerKey(document.equipmentLogId)
                         : document.equipoId
                           ? equipoOwnerKey(document.equipoId)
-                          : document.vehicleRecordId
-                            ? vehicleOwnerKey(document.vehicleRecordId)
-                            : document.sectionId;
+                          : document.insurancePolicyLogId
+                            ? insurancePolicyLogOwnerKey(document.insurancePolicyLogId)
+                            : document.vehicleRecordId
+                              ? vehicleOwnerKey(document.vehicleRecordId)
+                              : document.sectionId;
   await deleteDocumentFile(ownerKey, document.storedName);
   await prisma.document.delete({ where: { id: documentId } });
 
@@ -824,6 +875,9 @@ export async function deleteDocument(
     revalidatePath(`/ciudades/${equipo.section.city.slug}/equipo/${equipo.id}`);
   } else if (document.equipo) {
     revalidatePath(`/ciudades/${document.equipo.section.city.slug}/equipo/${document.equipo.id}`);
+  } else if (document.insurancePolicyLog) {
+    const vehicle = document.insurancePolicyLog.vehicleRecord;
+    revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicle.id}`);
   } else if (document.vehicleRecordId) {
     revalidatePath(`/ciudades/${document.section.city.slug}/vehiculo/${document.vehicleRecordId}`);
   } else {

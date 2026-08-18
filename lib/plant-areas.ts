@@ -1,9 +1,8 @@
 // Las 15 áreas operativas fijas de una Planta almacenadora de GLP (texto
 // exacto de las normas que rigen la operación de la planta). No son filas
-// editables de una tabla: son la misma lista fija en toda la app, usada
-// tanto para el apartado "Áreas de planta" (checklist de mantenimiento, ver
-// PlantAreaMaintenanceLog) como para el selector de ubicación de los equipos
-// de Planta (ver Equipo.ubicacion).
+// editables de una tabla: son la misma lista fija en toda la app. Hoy se usan
+// como el catálogo de ubicaciones de los equipos de Planta, que se eligen de
+// aquí en vez de escribirse a mano (ver Equipo.ubicacion y EquipoForm).
 export const PLANT_AREAS = [
   { clave: "A", nombre: "Báscula de pesaje de unidades" },
   { clave: "B", nombre: "Área de recepción de GLP mediante semirremolque" },

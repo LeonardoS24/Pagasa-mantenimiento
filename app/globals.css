@@ -5,3 +5,60 @@
 body {
   color: #4b4f58;
 }
+
+/* Reglas de impresión. Sin esto el navegador parte por donde caiga y un dato
+   queda con la etiqueta al final de una hoja y su valor al principio de la
+   siguiente, o una línea de texto cortada a la mitad de arriba abajo. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  /* El indicador de Next.js (la burbuja de la esquina inferior izquierda que
+     dice "1 error" o muestra el estado de compilación) vive fuera del árbol
+     de la página, así que ninguna clase de Tailwind lo alcanza y salía
+     impreso en la hoja. Solo existe en modo desarrollo, pero como el sistema
+     hoy se sirve así, hay que ocultarlo explícitamente. */
+  nextjs-portal,
+  [data-nextjs-toast],
+  [data-nextjs-dialog-overlay],
+  #__next-build-watcher {
+    display: none !important;
+  }
+
+  /* Cada dato (etiqueta + valor) es una celda de una <dl>: se mantiene
+     entero. Esto es lo que evita ver medio renglón en cada hoja. */
+  dl > div,
+  figure,
+  li,
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Un título nunca se queda solo al pie de la hoja con su contenido en la
+     siguiente. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Nada de párrafos que dejen una sola línea suelta arriba o abajo. */
+  p,
+  dd {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Las páginas de PDF y las fotos se imprimen completas, nunca partidas, y
+     sin desbordar el ancho de la hoja (ver PrintPdfPages). */
+  img,
+  canvas {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    max-width: 100%;
+  }
+}

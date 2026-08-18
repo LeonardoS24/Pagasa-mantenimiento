@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { verRecordLabel } from "@/lib/section-labels";
 import {
   internalVisualInspectionAlertBadgeStyles,
   internalVisualInspectionAlertLabel,
@@ -8,10 +9,12 @@ import {
 
 type AlertVehicle = {
   id: string;
+  sectionSlug: string;
   numeroEconomico: string;
   citySlug: string;
   cityName: string;
   fechaProximaInspeccionVisualInterna: Date;
+  etiquetaTanque?: string;
   level: InternalVisualInspectionAlertLevel;
 };
 
@@ -24,9 +27,9 @@ export function InternalVisualInspectionAlertsPanel({ vehicles }: { vehicles: Al
         Alertas de inspección visual interna de tanque
       </h2>
       <ul className="space-y-2">
-        {vehicles.map((vehicle) => (
+        {vehicles.map((vehicle, i) => (
           <li
-            key={vehicle.id}
+            key={`${vehicle.id}-${i}`}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${
               vehicle.level === "red" ? "bg-red-50" : "bg-yellow-50"
             }`}
@@ -35,7 +38,8 @@ export function InternalVisualInspectionAlertsPanel({ vehicles }: { vehicles: Al
               {internalVisualInspectionAlertMessage(
                 vehicle.level,
                 vehicle.fechaProximaInspeccionVisualInterna,
-                vehicle.numeroEconomico
+                vehicle.numeroEconomico,
+                vehicle.etiquetaTanque
               )}
               {" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
@@ -53,7 +57,7 @@ export function InternalVisualInspectionAlertsPanel({ vehicles }: { vehicles: Al
                 href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}`}
                 className="text-xs font-medium text-primary hover:underline"
               >
-                Ver unidad →
+                {verRecordLabel(vehicle.sectionSlug)} →
               </Link>
             </span>
           </li>

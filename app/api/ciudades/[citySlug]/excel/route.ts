@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buildCityFleetWorkbook } from "@/lib/vehicle-excel-export";
+import {
+  buildCityFleetWorkbook,
+  buildAllCitiesFleetWorkbook,
+  excelFileName,
+  type ExcelAmbito,
+} from "@/lib/vehicle-excel-export";
+import { isAggregateCitySlug } from "@/lib/aggregate-city";
 
-export async function GET(_request: NextRequest, { params }: { params: { citySlug: string } }) {
+const VALID_AMBITOS: ExcelAmbito[] = ["todo", "unidades", "estaciones", "planta"];
+
+export async function GET(request: NextRequest, { params }: { params: { citySlug: string } }) {
   const session = await getSession();
   if (!session.userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -31,8 +39,19 @@ export async function GET(_request: NextRequest, { params }: { params: { citySlu
     }
   }
 
-  const { buffer, cityName } = await buildCityFleetWorkbook(params.citySlug);
-  const fileName = `Flotilla ${cityName}.xlsx`;
+  const ambitoParam = request.nextUrl.searchParams.get("ambito");
+  const ambito: ExcelAmbito = VALID_AMBITOS.includes(ambitoParam as ExcelAmbito)
+    ? (ambitoParam as ExcelAmbito)
+    : "todo";
+
+  // Administración no tiene unidades/estaciones propias (ver
+  // lib/aggregate-city.ts): su descarga junta las de todas las ciudades
+  // reales en vez de salir vacía.
+  const { buffer, cityName } = isAggregateCitySlug(city.slug)
+    ? await buildAllCitiesFleetWorkbook(ambito)
+    : await buildCityFleetWorkbook(params.citySlug, ambito);
+
+  const fileName = excelFileName(cityName, ambito);
   const asciiFallback = fileName.replace(/[^\x20-\x7E]/g, "_");
 
   return new NextResponse(new Uint8Array(buffer), {

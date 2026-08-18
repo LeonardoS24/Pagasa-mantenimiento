@@ -46,18 +46,20 @@ export function ultrasoundAlertLabel(level: UltrasoundAlertLevel, fecha: Date): 
 export function ultrasoundAlertMessage(
   level: UltrasoundAlertLevel,
   fecha: Date,
-  numeroEconomico: string
+  numeroEconomico: string,
+  etiquetaTanque?: string
 ): string | null {
   if (level === "none") return null;
+  const nombre = etiquetaTanque ? `${numeroEconomico} — ${etiquetaTanque}` : numeroEconomico;
   const daysLeft = daysUntil(fecha);
   if (level === "red") {
     if (daysLeft < 0) {
-      return `¡URGENTE! El ultrasonido del tanque de "${numeroEconomico}" está VENCIDO desde hace ${Math.abs(daysLeft)} día(s).`;
+      return `¡URGENTE! El ultrasonido del tanque de "${nombre}" está VENCIDO desde hace ${Math.abs(daysLeft)} día(s).`;
     }
     if (daysLeft === 0) {
-      return `¡URGENTE! El ultrasonido del tanque de "${numeroEconomico}" vence HOY.`;
+      return `¡URGENTE! El ultrasonido del tanque de "${nombre}" vence HOY.`;
     }
-    return `¡URGENTE! Solo falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para el ultrasonido del tanque de "${numeroEconomico}".`;
+    return `¡URGENTE! Solo falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para el ultrasonido del tanque de "${nombre}".`;
   }
-  return `Atención: falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para el próximo ultrasonido del tanque de "${numeroEconomico}".`;
+  return `Atención: falta${daysLeft === 1 ? "" : "n"} ${daysLeft} día(s) para el próximo ultrasonido del tanque de "${nombre}".`;
 }

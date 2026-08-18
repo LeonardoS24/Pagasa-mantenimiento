@@ -68,6 +68,11 @@ export function extinguisherChangeLogOwnerKey(extinguisherChangeLogId: string): 
   return path.posix.join("extinguisher-change-logs", extinguisherChangeLogId);
 }
 
+export function insurancePolicyLogOwnerKey(insurancePolicyLogId: string): string {
+  return `poliza-seguro/${insurancePolicyLogId}`;
+}
+
+
 export function valveChangeLogOwnerKey(valveChangeLogId: string): string {
   return path.posix.join("valve-change-logs", valveChangeLogId);
 }
@@ -101,6 +106,7 @@ export type DocumentOwnerFields = {
   internalVisualInspectionLogId: string | null;
   hydrostaticTestLogId: string | null;
   extinguisherChangeLogId: string | null;
+  insurancePolicyLogId: string | null;
   valveChangeLogId: string | null;
   valveCorrectiveMaintenanceLogId: string | null;
   hoseChangeLogId: string | null;
@@ -116,6 +122,7 @@ export function ownerKeyForDocument(document: DocumentOwnerFields): string {
   if (document.internalVisualInspectionLogId)
     return internalVisualInspectionLogOwnerKey(document.internalVisualInspectionLogId);
   if (document.hydrostaticTestLogId) return hydrostaticTestLogOwnerKey(document.hydrostaticTestLogId);
+  if (document.insurancePolicyLogId) return insurancePolicyLogOwnerKey(document.insurancePolicyLogId);
   if (document.extinguisherChangeLogId)
     return extinguisherChangeLogOwnerKey(document.extinguisherChangeLogId);
   if (document.valveChangeLogId) return valveChangeLogOwnerKey(document.valveChangeLogId);

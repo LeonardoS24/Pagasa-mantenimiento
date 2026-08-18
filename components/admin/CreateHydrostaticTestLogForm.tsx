@@ -26,12 +26,14 @@ const inputClass =
 
 export function CreateHydrostaticTestLogForm({
   vehicleId,
+  stationTankTechnicalSheetId,
   ultimaPruebaHidrostatica,
 }: {
   vehicleId: string;
+  stationTankTechnicalSheetId?: string | null;
   ultimaPruebaHidrostatica: string;
 }) {
-  const action = createHydrostaticTestLog.bind(null, vehicleId);
+  const action = createHydrostaticTestLog.bind(null, vehicleId, stationTankTechnicalSheetId ?? null);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 

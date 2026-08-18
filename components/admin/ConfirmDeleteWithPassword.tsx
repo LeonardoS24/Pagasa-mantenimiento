@@ -33,7 +33,7 @@ export function ConfirmDeleteWithPassword({
   children,
 }: {
   nombre: string;
-  tipo: "ciudad" | "apartado" | "unidad" | "equipo";
+  tipo: "ciudad" | "apartado" | "unidad" | "equipo" | "estacion" | "planta";
   action: (prevState: ActionState, formData: FormData) => Promise<ActionState>;
   cargarImpacto: () => Promise<{ impacto: DeleteImpact; pideContrasena: boolean }>;
   className?: string;
@@ -86,7 +86,11 @@ export function ConfirmDeleteWithPassword({
             ? "el apartado"
             : tipo === "equipo"
               ? "el equipo"
-              : "la unidad"}{" "}
+              : tipo === "estacion"
+                ? "la estación"
+                : tipo === "planta"
+                  ? "la planta"
+                  : "la unidad"}{" "}
         <span className="font-semibold">“{nombre}”</span>.
       </p>
 
@@ -99,7 +103,7 @@ export function ConfirmDeleteWithPassword({
       >
         {impactTotal(impacto) === 0
           ? `${
-              tipo === "unidad" || tipo === "equipo"
+              tipo === "unidad" || tipo === "equipo" || tipo === "estacion" || tipo === "planta"
                 ? "No tiene bitácoras ni documentos registrados."
                 : "No contiene unidades, bitácoras ni documentos."
             }${

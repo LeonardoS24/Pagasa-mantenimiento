@@ -452,6 +452,66 @@ const technicalSheetSchema = z.object({
   }
 });
 
+// Campos de "Automóvil" que son el mismo dato físico sin importar en cuál de
+// los dos apartados se esté viendo la ficha: es el mismo camión, aunque su
+// ficha en Auto-Tanques/Vehículo de reparto/Unidades utilitarias hable del
+// tanque de carga y la de Vehículo con tanque de carburación hable del
+// tanque de carburación — todo lo demás de la ficha (tanque, válvulas,
+// mangueras, extintor, mantenimiento, inspecciones) SÍ es propio de cada
+// tanque físico y no se sincroniza.
+//
+// peso queda fuera a propósito: Vehículo de reparto y Vehículo con tanque de
+// carburación lo capturan como pesoBrutoVacio/pesoBrutoMaximo, pero
+// Auto-Tanques y Unidades utilitarias usan un solo campo "peso" (ver
+// useDeliveryFormat) — no son el mismo campo, así que copiarlo a ciegas
+// pisaría un dato con otro de distinta forma. combustible tampoco se copia
+// aquí: ya tiene su propio bloqueo más arriba (lockCombustible).
+const AUTOMOVIL_SYNC_FIELDS = [
+  "marca",
+  "linea",
+  "modelo",
+  "serie",
+  "caracteristicas",
+  "horasUsoDiario",
+  "fechaAdquisicion",
+  "chofer",
+  "numeroPoliza",
+  "inciso",
+] as const;
+
+// Si esta unidad tiene pareja (Vehículo con tanque de carburación <-> su
+// origen, ver el bloque de arriba que la crea sola), copia los datos del
+// "Automóvil" hacia la otra ficha técnica, en cualquiera de los dos sentidos.
+// No toca una pareja dada de baja: ese registro es historial, no se sigue
+// editando solo.
+async function sincronizarFichaAutomovil(
+  vehicle: { id: string; numeroEconomico: string; section: { slug: string; cityId: string; city: { slug: string } } },
+  data: Record<string, unknown>
+): Promise<void> {
+  const esCarburacion = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
+  const pareja = await prisma.vehicleRecord.findFirst({
+    where: {
+      numeroEconomico: vehicle.numeroEconomico,
+      activo: true,
+      id: { not: vehicle.id },
+      section: esCarburacion
+        ? { cityId: vehicle.section.cityId, slug: { notIn: [...STATION_LIKE_SECTION_SLUGS, "vehiculo-con-tanque-de-carburacion"] } }
+        : { cityId: vehicle.section.cityId, slug: "vehiculo-con-tanque-de-carburacion" },
+    },
+  });
+  if (!pareja) return;
+
+  const syncData: Record<string, unknown> = {};
+  for (const campo of AUTOMOVIL_SYNC_FIELDS) syncData[campo] = data[campo];
+
+  await prisma.vehicleTechnicalSheet.upsert({
+    where: { vehicleRecordId: pareja.id },
+    update: syncData,
+    create: { vehicleRecordId: pareja.id, ...syncData },
+  });
+  revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${pareja.id}`);
+}
+
 export async function upsertTechnicalSheet(
   vehicleId: string,
   _prevState: ActionState,
@@ -590,17 +650,22 @@ export async function upsertTechnicalSheet(
   // unidad nueva), así que no cuenta como conflicto. Tampoco cuenta cuando
   // Vehículo con tanque de carburación está de por medio (de cualquiera de
   // los dos lados): es el mismo automóvil que su Auto-Tanques/Vehículo de
-  // reparto pareja, así que comparte la misma Serie (VIN) a propósito.
+  // reparto pareja (ver sincronizarFichaAutomovil más abajo, que puede
+  // emparejar tanque-de-carburación con CUALQUIER otro apartado, no solo
+  // Auto-Tanques), así que comparte a propósito la misma Serie (VIN) y,
+  // cuando aplica, el mismo número de serie de tanque físico.
   if (data.serie) {
     const duplicate = await prisma.vehicleTechnicalSheet.findFirst({
       where: { serie: data.serie, vehicleRecordId: { not: vehicleId }, vehicleRecord: { activo: true } },
-      include: { vehicleRecord: { include: { section: true } } },
+      include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
     });
     const carburacionInvolucrada =
       vehicle.section.slug === "vehiculo-con-tanque-de-carburacion" ||
       duplicate?.vehicleRecord.section.slug === "vehiculo-con-tanque-de-carburacion";
     if (duplicate && !carburacionInvolucrada) {
-      return { error: `Ya existe otra unidad registrada con la Serie "${data.serie}".` };
+      return {
+        error: `Ya existe otra unidad registrada con la Serie "${data.serie}": "${duplicate.vehicleRecord.numeroEconomico}" en ${duplicate.vehicleRecord.section.city.name}.`,
+      };
     }
   }
   if (data.numeroSerieTanque) {
@@ -610,10 +675,14 @@ export async function upsertTechnicalSheet(
         vehicleRecordId: { not: vehicleId },
         vehicleRecord: { activo: true },
       },
+      include: { vehicleRecord: { include: { section: { include: { city: true } } } } },
     });
-    if (duplicate) {
+    const carburacionInvolucrada =
+      vehicle.section.slug === "vehiculo-con-tanque-de-carburacion" ||
+      duplicate?.vehicleRecord.section.slug === "vehiculo-con-tanque-de-carburacion";
+    if (duplicate && !carburacionInvolucrada) {
       return {
-        error: `Ya existe otra unidad registrada con el Número de serie de tanque "${data.numeroSerieTanque}".`,
+        error: `Ya existe otra unidad registrada con el Número de serie de tanque "${data.numeroSerieTanque}": "${duplicate.vehicleRecord.numeroEconomico}" en ${duplicate.vehicleRecord.section.city.name}.`,
       };
     }
   }
@@ -682,6 +751,12 @@ export async function upsertTechnicalSheet(
     }
   }
 
+  // Ver AUTOMOVIL_SYNC_FIELDS arriba: si esta unidad tiene pareja (Vehículo
+  // con tanque de carburación <-> su origen), le copia los datos del
+  // "Automóvil" — va después del bloque de arriba para alcanzar también a
+  // una pareja que se acaba de crear en este mismo guardado.
+  await sincronizarFichaAutomovil(vehicle, data);
+
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
   const chain = await getSectionChain(vehicle.sectionId);
   revalidatePath(sectionBasePath(vehicle.section.city.slug, chain));
@@ -732,6 +807,26 @@ const stationTankTechnicalSheetSchema = z.object({
   relevoPresionFechaFabricacion: optionalDate,
   relevoPresionFechaCambio: optionalDate,
   relevoPresionFechaInstalacion: optionalDate,
+  // Las 5 pruebas periódicas del tanque (ver StationTankTechnicalSheet en el
+  // schema): solo se capturan aquí, por tanque, cuando la estación/planta
+  // tiene más de uno — con un solo tanque siguen viviendo en la ficha
+  // técnica compartida del registro (ver showInspecciones en
+  // StationTankTechnicalSheetForm.tsx).
+  numeroUltimoUltrasonido: optionalText(100),
+  ultimoUltrasonido: optionalDate,
+  fechaProximoUltrasonido: optionalDate,
+  numeroUltimaInspeccionVisual: optionalText(100),
+  ultimaInspeccionVisual: optionalDate,
+  fechaProximaInspeccionVisual: optionalDate,
+  numeroUltimaPruebaHermeticidad: optionalText(100),
+  ultimaPruebaHermeticidad: optionalDate,
+  fechaProximaPruebaHermeticidad: optionalDate,
+  numeroUltimaInspeccionVisualInterna: optionalText(100),
+  ultimaInspeccionVisualInterna: optionalDate,
+  fechaProximaInspeccionVisualInterna: optionalDate,
+  numeroUltimaPruebaHidrostatica: optionalText(100),
+  ultimaPruebaHidrostatica: optionalDate,
+  fechaProximaPruebaHidrostatica: optionalDate,
 }).superRefine((data, ctx) => {
   // Misma regla que en la ficha técnica de una unidad: una válvula no se
   // puede instalar antes de existir.
@@ -772,10 +867,12 @@ const stationTankTechnicalSheetSchema = z.object({
 // Ficha técnica del tanque de una Estación de carburación: reemplaza la
 // sección "Tanque" genérica (ver upsertTechnicalSheet) con el vocabulario de
 // un recipiente a presión fijo. Las fechas de vencimiento de las 5
-// inspecciones periódicas se quedan en VehicleTechnicalSheet — si aquí se
+// inspecciones periódicas viven en VehicleTechnicalSheet cuando el registro
+// tiene un solo tanque, o en este mismo StationTankTechnicalSheet cuando
+// tiene varios (ver isMultiTanque en la página de detalle) — si aquí se
 // captura la fecha de fabricación y esas 3 todavía están vacías, se calculan
-// solas a 10 años, igual que ya hace upsertTechnicalSheet para el resto de
-// las unidades.
+// solas a 10 años en el lugar que corresponda, igual que ya hace
+// upsertTechnicalSheet para el resto de las unidades.
 //
 // etiqueta identifica CUÁL tanque se está guardando ("Tanque 1" o
 // "Tanque 2", ver comentario en VehicleRecord.stationTankTechnicalSheets):
@@ -824,6 +921,21 @@ export async function upsertStationTankTechnicalSheet(
         [instrumentInstalacionField(campo), formData.get(instrumentInstalacionField(campo))],
       ])
     ),
+    numeroUltimoUltrasonido: formData.get("numeroUltimoUltrasonido"),
+    ultimoUltrasonido: formData.get("ultimoUltrasonido"),
+    fechaProximoUltrasonido: formData.get("fechaProximoUltrasonido"),
+    numeroUltimaInspeccionVisual: formData.get("numeroUltimaInspeccionVisual"),
+    ultimaInspeccionVisual: formData.get("ultimaInspeccionVisual"),
+    fechaProximaInspeccionVisual: formData.get("fechaProximaInspeccionVisual"),
+    numeroUltimaPruebaHermeticidad: formData.get("numeroUltimaPruebaHermeticidad"),
+    ultimaPruebaHermeticidad: formData.get("ultimaPruebaHermeticidad"),
+    fechaProximaPruebaHermeticidad: formData.get("fechaProximaPruebaHermeticidad"),
+    numeroUltimaInspeccionVisualInterna: formData.get("numeroUltimaInspeccionVisualInterna"),
+    ultimaInspeccionVisualInterna: formData.get("ultimaInspeccionVisualInterna"),
+    fechaProximaInspeccionVisualInterna: formData.get("fechaProximaInspeccionVisualInterna"),
+    numeroUltimaPruebaHidrostatica: formData.get("numeroUltimaPruebaHidrostatica"),
+    ultimaPruebaHidrostatica: formData.get("ultimaPruebaHidrostatica"),
+    fechaProximaPruebaHidrostatica: formData.get("fechaProximaPruebaHidrostatica"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -844,7 +956,32 @@ export async function upsertStationTankTechnicalSheet(
     await saveCustomFieldValues(vehicleId, formData, "ESTACION");
   }
 
+  // Con dos o más tanques, la primera revisión de cada uno vence a los 10
+  // años de SU PROPIA fecha de fabricación, y se guarda en ese mismo tanque
+  // (ver StationTankTechnicalSheet) — no en "Tanque 1" ni en la ficha
+  // compartida del registro. Con uno solo, sigue viviendo en la ficha
+  // compartida como siempre (comportamiento sin cambios).
+  const totalTanques = await prisma.stationTankTechnicalSheet.count({ where: { vehicleRecordId: vehicleId } });
+  const esMultiTanque = totalTanques > 1;
+
   if (
+    esMultiTanque &&
+    sheetData.fechaFabricacion &&
+    !sheetData.fechaProximaInspeccionVisualInterna &&
+    !sheetData.fechaProximaPruebaHidrostatica &&
+    !sheetData.fechaProximoUltrasonido
+  ) {
+    const fechaCalculada = addTenYears(sheetData.fechaFabricacion);
+    await prisma.stationTankTechnicalSheet.update({
+      where: { vehicleRecordId_etiqueta: { vehicleRecordId: vehicleId, etiqueta } },
+      data: {
+        fechaProximaInspeccionVisualInterna: fechaCalculada,
+        fechaProximaPruebaHidrostatica: fechaCalculada,
+        fechaProximoUltrasonido: fechaCalculada,
+      },
+    });
+  } else if (
+    !esMultiTanque &&
     etiqueta === "Tanque 1" &&
     sheetData.fechaFabricacion &&
     !vehicle.technicalSheet?.fechaProximaInspeccionVisualInterna &&

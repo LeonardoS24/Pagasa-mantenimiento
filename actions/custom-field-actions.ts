@@ -11,16 +11,30 @@ import {
   CAMPO_TIPOS,
   labelDeSeccion,
   seccionesPara,
+  parseOpcionesTexto,
   type CampoAmbito,
 } from "@/lib/custom-fields";
 import type { ActionState } from "./user-actions";
 
-const crearSchema = z.object({
-  ambito: z.enum(CAMPO_AMBITOS),
-  seccion: z.string().trim().min(1, "Elige en qué recuadro va"),
-  etiqueta: z.string().trim().min(2, "El nombre del campo es requerido").max(80),
-  tipo: z.enum(CAMPO_TIPOS),
-});
+const crearSchema = z
+  .object({
+    ambito: z.enum(CAMPO_AMBITOS),
+    seccion: z.string().trim().min(1, "Elige en qué recuadro va"),
+    etiqueta: z.string().trim().min(2, "El nombre del campo es requerido").max(80),
+    tipo: z.enum(CAMPO_TIPOS),
+    // Solo tiene sentido cuando tipo === "LISTA" (ver superRefine abajo):
+    // una opción por línea, tal como el ADMIN las escribe en el textarea.
+    opciones: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.tipo === "LISTA" && parseOpcionesTexto(data.opciones).length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Escribe al menos una opción para el listado (una por línea).",
+        path: ["opciones"],
+      });
+    }
+  });
 
 // Agrega un recuadro nuevo a una ficha técnica. Solo ADMIN: cambia lo que
 // ven todas las ciudades.
@@ -35,6 +49,7 @@ export async function addCustomField(
     seccion: formData.get("seccion"),
     etiqueta: formData.get("etiqueta"),
     tipo: formData.get("tipo"),
+    opciones: formData.get("opciones"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -42,6 +57,9 @@ export async function addCustomField(
 
   const { ambito, seccion, tipo } = parsed.data;
   const etiqueta = collapseSpaces(parsed.data.etiqueta);
+  // Se guarda ya limpio (sin líneas vacías ni duplicados) para que el
+  // <select> del formulario salga igual la próxima vez que se lea.
+  const opciones = tipo === "LISTA" ? parseOpcionesTexto(parsed.data.opciones).join("\n") : null;
 
   // La sección tiene que ser una de las de ese ámbito: si no, el campo se
   // guardaría pero no se mostraría en ningún lado.
@@ -62,7 +80,7 @@ export async function addCustomField(
   });
 
   await prisma.customField.create({
-    data: { ambito, seccion, etiqueta, tipo, orden: (maxOrden._max.orden ?? -1) + 1 },
+    data: { ambito, seccion, etiqueta, tipo, opciones, orden: (maxOrden._max.orden ?? -1) + 1 },
   });
 
   await logActivity({

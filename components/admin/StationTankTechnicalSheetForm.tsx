@@ -82,6 +82,7 @@ export function StationTankTechnicalSheetForm({
   camposExtra = [],
   valoresExtra = {},
   isPlanta = false,
+  showInspecciones = false,
 }: {
   vehicleId: string;
   // "Tanque 1" o "Tanque 2" (ver VehicleRecord.stationTankTechnicalSheets):
@@ -95,6 +96,11 @@ export function StationTankTechnicalSheetForm({
   // de 7 válvulas de Estación con un solo vencimiento combinado, muestra 5
   // instrumentos con sus 3 fechas propias y su propia alerta cada uno.
   isPlanta?: boolean;
+  // Con más de un tanque, las 5 pruebas periódicas (Visual Externa,
+  // Hermeticidad, Visual Interna, Ultrasonido, Hidrostática) se editan aquí,
+  // por tanque — con uno solo siguen viviendo en la ficha técnica general
+  // (ver showInspeccionesSection en la página de detalle).
+  showInspecciones?: boolean;
 }) {
   const action = upsertStationTankTechnicalSheet.bind(null, vehicleId, etiqueta);
   const [state, formAction] = useFormState(action, initialState);
@@ -216,6 +222,10 @@ export function StationTankTechnicalSheetForm({
               })}
               <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
             </div>
+            <p className="mt-3 text-xs text-gray-500">
+              La vigencia real de cada instrumento depende de lo que indique el fabricante en su
+              hoja de especificaciones; los 5 años son un ciclo de referencia, no un límite fijo.
+            </p>
           </div>
         ) : (
           /* Válvulas del tanque fijo: otro juego que el de un Auto-Tanque
@@ -262,7 +272,149 @@ export function StationTankTechnicalSheetForm({
               ))}
               <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
             </div>
+            <p className="mt-3 text-xs text-gray-500">
+              La vigencia real del juego de válvulas depende de lo que indique el fabricante en su
+              hoja de especificaciones; los 5 años son un ciclo de referencia, no un límite fijo.
+            </p>
           </div>
+        )}
+
+        {showInspecciones && (
+          <>
+            <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
+              <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+                Inspección Visual Externa
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Field
+                  id="numeroUltimaInspeccionVisual"
+                  label="Número de última inspección visual externa"
+                  defaultValue={sheet?.numeroUltimaInspeccionVisual}
+                />
+                <Field
+                  id="ultimaInspeccionVisual"
+                  label="Fecha en que se realizó la última inspección visual externa"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.ultimaInspeccionVisual)}
+                />
+                <Field
+                  id="fechaProximaInspeccionVisual"
+                  label="Fecha próxima de inspección visual externa"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaProximaInspeccionVisual)}
+                />
+              </div>
+            </div>
+
+            <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
+              <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+                Prueba de Hermeticidad
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Field
+                  id="numeroUltimaPruebaHermeticidad"
+                  label="Número de última prueba de hermeticidad"
+                  defaultValue={sheet?.numeroUltimaPruebaHermeticidad}
+                />
+                <Field
+                  id="ultimaPruebaHermeticidad"
+                  label="Fecha en que se realizó la última prueba de hermeticidad"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.ultimaPruebaHermeticidad)}
+                />
+                <Field
+                  id="fechaProximaPruebaHermeticidad"
+                  label="Fecha próxima de prueba de hermeticidad"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaProximaPruebaHermeticidad)}
+                />
+              </div>
+            </div>
+
+            <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
+              <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+                Inspección Visual Interna
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Field
+                  id="numeroUltimaInspeccionVisualInterna"
+                  label="Número de última inspección visual interna"
+                  defaultValue={sheet?.numeroUltimaInspeccionVisualInterna}
+                />
+                <Field
+                  id="ultimaInspeccionVisualInterna"
+                  label="Fecha en que se realizó la última inspección visual interna"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.ultimaInspeccionVisualInterna)}
+                />
+                <Field
+                  id="fechaProximaInspeccionVisualInterna"
+                  label="Fecha próxima de inspección visual interna"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaProximaInspeccionVisualInterna)}
+                />
+              </div>
+              <p className="mt-2 text-xs text-ink">
+                La primera vence a los 10 años de la fecha de fabricación de este tanque; si se
+                deja vacía, se calcula sola al guardar. De ahí en adelante, cada registro nuevo la
+                recorre 5 años, no 10.
+              </p>
+            </div>
+
+            <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
+              <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+                Ultrasonido
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Field
+                  id="numeroUltimoUltrasonido"
+                  label="Número de último ultrasonido"
+                  defaultValue={sheet?.numeroUltimoUltrasonido}
+                />
+                <Field
+                  id="ultimoUltrasonido"
+                  label="Fecha en que se realizó el último ultrasonido"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.ultimoUltrasonido)}
+                />
+                <Field
+                  id="fechaProximoUltrasonido"
+                  label="Fecha próxima de ultrasonido"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaProximoUltrasonido)}
+                />
+              </div>
+            </div>
+
+            <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
+              <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+                Prueba Hidrostática
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Field
+                  id="numeroUltimaPruebaHidrostatica"
+                  label="Número de última prueba hidrostática"
+                  defaultValue={sheet?.numeroUltimaPruebaHidrostatica}
+                />
+                <Field
+                  id="ultimaPruebaHidrostatica"
+                  label="Fecha en que se realizó la última prueba hidrostática"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.ultimaPruebaHidrostatica)}
+                />
+                <Field
+                  id="fechaProximaPruebaHidrostatica"
+                  label="Fecha próxima de prueba hidrostática"
+                  type="date"
+                  defaultValue={toDateInputValue(sheet?.fechaProximaPruebaHidrostatica)}
+                />
+              </div>
+              <p className="mt-2 text-xs text-ink">
+                La primera vence a los 10 años de fabricación de este tanque y de ahí en adelante
+                cada 5, con el mismo cálculo automático que la inspección visual interna.
+              </p>
+            </div>
+          </>
         )}
       </fieldset>
 

@@ -14,53 +14,54 @@ datasource db {
 // pero no crear/eliminar ciudades ni apartados, ni renombrar nada existente;
 // LECTOR solo puede ver (equivalente al antiguo comportamiento de USUARIO).
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  passwordHash String
-  role         String   @default("USUARIO")
+  id                         String   @id @default(cuid())
+  username                   String   @unique
+  passwordHash               String
+  role                       String   @default("USUARIO")
   // Puesto de la persona (ej. "Jefe de mantenimiento"), visible para
   // cualquiera en vez del rol técnico (ADMIN/USUARIO/LECTOR): ese rol solo
   // lo ve un ADMIN, en /admin/usuarios (ver components/layout/Header.tsx).
-  puesto       String?
+  puesto                     String?
   // Aviso de 5 minutos al iniciar sesión cuando hay mantenimientos "En
   // proceso" en sus ciudades accesibles (ver actions/auth-actions.ts). Cada
   // usuario lo puede apagar para sí mismo.
-  avisosMantenimientoActivos Boolean @default(true)
+  avisosMantenimientoActivos Boolean  @default(true)
   // Acceso ampliado por horario (ver lib/elevated-access.ts): solo aplica a
   // rol USUARIO. Dentro de este horario puede editar/borrar registros y
   // ficha técnica como si fuera ADMIN; nunca alcanza para borrar
   // ciudades/apartados/usuarios ni cambiar roles — eso sigue exclusivo del
   // ADMIN real. accesoAmpliadoDias es JSON de un array de 0 (domingo) a 6
   // (sábado); las horas se guardan como "HH:MM" en hora local del servidor.
-  accesoAmpliadoDias       String?
-  accesoAmpliadoHoraInicio String?
-  accesoAmpliadoHoraFin    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  accesoAmpliadoDias         String?
+  accesoAmpliadoHoraInicio   String?
+  accesoAmpliadoHoraFin      String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   // Todas estas relaciones usan onDelete: SetNull, nunca Cascade: eliminar a
   // un empleado no debe borrar el historial de mantenimiento de la flota. El
   // registro se conserva y solo pierde el nombre de quien lo capturó.
-  cityAccess      UserCityAccess[]
-  documents       Document[]
-  maintenanceLogs               MaintenanceLog[]
-  ultrasoundLogs                UltrasoundLog[]
-  visualInspectionLogs          VisualInspectionLog[]
-  tightnessTestLogs             TightnessTestLog[]
-  internalVisualInspectionLogs  InternalVisualInspectionLog[]
-  hydrostaticTestLogs           HydrostaticTestLog[]
-  extinguisherChangeLogs        ExtinguisherChangeLog[]
-  extinguisherQualityChangeLogs ExtinguisherQualityChangeLog[]
-  valveChangeLogs               ValveChangeLog[]
+  cityAccess                     UserCityAccess[]
+  documents                      Document[]
+  maintenanceLogs                MaintenanceLog[]
+  ultrasoundLogs                 UltrasoundLog[]
+  visualInspectionLogs           VisualInspectionLog[]
+  tightnessTestLogs              TightnessTestLog[]
+  internalVisualInspectionLogs   InternalVisualInspectionLog[]
+  hydrostaticTestLogs            HydrostaticTestLog[]
+  extinguisherChangeLogs         ExtinguisherChangeLog[]
+  extinguisherQualityChangeLogs  ExtinguisherQualityChangeLog[]
+  valveChangeLogs                ValveChangeLog[]
   valveCorrectiveMaintenanceLogs ValveCorrectiveMaintenanceLog[]
   hoseChangeLogs                 HoseChangeLog[]
-  pieceOrders                   PieceOrder[]
-  inventoryItems                InventoryItem[]
+  pieceOrders                    PieceOrder[]
+  inventoryItems                 InventoryItem[]
   equipmentLogs                  EquipmentLog[]
   vehicleRecords                 VehicleRecord[]
   equipos                        Equipo[]
   activityLogs                   ActivityLog[]
-  plantAreaMaintenanceLogs       PlantAreaMaintenanceLog[]
+  insurancePolicyLogs            InsurancePolicyLog[]
+  complianceChecklistItems       ComplianceChecklistItem[]
 
   @@map("users")
 }
@@ -97,7 +98,6 @@ model Section {
   pieceOrders    PieceOrder[]
   inventoryItems InventoryItem[]
   equipos        Equipo[]
-  plantAreaMaintenanceLogs PlantAreaMaintenanceLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -142,8 +142,8 @@ model VehicleRecord {
   // Dar de baja no elimina la unidad: se conserva en el sistema (con toda su
   // ficha técnica, bitácora y documentos) marcada como inactiva. Solo un
   // ADMIN puede cambiar este estatus.
-  activo    Boolean   @default(true)
-  fechaBaja DateTime?
+  activo     Boolean   @default(true)
+  fechaBaja  DateTime?
   // Motivo escrito al dar de baja (opcional, ver actions/vehicle-actions.ts:
   // setVehicleActive). Se borra al reactivar, igual que fechaBaja: no
   // conserva historial de bajas/reactivaciones pasadas, solo el motivo de la
@@ -166,11 +166,11 @@ model VehicleRecord {
   // marcarla OPERATIVA a mano cierra ahí mismo los mantenimientos abiertos.
   estatus String @default("OPERATIVA")
 
-  documents                    Document[]
+  documents                      Document[]
   // Valores de los recuadros extra que se hayan agregado a su ficha técnica
   // desde el panel (ver CustomField).
-  customFieldValues            CustomFieldValue[]
-  technicalSheet               VehicleTechnicalSheet?
+  customFieldValues              CustomFieldValue[]
+  technicalSheet                 VehicleTechnicalSheet?
   // Solo para "Estaciones de carburación" (ver StationTankTechnicalSheet más
   // abajo): reemplaza la sección "Tanque" de VehicleTechnicalSheet con campos
   // propios de recipiente a presión. Las fechas de vencimiento de las 5
@@ -184,38 +184,40 @@ model VehicleRecord {
   // sus propios datos de recipiente y su propio juego de válvulas (ver
   // lib/station-valves.ts), que es lo que de verdad cambia entre un tanque y
   // otro dentro de la misma estación.
-  stationTankTechnicalSheets   StationTankTechnicalSheet[]
+  stationTankTechnicalSheets     StationTankTechnicalSheet[]
   // Solo para "Estaciones de carburación": equipos propios de esa estación
   // (ver Equipo.vehicleRecordId), aparte de los "Equipos de planta" a nivel
   // ciudad.
-  equipos                      Equipo[]
-  maintenanceLogs              MaintenanceLog[]
-  ultrasoundLogs               UltrasoundLog[]
-  visualInspectionLogs         VisualInspectionLog[]
-  tightnessTestLogs            TightnessTestLog[]
-  internalVisualInspectionLogs InternalVisualInspectionLog[]
-  hydrostaticTestLogs          HydrostaticTestLog[]
-  extinguisherChangeLogs       ExtinguisherChangeLog[]
-  extinguisherQualityChangeLogs ExtinguisherQualityChangeLog[]
-  valveChangeLogs              ValveChangeLog[]
+  equipos                        Equipo[]
+  maintenanceLogs                MaintenanceLog[]
+  ultrasoundLogs                 UltrasoundLog[]
+  visualInspectionLogs           VisualInspectionLog[]
+  tightnessTestLogs              TightnessTestLog[]
+  internalVisualInspectionLogs   InternalVisualInspectionLog[]
+  hydrostaticTestLogs            HydrostaticTestLog[]
+  extinguisherChangeLogs         ExtinguisherChangeLog[]
+  extinguisherQualityChangeLogs  ExtinguisherQualityChangeLog[]
+  valveChangeLogs                ValveChangeLog[]
   valveCorrectiveMaintenanceLogs ValveCorrectiveMaintenanceLog[]
-  hoseChangeLogs                HoseChangeLog[]
+  hoseChangeLogs                 HoseChangeLog[]
   // Piezas de inventario (de cualquier ciudad) que se marcaron "Utilizada" en
   // esta unidad (ver actions/inventory-actions.ts). No es lo mismo que
   // "documents"/"maintenanceLogs": es solo trazabilidad de dónde se colocó
   // cada pieza.
-  inventoryItemsColocados       InventoryItem[]
+  inventoryItemsColocados        InventoryItem[]
   // Órdenes de pieza que ya se levantaron sabiendo que eran para esta unidad
   // (ver PieceOrder.vehicleRecordId).
-  pieceOrders                   PieceOrder[]
+  pieceOrders                    PieceOrder[]
 
   // Quién dio de alta la unidad, para la bitácora de actividad del sistema
   // (ver app/(protected)/admin/actividad).
   createdById String?
   createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  insurancePolicyLogs      InsurancePolicyLog[]
+  complianceChecklistItems ComplianceChecklistItem[]
 
   @@map("vehicle_records")
 }
@@ -234,40 +236,40 @@ model VehicleTechnicalSheet {
   // también sugiere Línea/Modelo — a diferencia de VehicleRecord.sucursal
   // (que la pantalla llama "Marca" en datos generales), este es un dato más
   // detallado con clasificación completa, no un duplicado.
-  marca             String?
-  linea             String?
-  modelo            String?
-  peso              String?
+  marca            String?
+  linea            String?
+  modelo           String?
+  peso             String?
   // Solo para Vehículo de reparto y Vehículo con tanque de carburación:
   // reemplazan a "peso" en el formulario (ver useDeliveryFormat).
-  pesoBrutoVacio    String?
-  pesoBrutoMaximo   String?
-  serie             String?
-  combustible       String? // "GAS_LP" | "GASOLINA" | "DIESEL" | "ELECTRICA"
-  caracteristicas   String?
-  ubicacion         String?
-  potencia          String?
-  horasUsoDiario    String?
-  fechaAdquisicion  DateTime?
+  pesoBrutoVacio   String?
+  pesoBrutoMaximo  String?
+  serie            String?
+  combustible      String? // "GAS_LP" | "GASOLINA" | "DIESEL" | "ELECTRICA"
+  caracteristicas  String?
+  ubicacion        String?
+  potencia         String?
+  horasUsoDiario   String?
+  fechaAdquisicion DateTime?
   // Chofer asignado y datos del seguro de la unidad. Igual que el resto de
   // "Automóvil": mismo vehículo físico en el par Auto-Tanques/Vehículo con
   // tanque de carburación, así que solo se captura y se imprime una vez (ver
   // showAutomovilSection en TechnicalSheetView.tsx e imprimir/page.tsx).
-  chofer         String?
-  numeroPoliza   String?
-  inciso         String?
+  chofer           String?
+  numeroPoliza     String?
+  inciso           String?
 
   // Tanque
-  capacidadTanque       String?
-  marcaTanque           String?
-  anioFabricacionTanque String?
+  capacidadTanque         String?
+  marcaTanque             String?
+  anioFabricacionTanque   String?
   // Fecha de fabricación real (a diferencia de anioFabricacionTanque, texto
   // libre): ancla el cálculo automático de la inspección visual interna y la
   // prueba hidrostática, que vencen cada 10 años a partir de esta fecha.
-  fechaFabricacionTanque DateTime?
-  numeroSerieTanque     String?
+  fechaFabricacionTanque  DateTime?
+  numeroSerieTanque       String?
   numeroUltimoUltrasonido String?
-  ultimoUltrasonido     DateTime?
+  ultimoUltrasonido       DateTime?
   fechaProximoUltrasonido DateTime?
 
   // Inspección visual EXTERNA (mismo mecanismo que el ultrasonido, ver VisualInspectionLog)
@@ -311,10 +313,10 @@ model VehicleTechnicalSheet {
   // único que se puede verificar sin un kilometraje en vivo — el kilometraje
   // objetivo se muestra como referencia para que el personal lo confirme
   // contra el odómetro real.
-  kilometrajeUltimoMantenimiento   Int?
-  fechaUltimoMantenimiento         DateTime?
-  kilometrajeProximoMantenimiento  Int?
-  fechaProximoMantenimiento        DateTime?
+  kilometrajeUltimoMantenimiento  Int?
+  fechaUltimoMantenimiento        DateTime?
+  kilometrajeProximoMantenimiento Int?
+  fechaProximoMantenimiento       DateTime?
 
   // Cambio de válvulas: Auto-Tanques y Vehículo con tanque de carburación
   // (ver showValveSection en la página de detalle de vehículo). Cada válvula
@@ -324,17 +326,17 @@ model VehicleTechnicalSheet {
   // general en que se instaló el juego de válvulas. tieneValvulaMaximoLlenado85
   // marca si la unidad tiene esa válvula (no todas la tienen); solo si es
   // true participa fechaFabricacionValvulaMaximoLlenado85 en el cálculo.
-  fechaInstalacionValvulas                    DateTime?
-  fechaFabricacionValvulaLlenado              DateTime?
-  fechaFabricacionValvulaNoRetroceso          DateTime?
-  fechaFabricacionValvulaBypass               DateTime?
-  fechaFabricacionValvulaRetornoVapores       DateTime?
-  fechaFabricacionValvulaServicio             DateTime?
-  fechaFabricacionValvulaMaximoLlenado        DateTime?
-  tieneValvulaMaximoLlenado85                 Boolean   @default(false)
-  fechaFabricacionValvulaMaximoLlenado85      DateTime?
-  fechaFabricacionValvulaAlivio               DateTime?
-  fechaFabricacionValvulaDescargaEmergencia   DateTime?
+  fechaInstalacionValvulas                  DateTime?
+  fechaFabricacionValvulaLlenado            DateTime?
+  fechaFabricacionValvulaNoRetroceso        DateTime?
+  fechaFabricacionValvulaBypass             DateTime?
+  fechaFabricacionValvulaRetornoVapores     DateTime?
+  fechaFabricacionValvulaServicio           DateTime?
+  fechaFabricacionValvulaMaximoLlenado      DateTime?
+  tieneValvulaMaximoLlenado85               Boolean   @default(false)
+  fechaFabricacionValvulaMaximoLlenado85    DateTime?
+  fechaFabricacionValvulaAlivio             DateTime?
+  fechaFabricacionValvulaDescargaEmergencia DateTime?
 
   // Cambio de mangueras: solo para Vehículo con tanque de carburación. La
   // alerta vence a los 2 años (mismo esquema que las válvulas, pero con
@@ -365,7 +367,7 @@ model StationTankTechnicalSheet {
   // "Tanque 1" (la inmensa mayoría de estaciones) o "Tanque 2", cuando la
   // estación tiene un segundo tanque físico (ver comentario en
   // VehicleRecord.stationTankTechnicalSheets).
-  etiqueta        String @default("Tanque 1")
+  etiqueta        String        @default("Tanque 1")
 
   numeroSerie          String?
   marca                String?
@@ -392,14 +394,14 @@ model StationTankTechnicalSheet {
   //
   // Como en las unidades, se guarda la fecha de fabricación grabada en cada
   // válvula más la fecha en que se instaló el juego completo.
-  fechaInstalacionValvulas                  DateTime?
-  fechaFabricacionValvulaExcesoFlujo        DateTime?
-  fechaFabricacionValvulaNoRetroceso        DateTime?
-  fechaFabricacionValvulaSeguridad          DateTime?
-  fechaFabricacionValvulaLlenado            DateTime?
-  fechaFabricacionValvulaServicio           DateTime?
-  fechaFabricacionValvulaCheckLock          DateTime?
-  fechaFabricacionValvulaVapor              DateTime?
+  fechaInstalacionValvulas           DateTime?
+  fechaFabricacionValvulaExcesoFlujo DateTime?
+  fechaFabricacionValvulaNoRetroceso DateTime?
+  fechaFabricacionValvulaSeguridad   DateTime?
+  fechaFabricacionValvulaLlenado     DateTime?
+  fechaFabricacionValvulaServicio    DateTime?
+  fechaFabricacionValvulaCheckLock   DateTime?
+  fechaFabricacionValvulaVapor       DateTime?
 
   // Válvulas e instrumentos de un tanque de Planta (ver
   // lib/planta-tank-instruments.ts): solo se usan cuando este registro es de
@@ -407,21 +409,51 @@ model StationTankTechnicalSheet {
   // arriba, un solo vencimiento combinado). A diferencia de las válvulas de
   // estación, cada instrumento aquí lleva sus 3 fechas propias
   // (fabricación/cambio/instalación) y su propia alerta por separado.
-  maximoLlenadoFechaFabricacion              DateTime?
-  maximoLlenadoFechaCambio                   DateTime?
-  maximoLlenadoFechaInstalacion              DateTime?
-  manometroFechaFabricacion                  DateTime?
-  manometroFechaCambio                       DateTime?
-  manometroFechaInstalacion                  DateTime?
-  termometroFechaFabricacion                 DateTime?
-  termometroFechaCambio                      DateTime?
-  termometroFechaInstalacion                 DateTime?
-  excesoFlujoNoRetrocesoFechaFabricacion     DateTime?
-  excesoFlujoNoRetrocesoFechaCambio          DateTime?
-  excesoFlujoNoRetrocesoFechaInstalacion     DateTime?
-  relevoPresionFechaFabricacion              DateTime?
-  relevoPresionFechaCambio                   DateTime?
-  relevoPresionFechaInstalacion              DateTime?
+  maximoLlenadoFechaFabricacion          DateTime?
+  maximoLlenadoFechaCambio               DateTime?
+  maximoLlenadoFechaInstalacion          DateTime?
+  manometroFechaFabricacion              DateTime?
+  manometroFechaCambio                   DateTime?
+  manometroFechaInstalacion              DateTime?
+  termometroFechaFabricacion             DateTime?
+  termometroFechaCambio                  DateTime?
+  termometroFechaInstalacion             DateTime?
+  excesoFlujoNoRetrocesoFechaFabricacion DateTime?
+  excesoFlujoNoRetrocesoFechaCambio      DateTime?
+  excesoFlujoNoRetrocesoFechaInstalacion DateTime?
+  relevoPresionFechaFabricacion          DateTime?
+  relevoPresionFechaCambio               DateTime?
+  relevoPresionFechaInstalacion          DateTime?
+
+  // Las 5 inspecciones periódicas (ultrasonido, visual externa, hermeticidad,
+  // visual interna, hidrostática) solo viven aquí cuando la estación/planta
+  // tiene MÁS DE UN tanque: cada tanque físico tiene su propia historia de
+  // pruebas, así que no se puede compartir una sola fecha entre los dos (ver
+  // showInspecciones en StationTankTechnicalSheetForm/View). Cuando solo hay
+  // un tanque, estos campos se quedan sin usar y todo sigue viviendo en
+  // VehicleTechnicalSheet, exactamente como antes — no hay ninguna
+  // ambigüedad que resolver con un solo tanque.
+  numeroUltimoUltrasonido             String?
+  ultimoUltrasonido                   DateTime?
+  fechaProximoUltrasonido             DateTime?
+  numeroUltimaInspeccionVisual        String?
+  ultimaInspeccionVisual              DateTime?
+  fechaProximaInspeccionVisual        DateTime?
+  numeroUltimaPruebaHermeticidad      String?
+  ultimaPruebaHermeticidad            DateTime?
+  fechaProximaPruebaHermeticidad      DateTime?
+  numeroUltimaInspeccionVisualInterna String?
+  ultimaInspeccionVisualInterna       DateTime?
+  fechaProximaInspeccionVisualInterna DateTime?
+  numeroUltimaPruebaHidrostatica      String?
+  ultimaPruebaHidrostatica            DateTime?
+  fechaProximaPruebaHidrostatica      DateTime?
+
+  ultrasoundLogs               UltrasoundLog[]
+  visualInspectionLogs         VisualInspectionLog[]
+  tightnessTestLogs            TightnessTestLog[]
+  internalVisualInspectionLogs InternalVisualInspectionLog[]
+  hydrostaticTestLogs          HydrostaticTestLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -439,36 +471,36 @@ model MaintenanceLog {
   vehicleRecordId String
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
-  tipoMantenimiento String
-  tipoServicio      String
+  tipoMantenimiento   String
+  tipoServicio        String
   // Calidad general de la unidad reportada en este mantenimiento (ver
   // lib/vehicle-enums.ts: calidadMantenimientoSchema). Obligatoria desde que
   // se agregó (ver actions/maintenance-actions.ts); nula en registros
   // capturados antes. Cada vez que se crea/edita/borra un mantenimiento se
   // recalcula VehicleRecord.calidad a partir del más cercano a hoy.
-  calidad           String?
+  calidad             String?
   // Categoría y pieza vienen del catálogo fijo en lib/piece-catalog.ts
   // (categoría "Otro" = pieza escrita a mano en el mismo campo "pieza").
   // accionPieza alimenta el gráfico de piezas con más mantenimiento por
   // tipo de acción (ver components/city/PieceMaintenanceChart.tsx).
-  categoriaPieza    String?
-  pieza             String?
-  accionPieza       String?
+  categoriaPieza      String?
+  pieza               String?
+  accionPieza         String?
   // Checklist completo de mantenimiento preventivo (JSON: [{item, estado}],
   // ver lib/preventive-checklist.ts). Solo se llena cuando tipoMantenimiento
   // es "Preventivo"; se guarda completo para auditoría, aunque solo los
   // ítems marcados "Cambio" generan su propio registro de pieza (ver
   // actions/maintenance-actions.ts).
   checklistPreventivo String?
-  cantidad          String?
-  unidad            String?
-  descripcion       String?
-  observacion       String?
-  fecha             DateTime
+  cantidad            String?
+  unidad              String?
+  descripcion         String?
+  observacion         String?
+  fecha               DateTime
   // Kilometraje del odómetro al momento de este mantenimiento. Si viene, se
   // usa para actualizar la ficha técnica y calcular el próximo mantenimiento
   // preventivo (ver actions/maintenance-actions.ts).
-  kilometraje       Int?
+  kilometraje         Int?
 
   nombreOperador             String?
   auxiliarTecnico            String?
@@ -478,7 +510,7 @@ model MaintenanceLog {
   estatus String @default("SIN_ATENCION")
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -509,16 +541,20 @@ model MaintenanceLog {
 // CustomFieldValue. Así las alertas, el semáforo y los vencimientos, que
 // dependen de esas columnas, siguen funcionando igual.
 model CustomField {
-  id String @id @default(cuid())
+  id       String @id @default(cuid())
   // "VEHICULO" | "ESTACION" (ver CAMPO_AMBITOS en lib/custom-fields.ts)
-  ambito String
+  ambito   String
   // Recuadro donde aparece ("automovil", "tanque", ...): coincide con las
   // claves de SECTION_STYLES para heredar el color de esa sección.
   seccion  String
   etiqueta String
-  // "TEXTO" | "TEXTO_LARGO" | "NUMERO" | "FECHA"
-  tipo  String @default("TEXTO")
-  orden Int    @default(0)
+  // "TEXTO" | "TEXTO_LARGO" | "NUMERO" | "FECHA" | "LISTA"
+  tipo     String  @default("TEXTO")
+  // Solo cuando tipo = "LISTA": las opciones que el ADMIN escribió, una por
+  // línea (ver parseOpcionesTexto en lib/custom-fields.ts). null para el
+  // resto de los tipos.
+  opciones String?
+  orden    Int     @default(0)
 
   valores CustomFieldValue[]
 
@@ -553,11 +589,11 @@ model CustomFieldValue {
 // el panel (ver /admin/piezas y actions/checklist-actions.ts). La lista base
 // vive en el código (lib/preventive-checklist.ts); estos se suman a ella.
 model ChecklistItemExtra {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
   // "GENERAL" (cualquier unidad) | "CARBURACION" (Vehículo con tanque de
   // carburación, que tiene su propio checklist).
-  lista  String
-  nombre String
+  lista     String
+  nombre    String
   // Para "CARBURACION": si el ítem solo se revisa por fugas o admite
   // reparación/sustitución (ver checklistEstadoOptionsFor). Ignorado en
   // "GENERAL", donde todos los ítems usan el mismo juego de estados.
@@ -567,51 +603,6 @@ model ChecklistItemExtra {
 
   @@unique([lista, nombre])
   @@map("checklist_items_extra")
-}
-
-// Registro de mantenimiento de una de las 15 áreas operativas fijas de Planta
-// (ver lib/plant-areas.ts: A–O, texto exacto del reglamento). Las áreas no
-// son filas de una tabla propia, solo una lista fija del código — aquí solo
-// se guarda la clave (A–O) de cuál fue.
-model PlantAreaMaintenanceLog {
-  id String @id @default(cuid())
-
-  sectionId String
-  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  area String
-
-  fecha DateTime
-  // [{item, hecho, observacion}], ver lib/plant-area-checklist-runtime.ts:
-  // lista base del código ("Limpieza", "Inspección de equipos") más los
-  // ítems que un ADMIN agregue por área desde el panel (PlantAreaChecklistItem).
-  checklist String
-
-  responsable   String?
-  observaciones String?
-
-  createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-
-  @@map("plant_area_maintenance_logs")
-}
-
-// Ítems que un ADMIN agrega al checklist de mantenimiento de un área de
-// Planta en particular (ver PlantAreaMaintenanceLog arriba), sumándose a la
-// lista base fija del código ("Limpieza", "Inspección de equipos"). Mismo
-// patrón que ChecklistItemExtra, pero por área en vez de por lista.
-model PlantAreaChecklistItem {
-  id    String @id @default(cuid())
-  area  String
-  nombre String
-  orden Int    @default(0)
-
-  createdAt DateTime @default(now())
-
-  @@unique([area, nombre])
-  @@map("plant_area_checklist_items")
 }
 
 model LearnedPiece {
@@ -641,23 +632,30 @@ model UltrasoundLog {
   vehicleRecordId String
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
+  // Solo se usa cuando la estación/planta tiene más de un tanque (ver
+  // StationTankTechnicalSheet.ultrasoundLogs y compañía): identifica a cuál
+  // de los tanques pertenece este registro. Con un solo tanque se queda null
+  // y el registro sigue aplicando a la unidad completa, como siempre.
+  stationTankTechnicalSheetId String?
+  stationTankTechnicalSheet   StationTankTechnicalSheet? @relation(fields: [stationTankTechnicalSheetId], references: [id], onDelete: SetNull)
+
   compania          String?
   numeroUltrasonido String?
   responsable       String?
 
   // Fecha del ultrasonido anterior, capturada como referencia al momento de
   // registrar este nuevo evento.
-  fechaUltimoUltrasonido DateTime?
+  fechaUltimoUltrasonido  DateTime?
   // Fecha en que se realizó este nuevo ultrasonido (pasa a ser el
   // "ultimoUltrasonido" de la ficha técnica al aceptar el registro).
-  fechaRealizacion DateTime
+  fechaRealizacion        DateTime
   // Fecha del próximo ultrasonido (pasa a ser "fechaProximoUltrasonido" de la
   // ficha técnica al aceptar el registro, que es lo que dispara la alerta
   // amarilla/roja en VehicleTable y el panel del dashboard).
   fechaProximoUltrasonido DateTime
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -677,23 +675,30 @@ model VisualInspectionLog {
   vehicleRecordId String
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
-  compania        String?
+  // Solo se usa cuando la estación/planta tiene más de un tanque (ver
+  // StationTankTechnicalSheet.ultrasoundLogs y compañía): identifica a cuál
+  // de los tanques pertenece este registro. Con un solo tanque se queda null
+  // y el registro sigue aplicando a la unidad completa, como siempre.
+  stationTankTechnicalSheetId String?
+  stationTankTechnicalSheet   StationTankTechnicalSheet? @relation(fields: [stationTankTechnicalSheetId], references: [id], onDelete: SetNull)
+
+  compania         String?
   numeroInspeccion String?
-  responsable     String?
+  responsable      String?
 
   // Fecha de la inspección visual anterior, capturada como referencia al
   // momento de registrar este nuevo evento.
-  fechaUltimaInspeccion DateTime?
+  fechaUltimaInspeccion  DateTime?
   // Fecha en que se realizó esta nueva inspección visual (pasa a ser la
   // "ultimaInspeccionVisual" de la ficha técnica al aceptar el registro).
-  fechaRealizacion DateTime
+  fechaRealizacion       DateTime
   // Fecha de la próxima inspección visual externa (pasa a ser
   // "fechaProximaInspeccionVisual" de la ficha técnica al aceptar el
   // registro, que es lo que dispara la alerta).
   fechaProximaInspeccion DateTime
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -712,19 +717,26 @@ model TightnessTestLog {
   vehicleRecordId String
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
-  compania    String?
-  numeroPrueba String?
-  responsable String?
+  // Solo se usa cuando la estación/planta tiene más de un tanque (ver
+  // StationTankTechnicalSheet.ultrasoundLogs y compañía): identifica a cuál
+  // de los tanques pertenece este registro. Con un solo tanque se queda null
+  // y el registro sigue aplicando a la unidad completa, como siempre.
+  stationTankTechnicalSheetId String?
+  stationTankTechnicalSheet   StationTankTechnicalSheet? @relation(fields: [stationTankTechnicalSheetId], references: [id], onDelete: SetNull)
 
-  fechaUltimaPrueba DateTime?
-  fechaRealizacion  DateTime
+  compania     String?
+  numeroPrueba String?
+  responsable  String?
+
+  fechaUltimaPrueba  DateTime?
+  fechaRealizacion   DateTime
   // Fecha de la próxima prueba de hermeticidad (pasa a ser
   // "fechaProximaPruebaHermeticidad" de la ficha técnica al aceptar el
   // registro, que es lo que dispara la alerta).
   fechaProximaPrueba DateTime
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -744,6 +756,13 @@ model InternalVisualInspectionLog {
   vehicleRecordId String
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
+  // Solo se usa cuando la estación/planta tiene más de un tanque (ver
+  // StationTankTechnicalSheet.ultrasoundLogs y compañía): identifica a cuál
+  // de los tanques pertenece este registro. Con un solo tanque se queda null
+  // y el registro sigue aplicando a la unidad completa, como siempre.
+  stationTankTechnicalSheetId String?
+  stationTankTechnicalSheet   StationTankTechnicalSheet? @relation(fields: [stationTankTechnicalSheetId], references: [id], onDelete: SetNull)
+
   compania         String?
   numeroInspeccion String?
   responsable      String?
@@ -752,7 +771,7 @@ model InternalVisualInspectionLog {
   fechaRealizacion      DateTime
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -771,6 +790,13 @@ model HydrostaticTestLog {
   vehicleRecordId String
   vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
 
+  // Solo se usa cuando la estación/planta tiene más de un tanque (ver
+  // StationTankTechnicalSheet.ultrasoundLogs y compañía): identifica a cuál
+  // de los tanques pertenece este registro. Con un solo tanque se queda null
+  // y el registro sigue aplicando a la unidad completa, como siempre.
+  stationTankTechnicalSheetId String?
+  stationTankTechnicalSheet   StationTankTechnicalSheet? @relation(fields: [stationTankTechnicalSheetId], references: [id], onDelete: SetNull)
+
   compania     String?
   numeroPrueba String?
   responsable  String?
@@ -779,7 +805,7 @@ model HydrostaticTestLog {
   fechaRealizacion  DateTime
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -793,6 +819,62 @@ model HydrostaticTestLog {
 // de unidad. Al aceptarse actualiza automáticamente fechaInstalacionExtintor,
 // fechaVencimientoExtintor y calidadExtintor en la ficha técnica (ver
 // actions/extinguisher-actions.ts).
+// Póliza de seguro de una unidad: vive en el apartado "Documentación" de la
+// unidad, después de las fichas técnicas. A diferencia de las demás
+// bitácoras, aquí lo que importa es el documento y su vigencia — se sube el
+// archivo, se anota cuándo se hizo y cuándo vence, y de esa fecha de
+// vencimiento sale la alerta (ver lib/insurance-alerts.ts).
+model InsurancePolicyLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  fechaRealizacion DateTime
+  fechaVencimiento DateTime
+  aseguradora      String?
+  numeroPoliza     String?
+  observaciones    String?
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("insurance_policy_logs")
+}
+
+// Un renglón del checklist de cumplimiento normativo de una unidad, estación
+// o planta (ver lib/compliance-checklist.ts: la lista de documentos exigidos
+// es fija por ámbito, no editable desde el panel). "clave" identifica cuál
+// documento es de esa lista; no hay una fila por cada documento de la lista
+// hasta que alguien lo marca o le sube algo — el que falta simplemente no
+// tiene fila (ver getComplianceChecklist).
+model ComplianceChecklistItem {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  clave String
+
+  cumple        Boolean   @default(false)
+  fecha         DateTime?
+  observaciones String?
+
+  updatedById String?
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vehicleRecordId, clave])
+  @@map("compliance_checklist_items")
+}
+
 model ExtinguisherChangeLog {
   id String @id @default(cuid())
 
@@ -807,7 +889,7 @@ model ExtinguisherChangeLog {
   fechaRealizacion DateTime
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -836,7 +918,7 @@ model ExtinguisherQualityChangeLog {
   observacion     String?
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -863,10 +945,10 @@ model ValveChangeLog {
 
   fechaInstalacion DateTime
 
-  fechaFabricacionValvulaLlenado       DateTime
-  fechaFabricacionValvulaServicio      DateTime
-  fechaFabricacionValvulaMaximoLlenado DateTime
-  fechaFabricacionValvulaAlivio        DateTime
+  fechaFabricacionValvulaLlenado            DateTime
+  fechaFabricacionValvulaServicio           DateTime
+  fechaFabricacionValvulaMaximoLlenado      DateTime
+  fechaFabricacionValvulaAlivio             DateTime
   // Las 4 de arriba aplican a Auto-Tanques y a Vehículo con tanque de
   // carburación (con otros nombres ahí: Doble check/purgador/reguladora/
   // seguridad, ver TechnicalSheetForm). Las 4 de abajo (más la opcional del
@@ -878,11 +960,11 @@ model ValveChangeLog {
   fechaFabricacionValvulaDescargaEmergencia DateTime?
   // Única opcional del juego para Auto-Tanques: no todos los tanques de
   // carga la tienen.
-  tieneValvulaMaximoLlenado85            Boolean   @default(false)
-  fechaFabricacionValvulaMaximoLlenado85 DateTime?
+  tieneValvulaMaximoLlenado85               Boolean   @default(false)
+  fechaFabricacionValvulaMaximoLlenado85    DateTime?
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -912,7 +994,7 @@ model ValveCorrectiveMaintenanceLog {
   fecha       DateTime
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -944,7 +1026,7 @@ model HoseChangeLog {
   fechaFabricacionManguera DateTime
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -966,10 +1048,10 @@ model PieceOrder {
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   // "REFACCION" | "PIEZA" | "HERRAMIENTA" | "CONSUMIBLE" (ver lib/inventory-enums.ts)
-  tipo String
+  tipo       String
   // Qué se pide en concreto ("Balata delantera", "Aceite 15W40"). Por ahora
   // es texto libre; más adelante puede volverse un catálogo seleccionable.
-  nombre String
+  nombre     String
   // Unidad ya resuelta: "PZA" para los contables, "LTS"/"KG" para consumibles.
   unidad     String
   cantidad   Int
@@ -1015,7 +1097,7 @@ model PieceOrder {
   inventoryItems InventoryItem[]
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1071,7 +1153,7 @@ model InventoryItem {
   fechaUtilizada        DateTime?
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1136,31 +1218,31 @@ model Equipo {
   observaciones           String?
 
   // Mecánico (y capacidad/potencia también se comparten con Auxiliar)
-  capacidad             String?
-  presionTrabajo        String?
-  temperaturaOperacion  String?
-  materialFabricacion   String?
-  fluidoTrabajo         String?
-  potencia              String?
-  rpm                   String?
-  lubricante            String?
+  capacidad            String?
+  presionTrabajo       String?
+  temperaturaOperacion String?
+  materialFabricacion  String?
+  fluidoTrabajo        String?
+  potencia             String?
+  rpm                  String?
+  lubricante           String?
 
   // Eléctrico / electrónico
-  voltaje            String?
-  corriente          String?
+  voltaje             String?
+  corriente           String?
   frecuenciaElectrica String?
-  numeroFases        String?
-  proteccionIp       String?
-  claseAislamiento   String?
-  consumoElectrico   String?
-  comunicacion       String?
+  numeroFases         String?
+  proteccionIp        String?
+  claseAislamiento    String?
+  consumoElectrico    String?
+  comunicacion        String?
 
   // Auxiliar
-  combustible     String?
-  horasOperacion  String?
+  combustible    String?
+  horasOperacion String?
 
-  documents     Document[]
-  equipmentLogs EquipmentLog[]
+  documents              Document[]
+  equipmentLogs          EquipmentLog[]
   // Órdenes de pieza que marcaron a este equipo como el que sustituirán
   // (ver PieceOrder.sustituyeEquipoId).
   ordenesQueLoSustituyen PieceOrder[]
@@ -1199,7 +1281,7 @@ model EquipmentLog {
   criticidad        String?
 
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   documents Document[]
 
@@ -1243,6 +1325,9 @@ model Document {
   extinguisherChangeLogId String?
   extinguisherChangeLog   ExtinguisherChangeLog? @relation(fields: [extinguisherChangeLogId], references: [id], onDelete: Cascade)
 
+  insurancePolicyLogId String?
+  insurancePolicyLog   InsurancePolicyLog? @relation(fields: [insurancePolicyLogId], references: [id], onDelete: Cascade)
+
   valveChangeLogId String?
   valveChangeLog   ValveChangeLog? @relation(fields: [valveChangeLogId], references: [id], onDelete: Cascade)
 
@@ -1274,7 +1359,7 @@ model Document {
   fecha DateTime?
 
   uploadedById String?
-  uploadedBy   User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -1304,7 +1389,7 @@ model UserCityAccess {
 // username guarda una copia fija del nombre en ese momento para que el
 // registro siga siendo legible aunque el usuario ya no exista.
 model ActivityLog {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   accion   String // "ELIMINAR" | "EDITAR"
   entidad  String // etiqueta legible, ej. "Registro de mantenimiento"
   resumen  String // descripción de una línea de qué se eliminó/cambió

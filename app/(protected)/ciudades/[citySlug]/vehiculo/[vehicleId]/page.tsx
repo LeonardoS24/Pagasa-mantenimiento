@@ -16,7 +16,12 @@ import { TechnicalSheetForm } from "@/components/admin/TechnicalSheetForm";
 import { TechnicalSheetView } from "@/components/city/TechnicalSheetView";
 import { StationTankTechnicalSheetForm } from "@/components/admin/StationTankTechnicalSheetForm";
 import { StationTankTechnicalSheetView } from "@/components/city/StationTankTechnicalSheetView";
+import { TankTabs } from "@/components/city/TankTabs";
 import { CreateEquipoForm } from "@/components/admin/CreateEquipoForm";
+import { CreateInsurancePolicyLogForm } from "@/components/admin/CreateInsurancePolicyLogForm";
+import { InsurancePolicyLogTable } from "@/components/city/InsurancePolicyLogTable";
+import { ComplianceChecklistPanel } from "@/components/city/ComplianceChecklistPanel";
+import type { ComplianceAmbito } from "@/lib/compliance-checklist";
 import { EquipoTable } from "@/components/city/EquipoTable";
 import { CreateMaintenanceLogForm } from "@/components/admin/CreateMaintenanceLogForm";
 import { MaintenanceLogTable } from "@/components/city/MaintenanceLogTable";
@@ -93,6 +98,7 @@ import {
 import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
+import { tipoRegistro, tipoRegistroLabel } from "@/lib/section-labels";
 import { hasActiveElevatedAccess } from "@/lib/elevated-access";
 
 export default async function VehicleDetailPage({
@@ -109,6 +115,11 @@ export default async function VehicleDetailPage({
     where: { id: params.vehicleId },
     include: {
       section: { include: { city: true } },
+      insurancePolicyLogs: {
+        orderBy: { fechaVencimiento: "desc" },
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
+      complianceChecklistItems: true,
       documents: { orderBy: { createdAt: "desc" } },
       technicalSheet: true,
       stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" } },
@@ -229,11 +240,31 @@ export default async function VehicleDetailPage({
   // todo lo demás, pero el bloque de "Equipos de la estación" más abajo
   // sigue gateado en isEstacionCarburacion a secas.
   const isPlanta = vehicle.section.slug === "planta-ficha-tecnica";
+  // Ver lib/compliance-checklist.ts: cuál de las 3 listas fijas de
+  // cumplimiento normativo le toca a este registro.
+  const complianceAmbito: ComplianceAmbito = isPlanta ? "PLANTA" : isEstacionCarburacion ? "ESTACION" : "UNIDAD";
   const isEstacionLike = isEstacionCarburacion || isPlanta;
   // Casi toda estación tiene un solo tanque físico ("Tanque 1"); algunas
-  // tienen dos (ver VehicleRecord.stationTankTechnicalSheets en el schema).
-  const tanque1 = vehicle.stationTankTechnicalSheets.find((t) => t.etiqueta === "Tanque 1") ?? null;
-  const tanque2 = vehicle.stationTankTechnicalSheets.find((t) => t.etiqueta === "Tanque 2") ?? null;
+  // tienen dos, y una Planta puede tener más (Hermosillo tiene cuatro, ver
+  // VehicleRecord.stationTankTechnicalSheets en el schema). Antes esto eran
+  // dos constantes fijas (tanque1/tanque2) y del tercero en adelante no había
+  // forma de verlo ni capturarlo: ahora se listan los que existan y se ofrece
+  // agregar el siguiente.
+  const tanquesExistentes = [...vehicle.stationTankTechnicalSheets].sort((a, b) =>
+    a.etiqueta.localeCompare(b.etiqueta, "es", { numeric: true })
+  );
+  // Sin ninguna ficha todavía se muestra igual "Tanque 1" en blanco, que es
+  // por donde se empieza a capturar.
+  const tanquesAMostrar =
+    tanquesExistentes.length > 0
+      ? tanquesExistentes.map((sheet) => ({ etiqueta: sheet.etiqueta, sheet }))
+      : [{ etiqueta: "Tanque 1", sheet: null }];
+  const siguienteEtiquetaTanque = `Tanque ${tanquesExistentes.length + 1}`;
+  // Con dos o más tanques físicos, cada uno lleva su propio ciclo de las 5
+  // pruebas periódicas (antes se compartían a nivel de todo el registro, ver
+  // StationTankTechnicalSheet en el schema) — con uno solo se sigue usando
+  // la ficha técnica compartida, como siempre.
+  const isMultiTanque = isEstacionLike && tanquesAMostrar.length > 1;
   const useDeliveryFormat =
     vehicle.section.slug === "vehiculo-de-reparto" ||
     vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
@@ -508,64 +539,56 @@ export default async function VehicleDetailPage({
       <div id={isEstacionLike ? "valvulas" : undefined} className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         {isEstacionLike && (
           <div className="mb-6 space-y-6">
-            <div>
-              <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
-                Ficha técnica del tanque{tanque2 ? " — Tanque 1" : ""}
-              </h2>
-              {isAdmin ? (
-                <StationTankTechnicalSheetForm
-                  vehicleId={vehicle.id}
-                  etiqueta="Tanque 1"
-                  sheet={tanque1}
-                  camposExtra={camposEstacion}
-                  valoresExtra={valoresCampos}
-                  isPlanta={isPlanta}
-                />
-              ) : (
-                <StationTankTechnicalSheetView
-                  sheet={tanque1}
-                  camposExtra={camposEstacion}
-                  valoresExtra={valoresCampos}
-                  isPlanta={isPlanta}
-                />
-              )}
-            </div>
-
-            {tanque2 ? (
-              <div className="border-t border-gray-200 pt-6">
+            {tanquesAMostrar.map(({ etiqueta, sheet }, i) => (
+              <div key={etiqueta} className={i > 0 ? "border-t border-gray-200 pt-6" : ""}>
                 <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
-                  Ficha técnica del tanque — Tanque 2
+                  Ficha técnica del tanque{tanquesAMostrar.length > 1 ? ` — ${etiqueta}` : ""}
                 </h2>
                 {isAdmin ? (
                   <StationTankTechnicalSheetForm
                     vehicleId={vehicle.id}
-                    etiqueta="Tanque 2"
-                    sheet={tanque2}
+                    etiqueta={etiqueta}
+                    sheet={sheet}
+                    // Los recuadros extra de /admin/campos solo cuelgan del
+                    // primer tanque, para no repetirlos en cada uno.
+                    camposExtra={i === 0 ? camposEstacion : []}
+                    valoresExtra={i === 0 ? valoresCampos : {}}
                     isPlanta={isPlanta}
+                    showInspecciones={isMultiTanque}
                   />
                 ) : (
-                  <StationTankTechnicalSheetView sheet={tanque2} isPlanta={isPlanta} />
+                  <StationTankTechnicalSheetView
+                    sheet={sheet}
+                    camposExtra={i === 0 ? camposEstacion : []}
+                    valoresExtra={i === 0 ? valoresCampos : {}}
+                    isPlanta={isPlanta}
+                    showInspecciones={isMultiTanque}
+                  />
                 )}
               </div>
-            ) : (
-              isAdmin && (
-                <details className="border-t border-gray-200 pt-4">
-                  <summary className="cursor-pointer text-sm font-medium text-primary">
-                    + Esta estación tiene un segundo tanque
-                  </summary>
-                  <div className="mt-4">
-                    <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
-                      Ficha técnica del tanque — Tanque 2
-                    </h2>
-                    <StationTankTechnicalSheetForm
-                      vehicleId={vehicle.id}
-                      etiqueta="Tanque 2"
-                      sheet={null}
-                      isPlanta={isPlanta}
-                    />
-                  </div>
-                </details>
-              )
+            ))}
+
+            {isAdmin && (
+              <details className="border-t border-gray-200 pt-4">
+                <summary className="cursor-pointer text-sm font-medium text-primary">
+                  + Agregar otro tanque ({siguienteEtiquetaTanque})
+                </summary>
+                <div className="mt-4">
+                  <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
+                    Ficha técnica del tanque — {siguienteEtiquetaTanque}
+                  </h2>
+                  <StationTankTechnicalSheetForm
+                    vehicleId={vehicle.id}
+                    etiqueta={siguienteEtiquetaTanque}
+                    sheet={null}
+                    isPlanta={isPlanta}
+                    // Al agregar el siguiente tanque, el registro pasará a
+                    // ser multi-tanque aunque tanquesAMostrar todavía no lo
+                    // refleje (se actualiza hasta guardar y recargar).
+                    showInspecciones={tanquesAMostrar.length >= 1}
+                  />
+                </div>
+              </details>
             )}
           </div>
         )}
@@ -582,7 +605,7 @@ export default async function VehicleDetailPage({
             showValveSection={isTanqueCarburacion || isAutoTanques}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection && !isEstacionLike}
-            showInspeccionesSection={showInspeccionesSection}
+            showInspeccionesSection={showInspeccionesSection && !isMultiTanque}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
             showAutomovilSection={!isEstacionLike}
             lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
@@ -597,7 +620,7 @@ export default async function VehicleDetailPage({
             showValveSection={isTanqueCarburacion || isAutoTanques}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection && !isEstacionLike}
-            showInspeccionesSection={showInspeccionesSection}
+            showInspeccionesSection={showInspeccionesSection && !isMultiTanque}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
             showAutomovilSection={!isEstacionLike}
             camposExtra={camposVehiculo}
@@ -605,6 +628,38 @@ export default async function VehicleDetailPage({
           />
         )}
       </div>
+
+      {/* El checklist de cumplimiento de normatividad va después de las
+          fichas técnicas del/de los tanque(s) (ver lib/compliance-checklist.ts). */}
+      <div className="mb-8">
+        <ComplianceChecklistPanel
+          vehicleId={vehicle.id}
+          ambito={complianceAmbito}
+          activo={vehicle.activo}
+          filas={vehicle.complianceChecklistItems}
+          isEditor={isEditor}
+        />
+      </div>
+
+      {/* Documentación: va al terminar las fichas técnicas y antes de los
+          registros. Hoy contiene la póliza de seguro, con su fecha de
+          vencimiento y su alerta (ver lib/insurance-alerts.ts). No aplica a
+          Estaciones ni Planta: son instalaciones fijas, no vehículos con
+          seguro propio. */}
+      {!isEstacionLike && (
+        <div id="documentacion" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">Documentación</h2>
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-ink">Póliza de seguro</h3>
+            {isEditor && <CreateInsurancePolicyLogForm vehicleId={vehicle.id} />}
+            <InsurancePolicyLogTable
+              logs={vehicle.insurancePolicyLogs}
+              canEdit={isEditor}
+              isAdmin={isAdmin}
+            />
+          </div>
+        </div>
+      )}
 
       {isEstacionCarburacion && (
         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
@@ -732,21 +787,47 @@ export default async function VehicleDetailPage({
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Externa
           </h2>
-          <div className="space-y-3">
-            {isEditor && (
-              <CreateVisualInspectionLogForm
-                vehicleId={vehicle.id}
-                ultimaInspeccionVisual={toDateInputValue(
-                  vehicle.technicalSheet?.ultimaInspeccionVisual
-                )}
-              />
-            )}
-            <VisualInspectionLogTable
-              logs={vehicle.visualInspectionLogs}
-              canEdit={isEditor}
-              isAdmin={isAdmin}
+          {isMultiTanque ? (
+            <TankTabs
+              tabs={tanquesAMostrar.map(({ etiqueta, sheet }) => ({
+                etiqueta,
+                content: (
+                  <div className="space-y-3">
+                    {isEditor && (
+                      <CreateVisualInspectionLogForm
+                        vehicleId={vehicle.id}
+                        stationTankTechnicalSheetId={sheet!.id}
+                        ultimaInspeccionVisual={toDateInputValue(sheet!.ultimaInspeccionVisual)}
+                      />
+                    )}
+                    <VisualInspectionLogTable
+                      logs={vehicle.visualInspectionLogs.filter(
+                        (l) => l.stationTankTechnicalSheetId === sheet!.id
+                      )}
+                      canEdit={isEditor}
+                      isAdmin={isAdmin}
+                    />
+                  </div>
+                ),
+              }))}
             />
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {isEditor && (
+                <CreateVisualInspectionLogForm
+                  vehicleId={vehicle.id}
+                  ultimaInspeccionVisual={toDateInputValue(
+                    vehicle.technicalSheet?.ultimaInspeccionVisual
+                  )}
+                />
+              )}
+              <VisualInspectionLogTable
+                logs={vehicle.visualInspectionLogs}
+                canEdit={isEditor}
+                isAdmin={isAdmin}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -755,21 +836,47 @@ export default async function VehicleDetailPage({
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba de Hermeticidad
           </h2>
-          <div className="space-y-3">
-            {isEditor && (
-              <CreateTightnessTestLogForm
-                vehicleId={vehicle.id}
-                ultimaPruebaHermeticidad={toDateInputValue(
-                  vehicle.technicalSheet?.ultimaPruebaHermeticidad
-                )}
-              />
-            )}
-            <TightnessTestLogTable
-              logs={vehicle.tightnessTestLogs}
-              canEdit={isEditor}
-              isAdmin={isAdmin}
+          {isMultiTanque ? (
+            <TankTabs
+              tabs={tanquesAMostrar.map(({ etiqueta, sheet }) => ({
+                etiqueta,
+                content: (
+                  <div className="space-y-3">
+                    {isEditor && (
+                      <CreateTightnessTestLogForm
+                        vehicleId={vehicle.id}
+                        stationTankTechnicalSheetId={sheet!.id}
+                        ultimaPruebaHermeticidad={toDateInputValue(sheet!.ultimaPruebaHermeticidad)}
+                      />
+                    )}
+                    <TightnessTestLogTable
+                      logs={vehicle.tightnessTestLogs.filter(
+                        (l) => l.stationTankTechnicalSheetId === sheet!.id
+                      )}
+                      canEdit={isEditor}
+                      isAdmin={isAdmin}
+                    />
+                  </div>
+                ),
+              }))}
             />
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {isEditor && (
+                <CreateTightnessTestLogForm
+                  vehicleId={vehicle.id}
+                  ultimaPruebaHermeticidad={toDateInputValue(
+                    vehicle.technicalSheet?.ultimaPruebaHermeticidad
+                  )}
+                />
+              )}
+              <TightnessTestLogTable
+                logs={vehicle.tightnessTestLogs}
+                canEdit={isEditor}
+                isAdmin={isAdmin}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -778,21 +885,49 @@ export default async function VehicleDetailPage({
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Interna
           </h2>
-          <div className="space-y-3">
-            {isEditor && (
-              <CreateInternalVisualInspectionLogForm
-                vehicleId={vehicle.id}
-                ultimaInspeccionVisualInterna={toDateInputValue(
-                  vehicle.technicalSheet?.ultimaInspeccionVisualInterna
-                )}
-              />
-            )}
-            <InternalVisualInspectionLogTable
-              logs={vehicle.internalVisualInspectionLogs}
-              canEdit={isEditor}
-              isAdmin={isAdmin}
+          {isMultiTanque ? (
+            <TankTabs
+              tabs={tanquesAMostrar.map(({ etiqueta, sheet }) => ({
+                etiqueta,
+                content: (
+                  <div className="space-y-3">
+                    {isEditor && (
+                      <CreateInternalVisualInspectionLogForm
+                        vehicleId={vehicle.id}
+                        stationTankTechnicalSheetId={sheet!.id}
+                        ultimaInspeccionVisualInterna={toDateInputValue(
+                          sheet!.ultimaInspeccionVisualInterna
+                        )}
+                      />
+                    )}
+                    <InternalVisualInspectionLogTable
+                      logs={vehicle.internalVisualInspectionLogs.filter(
+                        (l) => l.stationTankTechnicalSheetId === sheet!.id
+                      )}
+                      canEdit={isEditor}
+                      isAdmin={isAdmin}
+                    />
+                  </div>
+                ),
+              }))}
             />
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {isEditor && (
+                <CreateInternalVisualInspectionLogForm
+                  vehicleId={vehicle.id}
+                  ultimaInspeccionVisualInterna={toDateInputValue(
+                    vehicle.technicalSheet?.ultimaInspeccionVisualInterna
+                  )}
+                />
+              )}
+              <InternalVisualInspectionLogTable
+                logs={vehicle.internalVisualInspectionLogs}
+                canEdit={isEditor}
+                isAdmin={isAdmin}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -801,15 +936,41 @@ export default async function VehicleDetailPage({
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Registro de ultrasonido
           </h2>
-          <div className="space-y-3">
-            {isEditor && (
-              <CreateUltrasoundLogForm
-                vehicleId={vehicle.id}
-                ultimoUltrasonido={toDateInputValue(vehicle.technicalSheet?.ultimoUltrasonido)}
-              />
-            )}
-            <UltrasoundLogTable logs={vehicle.ultrasoundLogs} canEdit={isEditor} isAdmin={isAdmin} />
-          </div>
+          {isMultiTanque ? (
+            <TankTabs
+              tabs={tanquesAMostrar.map(({ etiqueta, sheet }) => ({
+                etiqueta,
+                content: (
+                  <div className="space-y-3">
+                    {isEditor && (
+                      <CreateUltrasoundLogForm
+                        vehicleId={vehicle.id}
+                        stationTankTechnicalSheetId={sheet!.id}
+                        ultimoUltrasonido={toDateInputValue(sheet!.ultimoUltrasonido)}
+                      />
+                    )}
+                    <UltrasoundLogTable
+                      logs={vehicle.ultrasoundLogs.filter(
+                        (l) => l.stationTankTechnicalSheetId === sheet!.id
+                      )}
+                      canEdit={isEditor}
+                      isAdmin={isAdmin}
+                    />
+                  </div>
+                ),
+              }))}
+            />
+          ) : (
+            <div className="space-y-3">
+              {isEditor && (
+                <CreateUltrasoundLogForm
+                  vehicleId={vehicle.id}
+                  ultimoUltrasonido={toDateInputValue(vehicle.technicalSheet?.ultimoUltrasonido)}
+                />
+              )}
+              <UltrasoundLogTable logs={vehicle.ultrasoundLogs} canEdit={isEditor} isAdmin={isAdmin} />
+            </div>
+          )}
         </div>
       )}
 
@@ -818,25 +979,54 @@ export default async function VehicleDetailPage({
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba Hidrostática
           </h2>
-          <div className="space-y-3">
-            {isEditor && (
-              <CreateHydrostaticTestLogForm
-                vehicleId={vehicle.id}
-                ultimaPruebaHidrostatica={toDateInputValue(
-                  vehicle.technicalSheet?.ultimaPruebaHidrostatica
-                )}
-              />
-            )}
-            <HydrostaticTestLogTable
-              logs={vehicle.hydrostaticTestLogs}
-              canEdit={isEditor}
-              isAdmin={isAdmin}
+          {isMultiTanque ? (
+            <TankTabs
+              tabs={tanquesAMostrar.map(({ etiqueta, sheet }) => ({
+                etiqueta,
+                content: (
+                  <div className="space-y-3">
+                    {isEditor && (
+                      <CreateHydrostaticTestLogForm
+                        vehicleId={vehicle.id}
+                        stationTankTechnicalSheetId={sheet!.id}
+                        ultimaPruebaHidrostatica={toDateInputValue(sheet!.ultimaPruebaHidrostatica)}
+                      />
+                    )}
+                    <HydrostaticTestLogTable
+                      logs={vehicle.hydrostaticTestLogs.filter(
+                        (l) => l.stationTankTechnicalSheetId === sheet!.id
+                      )}
+                      canEdit={isEditor}
+                      isAdmin={isAdmin}
+                    />
+                  </div>
+                ),
+              }))}
             />
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {isEditor && (
+                <CreateHydrostaticTestLogForm
+                  vehicleId={vehicle.id}
+                  ultimaPruebaHidrostatica={toDateInputValue(
+                    vehicle.technicalSheet?.ultimaPruebaHidrostatica
+                  )}
+                />
+              )}
+              <HydrostaticTestLogTable
+                logs={vehicle.hydrostaticTestLogs}
+                canEdit={isEditor}
+                isAdmin={isAdmin}
+              />
+            </div>
+          )}
         </div>
       )}
 
-      {isEstacionLike && (
+      {/* Permisos: solo Estaciones de carburación. Planta no sube permisos
+          aquí — sus documentos regulatorios ya se cubren con el checklist de
+          cumplimiento de normatividad (ver lib/compliance-checklist.ts). */}
+      {isEstacionCarburacion && (
         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">Permisos</h2>
           <div className="space-y-3">
@@ -862,7 +1052,7 @@ export default async function VehicleDetailPage({
       {isAdmin && (
         <div id="baja" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
-            Estatus de la unidad
+            Estatus de la {tipoRegistroLabel(vehicle.section.slug)}
           </h2>
           {!vehicle.activo && vehicle.motivoBaja && (
             <p className="mb-3 rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-ink">
@@ -888,7 +1078,7 @@ export default async function VehicleDetailPage({
                       rows={3}
                       maxLength={500}
                       className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary focus:outline-none"
-                      placeholder="Describe por qué se da de baja esta unidad..."
+                      placeholder={`Describe por qué se da de baja esta ${tipoRegistroLabel(vehicle.section.slug)}...`}
                     />
                   </div>
                 }
@@ -902,7 +1092,7 @@ export default async function VehicleDetailPage({
                 type="submit"
                 className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark"
               >
-                Reactivar unidad
+                Reactivar {tipoRegistroLabel(vehicle.section.slug)}
               </button>
             </form>
           )}
@@ -916,12 +1106,12 @@ export default async function VehicleDetailPage({
           </h2>
           <ConfirmDeleteWithPassword
             nombre={vehicle.numeroEconomico}
-            tipo="unidad"
+            tipo={tipoRegistro(vehicle.section.slug)}
             action={deleteVehicleRecord.bind(null, vehicle.id)}
             cargarImpacto={previewVehicleDeleteImpact.bind(null, vehicle.id)}
             className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent hover:text-white"
           >
-            Eliminar unidad
+            Eliminar {tipoRegistroLabel(vehicle.section.slug)}
           </ConfirmDeleteWithPassword>
         </div>
       )}

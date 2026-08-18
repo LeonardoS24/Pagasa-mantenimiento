@@ -9,6 +9,7 @@ import { DocumentList } from "@/components/city/DocumentList";
 import { MaintenancePhotos } from "@/components/city/MaintenancePhotos";
 import { PrintButton } from "@/components/city/PrintButton";
 import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
+import { PrintPdfPages } from "@/components/city/PrintPdfPages";
 import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { formatDate, getCurrentYearRange, currentYearLabel } from "@/lib/dates";
 import {
@@ -105,6 +106,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// Los PDF que se adjuntaron a un registro, en el formato que espera
+// PrintPdfPages. Las imágenes no entran aquí: esas ya se ven como miniatura
+// (ver MaintenancePhotos / DocumentList) y sí se imprimen solas.
+function pdfsImprimibles(documents: Document[]) {
+  return documents
+    .filter((d) => d.mimeType === "application/pdf")
+    .map((d) => ({ id: d.id, fileName: d.fileName }));
+}
+
+// A diferencia de Field, este SÍ pinta el renglón cuando el dato viene vacío.
+// En la hoja impresa el registro debe verse como el formato completo que se
+// llena —con sus huecos a la vista— y no solo con los campos que alguien
+// alcanzó a capturar: si se oculta lo vacío, un registro donde solo se puso la
+// fecha se imprime como si el formato fuera de un solo campo.
+function FieldSiempre({ label, value }: { label: string; value?: string | null }) {
+  const vacio = value === null || value === undefined || value === "";
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase text-gray-500">{label}</dt>
+      <dd className={vacio ? "text-gray-400" : "text-ink"}>{vacio ? "—" : value}</dd>
+    </div>
+  );
+}
+
 function LogList({
   emptyLabel,
   entries,
@@ -118,26 +143,37 @@ function LogList({
   return (
     <div className="space-y-4">
       {entries.map((entry) => (
-        <div key={entry.key} className="break-inside-avoid rounded-md border border-gray-100 p-3">
-          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {entry.fields.map((field) => (
-              <Field key={field.label} label={field.label} value={field.value} />
-            ))}
-          </dl>
-          <div className="mt-3">
-            <MaintenancePhotos documents={entry.documents} isAdmin={false} />
-          </div>
-          {entry.documents.filter((d) => d.kind === "ADJUNTO").length > 0 && (
+        <div key={entry.key}>
+          {/* break-inside-avoid solo en los datos del registro, que sí caben
+              en una hoja. Las páginas del PDF van FUERA de este recuadro: si
+              quedaran dentro, el navegador intentaría no partir un bloque de
+              varias hojas y lo empujaría entero a la siguiente página,
+              dejando un hueco enorme (mismo motivo que el comentario de
+              Section más arriba). */}
+          <div className="break-inside-avoid rounded-md border border-gray-100 p-3">
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {entry.fields.map((field) => (
+                <FieldSiempre key={field.label} label={field.label} value={field.value} />
+              ))}
+            </dl>
             <div className="mt-3">
-              <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
-                Documentos (PDF o imagen)
-              </p>
-              <DocumentList
-                documents={entry.documents.filter((d) => d.kind === "ADJUNTO")}
-                isAdmin={false}
-              />
+              <MaintenancePhotos documents={entry.documents} isAdmin={false} />
             </div>
-          )}
+            {entry.documents.filter((d) => d.kind === "ADJUNTO").length > 0 && (
+              <div className="mt-3 print:hidden">
+                <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
+                  Documentos (PDF o imagen)
+                </p>
+                <DocumentList
+                  documents={entry.documents.filter((d) => d.kind === "ADJUNTO")}
+                  isAdmin={false}
+                />
+              </div>
+            )}
+          </div>
+          {/* Los PDF adjuntos, dibujados página por página justo debajo de su
+              registro, para que salgan en la misma impresión. */}
+          <PrintPdfPages documents={pdfsImprimibles(entry.documents)} />
         </div>
       ))}
     </div>
@@ -160,7 +196,8 @@ function MaintenanceLogPrintList({ logs }: { logs: MaintenanceLogWithExtras[] })
       {logs.map((log) => {
         const checklist = parseChecklistPreventivo(log.checklistPreventivo);
         return (
-          <div key={log.id} className="break-inside-avoid rounded-md border border-gray-100 p-3">
+          <div key={log.id}>
+            <div className="break-inside-avoid rounded-md border border-gray-100 p-3">
             <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Fecha" value={formatDate(log.fecha)} />
               <Field label="Tipo de mantenimiento" value={log.tipoMantenimiento} />
@@ -238,13 +275,18 @@ function MaintenanceLogPrintList({ logs }: { logs: MaintenanceLogWithExtras[] })
               <MaintenancePhotos documents={log.documents} isAdmin={false} />
             </div>
             {log.documents.filter((d) => d.kind === "ADJUNTO").length > 0 && (
-              <div className="mt-3">
+              <div className="mt-3 print:hidden">
                 <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
                   Documentos (PDF o imagen)
                 </p>
                 <DocumentList documents={log.documents.filter((d) => d.kind === "ADJUNTO")} isAdmin={false} />
               </div>
             )}
+            </div>
+            {/* Fuera del recuadro con break-inside-avoid, por el mismo motivo
+                explicado en LogList: un bloque de varias hojas no se debe
+                tratar como indivisible. */}
+            <PrintPdfPages documents={pdfsImprimibles(log.documents)} />
           </div>
         );
       })}
@@ -378,7 +420,16 @@ export default async function PrintVehiclePage({
         const useDeliveryFormat =
           record.section.slug === "vehiculo-de-reparto" ||
           record.section.slug === "vehiculo-con-tanque-de-carburacion";
-        const showTankSection = record.section.slug !== "vehiculo-de-reparto" && !isEstacionLike;
+        // El recuadro del tanque solo se imprime en las unidades que llevan
+        // tanque: Auto-Tanques (tanque de carga) y Vehículo con tanque de
+        // carburación. Una utilitaria o una del parque vehicular no tiene
+        // ninguno, y antes se les imprimía el bloque vacío gastando espacio.
+        //
+        // A propósito NO se decide por "si trae datos capturados": una unidad
+        // de carburación SÍ tiene tanque aunque todavía no lo hayan llenado, y
+        // esconderle el bloque taparía que falta capturarlo. Se imprime con
+        // sus huecos a la vista, igual que el resto del formato.
+        const showTankSection = isAutoTanques || isTanqueCarburacion;
         const showInspeccionesSection = isAutoTanques || isTanqueCarburacion || isEstacionLike;
 
         const sectionLabel = isAutoTanques
@@ -631,6 +682,7 @@ export default async function PrintVehiclePage({
                 isAdmin={false}
               />
             </Section>
+
 
             {isMerged && index === printRecords.length - 1 && (
               <div className="mb-4 mt-10 flex items-center gap-3 break-inside-avoid">

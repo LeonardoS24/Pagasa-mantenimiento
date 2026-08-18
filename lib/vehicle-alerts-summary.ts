@@ -9,6 +9,7 @@ import { getMaintenanceAlertLevel } from "@/lib/maintenance-alerts";
 import { getValveAlertLevel, getValveVencimiento, oldestValve } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
+import { getInsuranceAlertLevel } from "@/lib/insurance-alerts";
 import { getStationValveAlertLevel, getStationValveVencimiento, oldestStationValve } from "@/lib/station-valves";
 import {
   PLANTA_INSTRUMENT_FIELDS,
@@ -54,108 +55,257 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     include: { technicalSheet: true, section: { include: { city: true } } },
   });
 
-  const alertVehicles = upcomingRecords
-    .map((record) => {
-      if (!isAlertVisibleForSection("ultrasonido", record.section.slug)) return null;
-      const fecha = record.technicalSheet?.fechaProximoUltrasonido;
-      if (!fecha) return null;
-      const level = getUltrasoundAlertLevel(fecha);
-      if (level === "none") return null;
-      return {
-        id: record.id,
-        numeroEconomico: record.numeroEconomico,
-        citySlug: record.section.city.slug,
-        cityName: record.section.city.name,
-        fechaProximoUltrasonido: fecha,
-        level,
-      };
-    })
-    .filter((value): value is NonNullable<typeof value> => value !== null)
-    .sort((a, b) => daysUntil(a.fechaProximoUltrasonido) - daysUntil(b.fechaProximoUltrasonido));
+  // Estaciones/planta con más de un tanque físico: desde que cada tanque
+  // lleva su propio ciclo de las 5 pruebas periódicas (ver
+  // StationTankTechnicalSheet en el schema), la ficha compartida del
+  // registro ya no se actualiza para ellas — sus alertas de estos 5 tipos
+  // salen una por tanque más abajo, no a nivel de todo el registro.
+  const stationRecords = await prisma.vehicleRecord.findMany({
+    where: {
+      activo: true,
+      section: { cityId: { in: cityIds }, slug: { in: ESTACION_LIKE_SECTION_SLUGS } },
+    },
+    include: {
+      stationTankTechnicalSheets: true,
+      section: { include: { city: true } },
+    },
+  });
+  const multiTanqueIds = new Set(
+    stationRecords.filter((r) => r.stationTankTechnicalSheets.length > 1).map((r) => r.id)
+  );
 
-  const visualAlertVehicles = upcomingRecords
-    .map((record) => {
-      if (!isAlertVisibleForSection("visualExterna", record.section.slug)) return null;
-      const fecha = record.technicalSheet?.fechaProximaInspeccionVisual;
-      if (!fecha) return null;
-      const level = getVisualInspectionAlertLevel(fecha);
-      if (level === "none") return null;
-      return {
-        id: record.id,
-        numeroEconomico: record.numeroEconomico,
-        citySlug: record.section.city.slug,
-        cityName: record.section.city.name,
-        fechaProximaInspeccionVisual: fecha,
-        level,
-      };
-    })
-    .filter((value): value is NonNullable<typeof value> => value !== null)
-    .sort((a, b) => daysUntil(a.fechaProximaInspeccionVisual) - daysUntil(b.fechaProximaInspeccionVisual));
+  const alertVehicles = [
+    ...upcomingRecords
+      .map((record) => {
+        if (multiTanqueIds.has(record.id)) return null;
+        if (!isAlertVisibleForSection("ultrasonido", record.section.slug)) return null;
+        const fecha = record.technicalSheet?.fechaProximoUltrasonido;
+        if (!fecha) return null;
+        const level = getUltrasoundAlertLevel(fecha);
+        if (level === "none") return null;
+        return {
+          id: record.id,
+          numeroEconomico: record.numeroEconomico,
+          sectionSlug: record.section.slug,
+          citySlug: record.section.city.slug,
+          cityName: record.section.city.name,
+          fechaProximoUltrasonido: fecha,
+          etiquetaTanque: undefined as string | undefined,
+          level,
+        };
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+    ...stationRecords
+      .filter((record) => multiTanqueIds.has(record.id))
+      .flatMap((record) => {
+        if (!isAlertVisibleForSection("ultrasonido", record.section.slug)) return [];
+        return record.stationTankTechnicalSheets.map((tanque) => {
+          const fecha = tanque.fechaProximoUltrasonido;
+          if (!fecha) return null;
+          const level = getUltrasoundAlertLevel(fecha);
+          if (level === "none") return null;
+          return {
+            id: record.id,
+            numeroEconomico: record.numeroEconomico,
+            sectionSlug: record.section.slug,
+            citySlug: record.section.city.slug,
+            cityName: record.section.city.name,
+            fechaProximoUltrasonido: fecha,
+            etiquetaTanque: tanque.etiqueta as string | undefined,
+            level,
+          };
+        });
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+  ].sort((a, b) => daysUntil(a.fechaProximoUltrasonido) - daysUntil(b.fechaProximoUltrasonido));
 
-  const tightnessAlertVehicles = upcomingRecords
-    .map((record) => {
-      if (!isAlertVisibleForSection("hermeticidad", record.section.slug)) return null;
-      const fecha = record.technicalSheet?.fechaProximaPruebaHermeticidad;
-      if (!fecha) return null;
-      const level = getTightnessTestAlertLevel(fecha);
-      if (level === "none") return null;
-      return {
-        id: record.id,
-        numeroEconomico: record.numeroEconomico,
-        citySlug: record.section.city.slug,
-        cityName: record.section.city.name,
-        fechaProximaPruebaHermeticidad: fecha,
-        level,
-      };
-    })
-    .filter((value): value is NonNullable<typeof value> => value !== null)
-    .sort(
-      (a, b) => daysUntil(a.fechaProximaPruebaHermeticidad) - daysUntil(b.fechaProximaPruebaHermeticidad)
-    );
+  const visualAlertVehicles = [
+    ...upcomingRecords
+      .map((record) => {
+        if (multiTanqueIds.has(record.id)) return null;
+        if (!isAlertVisibleForSection("visualExterna", record.section.slug)) return null;
+        const fecha = record.technicalSheet?.fechaProximaInspeccionVisual;
+        if (!fecha) return null;
+        const level = getVisualInspectionAlertLevel(fecha);
+        if (level === "none") return null;
+        return {
+          id: record.id,
+          numeroEconomico: record.numeroEconomico,
+          sectionSlug: record.section.slug,
+          citySlug: record.section.city.slug,
+          cityName: record.section.city.name,
+          fechaProximaInspeccionVisual: fecha,
+          etiquetaTanque: undefined as string | undefined,
+          level,
+        };
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+    ...stationRecords
+      .filter((record) => multiTanqueIds.has(record.id))
+      .flatMap((record) => {
+        if (!isAlertVisibleForSection("visualExterna", record.section.slug)) return [];
+        return record.stationTankTechnicalSheets.map((tanque) => {
+          const fecha = tanque.fechaProximaInspeccionVisual;
+          if (!fecha) return null;
+          const level = getVisualInspectionAlertLevel(fecha);
+          if (level === "none") return null;
+          return {
+            id: record.id,
+            numeroEconomico: record.numeroEconomico,
+            sectionSlug: record.section.slug,
+            citySlug: record.section.city.slug,
+            cityName: record.section.city.name,
+            fechaProximaInspeccionVisual: fecha,
+            etiquetaTanque: tanque.etiqueta as string | undefined,
+            level,
+          };
+        });
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+  ].sort((a, b) => daysUntil(a.fechaProximaInspeccionVisual) - daysUntil(b.fechaProximaInspeccionVisual));
 
-  const internalVisualAlertVehicles = upcomingRecords
-    .map((record) => {
-      if (!isAlertVisibleForSection("visualInterna", record.section.slug)) return null;
-      const fecha = record.technicalSheet?.fechaProximaInspeccionVisualInterna;
-      if (!fecha) return null;
-      const level = getInternalVisualInspectionAlertLevel(fecha);
-      if (level === "none") return null;
-      return {
-        id: record.id,
-        numeroEconomico: record.numeroEconomico,
-        citySlug: record.section.city.slug,
-        cityName: record.section.city.name,
-        fechaProximaInspeccionVisualInterna: fecha,
-        level,
-      };
-    })
-    .filter((value): value is NonNullable<typeof value> => value !== null)
-    .sort(
-      (a, b) =>
-        daysUntil(a.fechaProximaInspeccionVisualInterna) -
-        daysUntil(b.fechaProximaInspeccionVisualInterna)
-    );
+  const tightnessAlertVehicles = [
+    ...upcomingRecords
+      .map((record) => {
+        if (multiTanqueIds.has(record.id)) return null;
+        if (!isAlertVisibleForSection("hermeticidad", record.section.slug)) return null;
+        const fecha = record.technicalSheet?.fechaProximaPruebaHermeticidad;
+        if (!fecha) return null;
+        const level = getTightnessTestAlertLevel(fecha);
+        if (level === "none") return null;
+        return {
+          id: record.id,
+          numeroEconomico: record.numeroEconomico,
+          sectionSlug: record.section.slug,
+          citySlug: record.section.city.slug,
+          cityName: record.section.city.name,
+          fechaProximaPruebaHermeticidad: fecha,
+          etiquetaTanque: undefined as string | undefined,
+          level,
+        };
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+    ...stationRecords
+      .filter((record) => multiTanqueIds.has(record.id))
+      .flatMap((record) => {
+        if (!isAlertVisibleForSection("hermeticidad", record.section.slug)) return [];
+        return record.stationTankTechnicalSheets.map((tanque) => {
+          const fecha = tanque.fechaProximaPruebaHermeticidad;
+          if (!fecha) return null;
+          const level = getTightnessTestAlertLevel(fecha);
+          if (level === "none") return null;
+          return {
+            id: record.id,
+            numeroEconomico: record.numeroEconomico,
+            sectionSlug: record.section.slug,
+            citySlug: record.section.city.slug,
+            cityName: record.section.city.name,
+            fechaProximaPruebaHermeticidad: fecha,
+            etiquetaTanque: tanque.etiqueta as string | undefined,
+            level,
+          };
+        });
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+  ].sort(
+    (a, b) => daysUntil(a.fechaProximaPruebaHermeticidad) - daysUntil(b.fechaProximaPruebaHermeticidad)
+  );
 
-  const hydrostaticAlertVehicles = upcomingRecords
-    .map((record) => {
-      if (!isAlertVisibleForSection("hidrostatica", record.section.slug)) return null;
-      const fecha = record.technicalSheet?.fechaProximaPruebaHidrostatica;
-      if (!fecha) return null;
-      const level = getHydrostaticTestAlertLevel(fecha);
-      if (level === "none") return null;
-      return {
-        id: record.id,
-        numeroEconomico: record.numeroEconomico,
-        citySlug: record.section.city.slug,
-        cityName: record.section.city.name,
-        fechaProximaPruebaHidrostatica: fecha,
-        level,
-      };
-    })
-    .filter((value): value is NonNullable<typeof value> => value !== null)
-    .sort(
-      (a, b) => daysUntil(a.fechaProximaPruebaHidrostatica) - daysUntil(b.fechaProximaPruebaHidrostatica)
-    );
+  const internalVisualAlertVehicles = [
+    ...upcomingRecords
+      .map((record) => {
+        if (multiTanqueIds.has(record.id)) return null;
+        if (!isAlertVisibleForSection("visualInterna", record.section.slug)) return null;
+        const fecha = record.technicalSheet?.fechaProximaInspeccionVisualInterna;
+        if (!fecha) return null;
+        const level = getInternalVisualInspectionAlertLevel(fecha);
+        if (level === "none") return null;
+        return {
+          id: record.id,
+          numeroEconomico: record.numeroEconomico,
+          sectionSlug: record.section.slug,
+          citySlug: record.section.city.slug,
+          cityName: record.section.city.name,
+          fechaProximaInspeccionVisualInterna: fecha,
+          etiquetaTanque: undefined as string | undefined,
+          level,
+        };
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+    ...stationRecords
+      .filter((record) => multiTanqueIds.has(record.id))
+      .flatMap((record) => {
+        if (!isAlertVisibleForSection("visualInterna", record.section.slug)) return [];
+        return record.stationTankTechnicalSheets.map((tanque) => {
+          const fecha = tanque.fechaProximaInspeccionVisualInterna;
+          if (!fecha) return null;
+          const level = getInternalVisualInspectionAlertLevel(fecha);
+          if (level === "none") return null;
+          return {
+            id: record.id,
+            numeroEconomico: record.numeroEconomico,
+            sectionSlug: record.section.slug,
+            citySlug: record.section.city.slug,
+            cityName: record.section.city.name,
+            fechaProximaInspeccionVisualInterna: fecha,
+            etiquetaTanque: tanque.etiqueta as string | undefined,
+            level,
+          };
+        });
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+  ].sort(
+    (a, b) =>
+      daysUntil(a.fechaProximaInspeccionVisualInterna) -
+      daysUntil(b.fechaProximaInspeccionVisualInterna)
+  );
+
+  const hydrostaticAlertVehicles = [
+    ...upcomingRecords
+      .map((record) => {
+        if (multiTanqueIds.has(record.id)) return null;
+        if (!isAlertVisibleForSection("hidrostatica", record.section.slug)) return null;
+        const fecha = record.technicalSheet?.fechaProximaPruebaHidrostatica;
+        if (!fecha) return null;
+        const level = getHydrostaticTestAlertLevel(fecha);
+        if (level === "none") return null;
+        return {
+          id: record.id,
+          numeroEconomico: record.numeroEconomico,
+          sectionSlug: record.section.slug,
+          citySlug: record.section.city.slug,
+          cityName: record.section.city.name,
+          fechaProximaPruebaHidrostatica: fecha,
+          etiquetaTanque: undefined as string | undefined,
+          level,
+        };
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+    ...stationRecords
+      .filter((record) => multiTanqueIds.has(record.id))
+      .flatMap((record) => {
+        if (!isAlertVisibleForSection("hidrostatica", record.section.slug)) return [];
+        return record.stationTankTechnicalSheets.map((tanque) => {
+          const fecha = tanque.fechaProximaPruebaHidrostatica;
+          if (!fecha) return null;
+          const level = getHydrostaticTestAlertLevel(fecha);
+          if (level === "none") return null;
+          return {
+            id: record.id,
+            numeroEconomico: record.numeroEconomico,
+            sectionSlug: record.section.slug,
+            citySlug: record.section.city.slug,
+            cityName: record.section.city.name,
+            fechaProximaPruebaHidrostatica: fecha,
+            etiquetaTanque: tanque.etiqueta as string | undefined,
+            level,
+          };
+        });
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null),
+  ].sort(
+    (a, b) => daysUntil(a.fechaProximaPruebaHidrostatica) - daysUntil(b.fechaProximaPruebaHidrostatica)
+  );
 
   const extinguisherAlertVehicles = upcomingRecords
     .map((record) => {
@@ -168,6 +318,7 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
       return {
         id: record.id,
         numeroEconomico: record.numeroEconomico,
+        sectionSlug: record.section.slug,
         citySlug: record.section.city.slug,
         cityName: record.section.city.name,
         fechaCalidadMalaExtintor: record.technicalSheet?.fechaCalidadMalaExtintor ?? null,
@@ -191,6 +342,7 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
       return {
         id: record.id,
         numeroEconomico: record.numeroEconomico,
+        sectionSlug: record.section.slug,
         citySlug: record.section.city.slug,
         cityName: record.section.city.name,
         fechaProximoMantenimiento: fecha,
@@ -226,6 +378,7 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
       return {
         id: record.id,
         numeroEconomico: record.numeroEconomico,
+        sectionSlug: record.section.slug,
         citySlug: record.section.city.slug,
         cityName: record.section.city.name,
         vencimiento,
@@ -246,6 +399,7 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
       return {
         id: record.id,
         numeroEconomico: record.numeroEconomico,
+        sectionSlug: record.section.slug,
         citySlug: record.section.city.slug,
         cityName: record.section.city.name,
         vencimiento,
@@ -257,21 +411,11 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
 
   // Válvulas de Estación de carburación / Planta: viven en su propia ficha
   // del tanque (StationTankTechnicalSheet), no en la del vehículo, así que
-  // no las capta ninguno de los filtros de arriba — necesitan su propia
-  // consulta. Una estación con dos tanques (ver
-  // VehicleRecord.stationTankTechnicalSheets) puede mandar dos alertas, una
-  // por tanque, con la etiqueta para distinguirlas.
-  const stationRecords = await prisma.vehicleRecord.findMany({
-    where: {
-      activo: true,
-      section: { cityId: { in: cityIds }, slug: { in: ESTACION_LIKE_SECTION_SLUGS } },
-    },
-    include: {
-      stationTankTechnicalSheets: true,
-      section: { include: { city: true } },
-    },
-  });
-
+  // no las capta ninguno de los filtros de arriba — reusa stationRecords
+  // (consultado arriba para las 5 alertas de inspección multi-tanque). Una
+  // estación con dos tanques (ver VehicleRecord.stationTankTechnicalSheets)
+  // puede mandar dos alertas, una por tanque, con la etiqueta para
+  // distinguirlas.
   const stationValveAlertVehicles = stationRecords
     .flatMap((record) => {
       if (!isAlertVisibleForSection("valvulas", record.section.slug)) return [];
@@ -284,7 +428,8 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
         return {
           id: record.id,
           numeroEconomico: record.numeroEconomico,
-          citySlug: record.section.city.slug,
+          sectionSlug: record.section.slug,
+        citySlug: record.section.city.slug,
           cityName: record.section.city.name,
           vencimiento,
           valvulaMasAntigua: oldestStationValve(tanque)?.key,
@@ -313,7 +458,8 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
           return {
             id: record.id,
             numeroEconomico: record.numeroEconomico,
-            citySlug: record.section.city.slug,
+            sectionSlug: record.section.slug,
+        citySlug: record.section.city.slug,
             cityName: record.section.city.name,
             vencimiento,
             campo,
@@ -322,6 +468,38 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
           };
         })
       );
+    })
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
+
+  // Póliza de seguro (ver InsurancePolicyLog): la vigente es la de
+  // vencimiento más lejano, no la última capturada — si alguien registra una
+  // póliza vieja después, la vigente sigue siendo la otra. Consulta aparte
+  // porque no vive en la ficha técnica, igual que las válvulas de estación.
+  const polizaRecords = await prisma.vehicleRecord.findMany({
+    where: { activo: true, section: { cityId: { in: cityIds } }, insurancePolicyLogs: { some: {} } },
+    include: {
+      insurancePolicyLogs: { orderBy: { fechaVencimiento: "desc" }, take: 1 },
+      section: { include: { city: true } },
+    },
+  });
+
+  const insuranceAlertVehicles = polizaRecords
+    .map((record) => {
+      if (!isAlertVisibleForSection("poliza", record.section.slug)) return null;
+      const vigente = record.insurancePolicyLogs[0];
+      if (!vigente) return null;
+      const level = getInsuranceAlertLevel(vigente.fechaVencimiento);
+      if (level === "none") return null;
+      return {
+        id: record.id,
+        numeroEconomico: record.numeroEconomico,
+        sectionSlug: record.section.slug,
+        citySlug: record.section.city.slug,
+        cityName: record.section.city.name,
+        vencimiento: vigente.fechaVencimiento,
+        level,
+      };
     })
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
@@ -338,5 +516,6 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     hoseAlertVehicles,
     stationValveAlertVehicles,
     plantaInstrumentAlertVehicles,
+    insuranceAlertVehicles,
   };
 }

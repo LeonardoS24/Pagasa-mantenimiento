@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CustomFieldsPanel, type CampoConUso } from "@/components/admin/CustomFieldsPanel";
-import type { CampoAmbito, CampoTipo } from "@/lib/custom-fields";
+import { parseOpcionesTexto, type CampoAmbito, type CampoTipo } from "@/lib/custom-fields";
 
 // Recuadros extra de las fichas técnicas (ver lib/custom-fields.ts): se
 // agregan, renombran, mueven y quitan desde aquí, sin tocar los campos de
@@ -22,6 +22,7 @@ export default async function AdminCamposPage() {
     tipo: f.tipo as CampoTipo,
     orden: f.orden,
     usos: f._count.valores,
+    opciones: f.tipo === "LISTA" ? parseOpcionesTexto(f.opciones) : undefined,
   }));
 
   return <CustomFieldsPanel campos={campos} />;

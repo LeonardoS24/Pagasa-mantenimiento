@@ -51,6 +51,7 @@ function addFiveYears(date: Date): Date {
 
 export async function createInternalVisualInspectionLog(
   vehicleId: string,
+  stationTankTechnicalSheetId: string | null,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
@@ -86,9 +87,22 @@ export async function createInternalVisualInspectionLog(
   // (ver lib/access.ts).
   await assertCityAccessById(editor, vehicle.section.cityId);
 
+  // Cuando la estación/planta tiene varios tanques, cada uno lleva su propio
+  // ciclo de inspección visual interna; se valida que el id en verdad sea un
+  // tanque de este registro antes de escribir en él.
+  let tank: { id: string } | null = null;
+  if (stationTankTechnicalSheetId) {
+    tank = await prisma.stationTankTechnicalSheet.findFirst({
+      where: { id: stationTankTechnicalSheetId, vehicleRecordId: vehicleId },
+      select: { id: true },
+    });
+    if (!tank) return { error: "El tanque no corresponde a este registro." };
+  }
+
   const log = await prisma.internalVisualInspectionLog.create({
     data: {
       vehicleRecordId: vehicleId,
+      stationTankTechnicalSheetId: tank?.id ?? null,
       createdById: editor.userId,
       ...parsed.data,
     },
@@ -113,22 +127,37 @@ export async function createInternalVisualInspectionLog(
   // recalcula automáticamente la fecha próxima: la primera revisión vence a
   // los 10 años de fabricación, pero de ahí en adelante cada revisión ya
   // realizada agenda la siguiente 5 años después (ver addFiveYears arriba).
-  await prisma.vehicleTechnicalSheet.upsert({
-    where: { vehicleRecordId: vehicleId },
-    update: {
-      ultimaInspeccionVisualInterna: parsed.data.fechaRealizacion,
-      fechaProximaInspeccionVisualInterna: addFiveYears(parsed.data.fechaRealizacion),
-      ...(parsed.data.numeroInspeccion
-        ? { numeroUltimaInspeccionVisualInterna: parsed.data.numeroInspeccion }
-        : {}),
-    },
-    create: {
-      vehicleRecordId: vehicleId,
-      ultimaInspeccionVisualInterna: parsed.data.fechaRealizacion,
-      fechaProximaInspeccionVisualInterna: addFiveYears(parsed.data.fechaRealizacion),
-      numeroUltimaInspeccionVisualInterna: parsed.data.numeroInspeccion,
-    },
-  });
+  // Si el registro es de un tanque específico, se guarda en ESE tanque.
+  const fechaProximaInspeccionVisualInterna = addFiveYears(parsed.data.fechaRealizacion);
+  if (tank) {
+    await prisma.stationTankTechnicalSheet.update({
+      where: { id: tank.id },
+      data: {
+        ultimaInspeccionVisualInterna: parsed.data.fechaRealizacion,
+        fechaProximaInspeccionVisualInterna,
+        ...(parsed.data.numeroInspeccion
+          ? { numeroUltimaInspeccionVisualInterna: parsed.data.numeroInspeccion }
+          : {}),
+      },
+    });
+  } else {
+    await prisma.vehicleTechnicalSheet.upsert({
+      where: { vehicleRecordId: vehicleId },
+      update: {
+        ultimaInspeccionVisualInterna: parsed.data.fechaRealizacion,
+        fechaProximaInspeccionVisualInterna,
+        ...(parsed.data.numeroInspeccion
+          ? { numeroUltimaInspeccionVisualInterna: parsed.data.numeroInspeccion }
+          : {}),
+      },
+      create: {
+        vehicleRecordId: vehicleId,
+        ultimaInspeccionVisualInterna: parsed.data.fechaRealizacion,
+        fechaProximaInspeccionVisualInterna,
+        numeroUltimaInspeccionVisualInterna: parsed.data.numeroInspeccion,
+      },
+    });
+  }
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
   return { success: "Inspección visual interna registrada y ficha técnica actualizada." };

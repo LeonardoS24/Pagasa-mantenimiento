@@ -113,6 +113,10 @@ export function EquipoForm({
 }) {
   const [state, formAction] = useFormState(action, initialState);
   const [tipoEquipo, setTipoEquipo] = useState(defaults?.tipoEquipo ?? "MECANICO");
+  // Ubicación ya capturada que no es ninguna de las 15 áreas oficiales (ver
+  // el selector más abajo).
+  const ubicacionFueraDeLista =
+    isPlanta && !!defaults?.ubicacion && !PLANT_AREA_NAMES.includes(defaults.ubicacion);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -169,6 +173,17 @@ export function EquipoForm({
             </label>
             <select id="ubicacion" name="ubicacion" defaultValue={defaults?.ubicacion ?? ""} className={inputClass}>
               <option value="">— Sin especificar —</option>
+              {/* La ubicación que ya estaba capturada a mano casi nunca está
+                  escrita igual que el área oficial ("Muelle de llenado de
+                  cilindros" en vez del nombre largo del reglamento). Sin esta
+                  opción, el selector la mostraría en blanco y al guardar se
+                  perdería el dato: aquí se conserva y se invita a cambiarla
+                  por el área que le toca. */}
+              {ubicacionFueraDeLista && (
+                <option value={defaults!.ubicacion!}>
+                  {defaults!.ubicacion} — capturada antes; elige el área que le corresponde
+                </option>
+              )}
               {PLANT_AREA_NAMES.map((nombre) => (
                 <option key={nombre} value={nombre}>
                   {nombre}

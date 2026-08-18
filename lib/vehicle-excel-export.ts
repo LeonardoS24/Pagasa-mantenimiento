@@ -12,13 +12,23 @@ import {
   type VehicleEstatus,
 } from "./vehicle-enums";
 import { STATION_VALVE_FIELDS, stationValveLabels, getStationValveVencimiento } from "./station-valves";
+import { getAllRealCityIds } from "./aggregate-city";
 import type {
   VehicleRecord,
   VehicleTechnicalSheet,
   StationTankTechnicalSheet,
 } from "@prisma/client";
 
-type VehicleWithSheet = VehicleRecord & { technicalSheet: VehicleTechnicalSheet | null };
+// Qué parte de la flota exportar: "todo" arma un libro con las 6 hojas de
+// siempre (4 sub-apartados de unidades + Estaciones + Planta); los otros 3
+// valores acotan el libro a solo ese grupo, para descargas más chicas y
+// enfocadas (ver ExcelDownloadForm.tsx).
+export type ExcelAmbito = "todo" | "unidades" | "estaciones" | "planta";
+
+type VehicleWithSheet = VehicleRecord & {
+  technicalSheet: VehicleTechnicalSheet | null;
+  section: { city: { name: string } };
+};
 
 function d(value: Date | null): string {
   return value ? formatDate(value) : "";
@@ -33,7 +43,10 @@ function n(value: number | null | undefined): string {
 // Columnas comunes a las 4 hojas: identidad de la unidad, estatus y el
 // bloque "Automóvil" + "Chofer y póliza" de la ficha técnica (ver
 // TechnicalSheetView.tsx, mismo agrupamiento que se ve en pantalla).
-function baseColumns(v: VehicleWithSheet, useDeliveryFormat: boolean) {
+// includeCityColumn solo se activa cuando el libro abarca más de una ciudad
+// (ver buildAllCitiesFleetWorkbook) — en la descarga normal de una sola
+// ciudad sería una columna repetida sin aportar nada.
+function baseColumns(v: VehicleWithSheet, useDeliveryFormat: boolean, includeCityColumn: boolean) {
   const s = v.technicalSheet;
   // Mismas 3 columnas de peso siempre presentes (no un shape distinto por
   // tipo de unidad): así todas las hojas comparten exactamente la misma
@@ -44,6 +57,7 @@ function baseColumns(v: VehicleWithSheet, useDeliveryFormat: boolean) {
     "Peso bruto máximo": useDeliveryFormat ? t(s?.pesoBrutoMaximo) : "",
   };
   return {
+    ...(includeCityColumn ? { Ciudad: v.section.city.name } : {}),
     "Número económico": v.numeroEconomico,
     Estado: v.activo ? "Activo" : "Dado de baja",
     "Fecha de baja": d(v.fechaBaja),
@@ -159,11 +173,15 @@ function inspeccionesColumns(v: VehicleWithSheet) {
 // pantalla (mismo criterio que TechnicalSheetView: qué secciones mostrar
 // según el apartado), para no llenar cada hoja de columnas que nunca aplican
 // ahí.
-function rowsForSection(sectionSlug: string, vehicles: VehicleWithSheet[]): Record<string, string>[] {
+function rowsForSection(
+  sectionSlug: string,
+  vehicles: VehicleWithSheet[],
+  includeCityColumn: boolean
+): Record<string, string>[] {
   switch (sectionSlug) {
     case "auto-tanques":
       return vehicles.map((v) => ({
-        ...baseColumns(v, false),
+        ...baseColumns(v, false, includeCityColumn),
         ...tanqueColumns(v, "Tanque"),
         ...valvulasColumns(v),
         ...inspeccionesColumns(v),
@@ -172,13 +190,13 @@ function rowsForSection(sectionSlug: string, vehicles: VehicleWithSheet[]): Reco
       }));
     case "vehiculo-de-reparto":
       return vehicles.map((v) => ({
-        ...baseColumns(v, true),
+        ...baseColumns(v, true, includeCityColumn),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
       }));
     case "vehiculo-con-tanque-de-carburacion":
       return vehicles.map((v) => ({
-        ...baseColumns(v, true),
+        ...baseColumns(v, true, includeCityColumn),
         ...tanqueColumns(v, "Tanque de carburación"),
         ...valvulasColumns(v),
         ...manguerasColumns(v),
@@ -186,12 +204,12 @@ function rowsForSection(sectionSlug: string, vehicles: VehicleWithSheet[]): Reco
       }));
     case "unidades-utilitarias":
       return vehicles.map((v) => ({
-        ...baseColumns(v, false),
+        ...baseColumns(v, false, includeCityColumn),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
       }));
     default:
-      return vehicles.map((v) => baseColumns(v, false));
+      return vehicles.map((v) => baseColumns(v, false, includeCityColumn));
   }
 }
 
@@ -224,6 +242,7 @@ const EMPTY_VEHICLE: VehicleWithSheet = {
   createdAt: new Date(),
   updatedAt: new Date(),
   technicalSheet: null,
+  section: { city: { name: "" } },
 };
 
 // Nombre de hoja válido para Excel: máximo 31 caracteres, sin : \ / ? * [ ].
@@ -241,6 +260,7 @@ const APARTADOS_ESTACION: { slug: string; nombreHoja: string }[] = [
 type StationRecord = VehicleRecord & {
   stationTankTechnicalSheets: StationTankTechnicalSheet[];
   technicalSheet: VehicleTechnicalSheet | null;
+  section: { city: { name: string } };
 };
 
 const EMPTY_STATION: StationRecord = {
@@ -252,11 +272,12 @@ const EMPTY_STATION: StationRecord = {
 // 1"; algunas tienen dos — ver lib/station-valves.ts). tanque llega ya
 // resuelto desde el llamador en vez de derivarse aquí, para poder generar
 // una fila por cada uno sin repetir esta función.
-function stationRow(r: StationRecord, tanque: StationTankTechnicalSheet | null) {
+function stationRow(r: StationRecord, tanque: StationTankTechnicalSheet | null, includeCityColumn: boolean) {
   const s = r.technicalSheet;
   const vencimientoValvulas = tanque ? getStationValveVencimiento(tanque) : null;
 
   return {
+    ...(includeCityColumn ? { Ciudad: r.section.city.name } : {}),
     Nombre: r.numeroEconomico,
     Tanque: tanque?.etiqueta ?? "Tanque 1",
     Estado: r.activo ? "Activo" : "Dado de baja",
@@ -309,67 +330,117 @@ function stationRow(r: StationRecord, tanque: StationTankTechnicalSheet | null) 
   };
 }
 
-// Arma el libro con una hoja por cada sub-apartado de "Unidad de
-// distribución" de la ciudad (Auto-Tanques, Vehículo de reparto, Vehículo
-// con tanque de carburación, Unidades utilitarias), cada unidad con toda su
-// ficha técnica y su calidad/estado. Ciudades nuevas sin unidades en algún
-// apartado simplemente traen esa hoja vacía (solo encabezados).
-export async function buildCityFleetWorkbook(citySlug: string): Promise<{ buffer: Buffer; cityName: string }> {
-  const city = await prisma.city.findUnique({ where: { slug: citySlug } });
-  if (!city) throw new Error("Ciudad no encontrada");
-
-  const unidadDistribucion = await prisma.section.findFirst({
-    where: { cityId: city.id, parentId: null, slug: "unidad-de-distribucion" },
-  });
-
+// Arma el libro para el conjunto de ciudades y el ámbito pedidos: "unidades"
+// trae una hoja por cada sub-apartado de "Unidad de distribución" (Auto-
+// Tanques, Vehículo de reparto, Vehículo con tanque de carburación, Unidades
+// utilitarias); "estaciones" y "planta" traen su propia hoja; "todo" junta
+// las 6. cityIds con más de un elemento (ver buildAllCitiesFleetWorkbook)
+// agrega la columna "Ciudad" al frente de cada hoja para poder distinguir
+// filas. Ciudades/apartados sin registros todavía simplemente traen la hoja
+// vacía (solo encabezados), igual que antes.
+async function buildFleetWorkbook(
+  cityIds: string[],
+  ambito: ExcelAmbito,
+  includeCityColumn: boolean
+): Promise<Buffer> {
   const workbook = XLSX.utils.book_new();
 
-  for (const { slug, nombreHoja } of SUBSECCIONES) {
-    const vehicles = unidadDistribucion
-      ? await prisma.vehicleRecord.findMany({
-          where: { section: { slug, parentId: unidadDistribucion.id } },
-          include: { technicalSheet: true },
-          orderBy: [{ activo: "desc" }, { numeroEconomico: "asc" }],
-        })
-      : [];
+  if (ambito === "todo" || ambito === "unidades") {
+    for (const { slug, nombreHoja } of SUBSECCIONES) {
+      const vehicles = await prisma.vehicleRecord.findMany({
+        where: { section: { slug, parent: { slug: "unidad-de-distribucion", cityId: { in: cityIds } } } },
+        include: { technicalSheet: true, section: { include: { city: true } } },
+        orderBy: [{ activo: "desc" }, { numeroEconomico: "asc" }],
+      });
 
-    const rows = rowsForSection(slug, vehicles);
-    // Aunque no haya unidades todavía, la hoja trae sus encabezados (se
-    // arman a partir de una unidad de mentira con ficha técnica vacía, para
-    // no duplicar la lista de columnas en otro lugar).
-    const headerRow = rows[0] ?? rowsForSection(slug, [EMPTY_VEHICLE])[0];
-    const worksheet =
-      rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
-    // Ancho fijo razonable: encabezados largos ("Válvula de descarga de
-    // emergencia — Fecha de fabricación") si no, se ven amontonados por
-    // default en 8 caracteres.
-    worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
-    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
+      const rows = rowsForSection(slug, vehicles, includeCityColumn);
+      // Aunque no haya unidades todavía, la hoja trae sus encabezados (se
+      // arman a partir de una unidad de mentira con ficha técnica vacía,
+      // para no duplicar la lista de columnas en otro lugar).
+      const headerRow = rows[0] ?? rowsForSection(slug, [EMPTY_VEHICLE], includeCityColumn)[0];
+      const worksheet =
+        rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
+      // Ancho fijo razonable: encabezados largos ("Válvula de descarga de
+      // emergencia — Fecha de fabricación") si no, se ven amontonados por
+      // default en 8 caracteres.
+      worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
+      XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
+    }
   }
 
   // Estaciones de carburación y Planta: no son vehículos, así que van en sus
   // propias hojas con el vocabulario de un recipiente fijo (ver
   // StationTankTechnicalSheet) más sus válvulas, en vez de las columnas de
   // motor/chofer/placas que no aplican.
-  for (const { slug, nombreHoja } of APARTADOS_ESTACION) {
+  const apartadosEstacion = APARTADOS_ESTACION.filter(({ slug }) => {
+    if (ambito === "todo") return true;
+    if (ambito === "estaciones") return slug === "estaciones-de-carburacion";
+    if (ambito === "planta") return slug === "planta-ficha-tecnica";
+    return false;
+  });
+  for (const { slug, nombreHoja } of apartadosEstacion) {
     const registros = await prisma.vehicleRecord.findMany({
-      where: { section: { slug, cityId: city.id } },
-      include: { stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" } }, technicalSheet: true },
+      where: { section: { slug, cityId: { in: cityIds } } },
+      include: {
+        stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" } },
+        technicalSheet: true,
+        section: { include: { city: true } },
+      },
       orderBy: [{ activo: "desc" }, { numeroEconomico: "asc" }],
     });
 
     const rows = registros.flatMap((r) =>
       r.stationTankTechnicalSheets.length > 0
-        ? r.stationTankTechnicalSheets.map((tanque) => stationRow(r, tanque))
-        : [stationRow(r, null)]
+        ? r.stationTankTechnicalSheets.map((tanque) => stationRow(r, tanque, includeCityColumn))
+        : [stationRow(r, null, includeCityColumn)]
     );
-    const headerRow = rows[0] ?? stationRow(EMPTY_STATION, null);
+    const headerRow = rows[0] ?? stationRow(EMPTY_STATION, null, includeCityColumn);
     const worksheet =
       rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
     worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
     XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
   }
 
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+export async function buildCityFleetWorkbook(
+  citySlug: string,
+  ambito: ExcelAmbito = "todo"
+): Promise<{ buffer: Buffer; cityName: string }> {
+  const city = await prisma.city.findUnique({ where: { slug: citySlug } });
+  if (!city) throw new Error("Ciudad no encontrada");
+
+  const buffer = await buildFleetWorkbook([city.id], ambito, false);
   return { buffer, cityName: city.name };
+}
+
+// Para Administración (ver lib/aggregate-city.ts): esa ciudad no tiene
+// unidades ni estaciones propias, así que su descarga junta las de TODAS
+// las ciudades reales en un solo libro, con la columna "Ciudad" al frente
+// de cada hoja para poder distinguir de dónde viene cada fila.
+export async function buildAllCitiesFleetWorkbook(
+  ambito: ExcelAmbito = "todo"
+): Promise<{ buffer: Buffer; cityName: string }> {
+  const cityIds = await getAllRealCityIds();
+  const buffer = await buildFleetWorkbook(cityIds, ambito, true);
+  return { buffer, cityName: "Pagasa" };
+}
+
+// Nombre del archivo descargado: Planta y Estaciones usan su propio prefijo
+// ("Datos planta"/"Datos de estaciones") en vez de "Flotilla", porque no son
+// vehículos — cityName ya trae "Pagasa" cuando es la descarga combinada de
+// todas las ciudades (ver buildAllCitiesFleetWorkbook).
+export function excelFileName(cityName: string, ambito: ExcelAmbito): string {
+  switch (ambito) {
+    case "planta":
+      return `Datos planta ${cityName}.xlsx`;
+    case "estaciones":
+      return `Datos de estaciones ${cityName}.xlsx`;
+    case "unidades":
+      return `Flotilla ${cityName} - Unidades.xlsx`;
+    case "todo":
+    default:
+      return `Flotilla ${cityName}.xlsx`;
+  }
 }

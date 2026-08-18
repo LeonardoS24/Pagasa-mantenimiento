@@ -51,6 +51,7 @@ function addFiveYears(date: Date): Date {
 
 export async function createHydrostaticTestLog(
   vehicleId: string,
+  stationTankTechnicalSheetId: string | null,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
@@ -86,9 +87,22 @@ export async function createHydrostaticTestLog(
   // (ver lib/access.ts).
   await assertCityAccessById(editor, vehicle.section.cityId);
 
+  // Cuando la estación/planta tiene varios tanques, cada uno lleva su propio
+  // ciclo de prueba hidrostática; se valida que el id en verdad sea un
+  // tanque de este registro antes de escribir en él.
+  let tank: { id: string } | null = null;
+  if (stationTankTechnicalSheetId) {
+    tank = await prisma.stationTankTechnicalSheet.findFirst({
+      where: { id: stationTankTechnicalSheetId, vehicleRecordId: vehicleId },
+      select: { id: true },
+    });
+    if (!tank) return { error: "El tanque no corresponde a este registro." };
+  }
+
   const log = await prisma.hydrostaticTestLog.create({
     data: {
       vehicleRecordId: vehicleId,
+      stationTankTechnicalSheetId: tank?.id ?? null,
       createdById: editor.userId,
       ...parsed.data,
     },
@@ -111,21 +125,34 @@ export async function createHydrostaticTestLog(
 
   // La primera prueba vence a los 10 años de fabricación; de ahí en
   // adelante, cada prueba ya realizada agenda la siguiente 5 años después
-  // (ver addFiveYears arriba).
-  await prisma.vehicleTechnicalSheet.upsert({
-    where: { vehicleRecordId: vehicleId },
-    update: {
-      ultimaPruebaHidrostatica: parsed.data.fechaRealizacion,
-      fechaProximaPruebaHidrostatica: addFiveYears(parsed.data.fechaRealizacion),
-      ...(parsed.data.numeroPrueba ? { numeroUltimaPruebaHidrostatica: parsed.data.numeroPrueba } : {}),
-    },
-    create: {
-      vehicleRecordId: vehicleId,
-      ultimaPruebaHidrostatica: parsed.data.fechaRealizacion,
-      fechaProximaPruebaHidrostatica: addFiveYears(parsed.data.fechaRealizacion),
-      numeroUltimaPruebaHidrostatica: parsed.data.numeroPrueba,
-    },
-  });
+  // (ver addFiveYears arriba). Si es de un tanque específico, se guarda en
+  // ESE tanque.
+  const fechaProximaPruebaHidrostatica = addFiveYears(parsed.data.fechaRealizacion);
+  if (tank) {
+    await prisma.stationTankTechnicalSheet.update({
+      where: { id: tank.id },
+      data: {
+        ultimaPruebaHidrostatica: parsed.data.fechaRealizacion,
+        fechaProximaPruebaHidrostatica,
+        ...(parsed.data.numeroPrueba ? { numeroUltimaPruebaHidrostatica: parsed.data.numeroPrueba } : {}),
+      },
+    });
+  } else {
+    await prisma.vehicleTechnicalSheet.upsert({
+      where: { vehicleRecordId: vehicleId },
+      update: {
+        ultimaPruebaHidrostatica: parsed.data.fechaRealizacion,
+        fechaProximaPruebaHidrostatica,
+        ...(parsed.data.numeroPrueba ? { numeroUltimaPruebaHidrostatica: parsed.data.numeroPrueba } : {}),
+      },
+      create: {
+        vehicleRecordId: vehicleId,
+        ultimaPruebaHidrostatica: parsed.data.fechaRealizacion,
+        fechaProximaPruebaHidrostatica,
+        numeroUltimaPruebaHidrostatica: parsed.data.numeroPrueba,
+      },
+    });
+  }
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
   return { success: "Prueba hidrostática registrada y ficha técnica actualizada." };

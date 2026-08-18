@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   esCampoExtraInput,
   fieldIdDesdeInputName,
+  parseOpcionesTexto,
   type CampoAmbito,
   type CampoTipo,
   type CustomFieldDef,
@@ -22,6 +23,7 @@ export async function getCustomFields(ambito: CampoAmbito): Promise<CustomFieldD
     etiqueta: f.etiqueta,
     tipo: f.tipo as CampoTipo,
     orden: f.orden,
+    opciones: f.tipo === "LISTA" ? parseOpcionesTexto(f.opciones) : undefined,
   }));
 }
 
@@ -43,7 +45,7 @@ export async function saveCustomFieldValues(
 ): Promise<void> {
   const definidos = await getCustomFields(ambito);
   if (definidos.length === 0) return;
-  const validos = new Set(definidos.map((d) => d.id));
+  const porId = new Map(definidos.map((d) => [d.id, d]));
 
   for (const [name, raw] of formData.entries()) {
     if (typeof raw !== "string") continue;
@@ -51,13 +53,18 @@ export async function saveCustomFieldValues(
     const fieldId = fieldIdDesdeInputName(name);
     // Solo se aceptan ids que de verdad existen en este ámbito: el nombre
     // del input viene del navegador y no se puede confiar en él.
-    if (!validos.has(fieldId)) continue;
+    const definicion = porId.get(fieldId);
+    if (!definicion) continue;
 
     const valor = raw.trim().slice(0, 2000);
     if (!valor) {
       await prisma.customFieldValue.deleteMany({ where: { fieldId, vehicleRecordId } });
       continue;
     }
+    // Un campo "LISTA" solo puede quedar en una de sus opciones definidas:
+    // el <select> ya lo limita en el navegador, pero el envío viene de un
+    // formulario normal y no se puede confiar en él sin revisarlo aquí.
+    if (definicion.tipo === "LISTA" && !definicion.opciones?.includes(valor)) continue;
     await prisma.customFieldValue.upsert({
       where: { fieldId_vehicleRecordId: { fieldId, vehicleRecordId } },
       update: { valor },

@@ -63,6 +63,7 @@ function addFiveYears(date: Date): Date {
 
 export async function createUltrasoundLog(
   vehicleId: string,
+  stationTankTechnicalSheetId: string | null,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
@@ -98,11 +99,25 @@ export async function createUltrasoundLog(
   // (ver lib/access.ts).
   await assertCityAccessById(editor, vehicle.section.cityId);
 
+  // Cuando la estación/planta tiene varios tanques, cada uno lleva su propio
+  // ciclo de ultrasonido (ver StationTankTechnicalSheet); el id llega del
+  // navegador igual que vehicleId, así que se valida que en verdad sea un
+  // tanque de este registro antes de escribir en él.
+  let tank: { id: string } | null = null;
+  if (stationTankTechnicalSheetId) {
+    tank = await prisma.stationTankTechnicalSheet.findFirst({
+      where: { id: stationTankTechnicalSheetId, vehicleRecordId: vehicleId },
+      select: { id: true },
+    });
+    if (!tank) return { error: "El tanque no corresponde a este registro." };
+  }
+
   const fechaProximoUltrasonido = addFiveYears(parsed.data.fechaRealizacion);
 
   const log = await prisma.ultrasoundLog.create({
     data: {
       vehicleRecordId: vehicleId,
+      stationTankTechnicalSheetId: tank?.id ?? null,
       createdById: editor.userId,
       ...parsed.data,
       fechaProximoUltrasonido,
@@ -127,21 +142,36 @@ export async function createUltrasoundLog(
   // Al aceptar el registro, la ficha técnica refleja automáticamente el
   // ultrasonido recién realizado como el "último ultrasonido" y la fecha que
   // se acaba de capturar como el "próximo ultrasonido" (la que dispara la
-  // alerta amarilla/roja en VehicleTable y el panel del dashboard).
-  await prisma.vehicleTechnicalSheet.upsert({
-    where: { vehicleRecordId: vehicleId },
-    update: {
-      ultimoUltrasonido: parsed.data.fechaRealizacion,
-      fechaProximoUltrasonido,
-      ...(parsed.data.numeroUltrasonido ? { numeroUltimoUltrasonido: parsed.data.numeroUltrasonido } : {}),
-    },
-    create: {
-      vehicleRecordId: vehicleId,
-      ultimoUltrasonido: parsed.data.fechaRealizacion,
-      fechaProximoUltrasonido,
-      numeroUltimoUltrasonido: parsed.data.numeroUltrasonido,
-    },
-  });
+  // alerta amarilla/roja en VehicleTable y el panel del dashboard). Si el
+  // registro es de un tanque específico (estación/planta con varios
+  // tanques), esto se guarda en ESE tanque, no en la ficha compartida.
+  if (tank) {
+    await prisma.stationTankTechnicalSheet.update({
+      where: { id: tank.id },
+      data: {
+        ultimoUltrasonido: parsed.data.fechaRealizacion,
+        fechaProximoUltrasonido,
+        ...(parsed.data.numeroUltrasonido
+          ? { numeroUltimoUltrasonido: parsed.data.numeroUltrasonido }
+          : {}),
+      },
+    });
+  } else {
+    await prisma.vehicleTechnicalSheet.upsert({
+      where: { vehicleRecordId: vehicleId },
+      update: {
+        ultimoUltrasonido: parsed.data.fechaRealizacion,
+        fechaProximoUltrasonido,
+        ...(parsed.data.numeroUltrasonido ? { numeroUltimoUltrasonido: parsed.data.numeroUltrasonido } : {}),
+      },
+      create: {
+        vehicleRecordId: vehicleId,
+        ultimoUltrasonido: parsed.data.fechaRealizacion,
+        fechaProximoUltrasonido,
+        numeroUltimoUltrasonido: parsed.data.numeroUltrasonido,
+      },
+    });
+  }
 
   revalidatePath(`/ciudades/${vehicle.section.city.slug}/vehiculo/${vehicleId}`);
   return { success: "Ultrasonido registrado y ficha técnica actualizada." };

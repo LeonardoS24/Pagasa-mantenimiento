@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { verRecordLabel } from "@/lib/section-labels";
 import {
   extinguisherAlertBadgeStyles,
   extinguisherAlertLabel,
@@ -8,6 +9,7 @@ import {
 
 type AlertVehicle = {
   id: string;
+  sectionSlug: string;
   numeroEconomico: string;
   citySlug: string;
   cityName: string;
@@ -56,7 +58,7 @@ export function ExtinguisherAlertsPanel({ vehicles }: { vehicles: AlertVehicle[]
                 href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}`}
                 className="text-xs font-medium text-primary hover:underline"
               >
-                Ver unidad →
+                {verRecordLabel(vehicle.sectionSlug)} →
               </Link>
             </span>
           </li>

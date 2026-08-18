@@ -15,7 +15,7 @@ export const campoAmbitoLabels: Record<CampoAmbito, string> = {
   ESTACION: "Ficha técnica del tanque (Estación / Planta)",
 };
 
-export const CAMPO_TIPOS = ["TEXTO", "TEXTO_LARGO", "NUMERO", "FECHA"] as const;
+export const CAMPO_TIPOS = ["TEXTO", "TEXTO_LARGO", "NUMERO", "FECHA", "LISTA"] as const;
 export type CampoTipo = (typeof CAMPO_TIPOS)[number];
 
 export const campoTipoLabels: Record<CampoTipo, string> = {
@@ -23,7 +23,28 @@ export const campoTipoLabels: Record<CampoTipo, string> = {
   TEXTO_LARGO: "Texto largo (varias líneas)",
   NUMERO: "Número",
   FECHA: "Fecha",
+  LISTA: "Listado para selección",
 };
+
+// Las opciones de un campo "LISTA" se guardan como texto, una por línea (ver
+// CustomField.opciones en el schema) — más simple de escribir y editar a
+// mano en un <textarea> que JSON. parseOpcionesTexto limpia líneas vacías y
+// duplicados (sin importar mayúsculas/minúsculas) antes de guardar o de
+// armar el <select>.
+export function parseOpcionesTexto(texto: string | null | undefined): string[] {
+  if (!texto) return [];
+  const vistas = new Set<string>();
+  const resultado: string[] = [];
+  for (const linea of texto.split("\n")) {
+    const limpia = linea.trim();
+    if (!limpia) continue;
+    const clave = limpia.toLowerCase();
+    if (vistas.has(clave)) continue;
+    vistas.add(clave);
+    resultado.push(limpia);
+  }
+  return resultado;
+}
 
 // Recuadros de la ficha técnica donde se puede colocar un campo nuevo. Las
 // claves coinciden con SECTION_STYLES (lib/section-colors.ts) para que el
@@ -62,6 +83,8 @@ export interface CustomFieldDef {
   etiqueta: string;
   tipo: CampoTipo;
   orden: number;
+  // Solo presente cuando tipo === "LISTA" (ver parseOpcionesTexto arriba).
+  opciones?: string[];
 }
 
 // El nombre del <input> en el formulario. El prefijo evita que un campo

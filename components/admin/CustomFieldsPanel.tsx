@@ -36,6 +36,9 @@ export type CampoConUso = {
   // Cuántas unidades ya tienen algo capturado en este campo: se avisa antes
   // de borrarlo, porque borrarlo borra también esos valores.
   usos: number;
+  // Solo cuando tipo === "LISTA": para poder revisar qué opciones se
+  // guardaron sin tener que ir hasta la ficha técnica.
+  opciones?: string[];
 };
 
 function SubmitButton() {
@@ -109,6 +112,9 @@ function FilaCampo({ campo, esPrimero, esUltimo }: { campo: CampoConUso; esPrime
             {campo.etiqueta}
             <span className="ml-2 text-xs text-gray-500">
               {campoTipoLabels[campo.tipo]}
+              {campo.tipo === "LISTA" && campo.opciones && campo.opciones.length > 0 && (
+                <> ({campo.opciones.join(", ")})</>
+              )}
               {campo.usos > 0 && ` · capturado en ${campo.usos}`}
             </span>
           </span>
@@ -161,6 +167,7 @@ export function CustomFieldsPanel({ campos }: { campos: CampoConUso[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [ambito, setAmbito] = useState<CampoAmbito>("VEHICULO");
   const [verAmbito, setVerAmbito] = useState<CampoAmbito>("VEHICULO");
+  const [tipo, setTipo] = useState<CampoTipo>("TEXTO");
 
   const secciones = seccionesPara(ambito);
   const delAmbito = campos.filter((c) => c.ambito === verAmbito);
@@ -237,7 +244,13 @@ export function CustomFieldsPanel({ campos }: { campos: CampoConUso[] }) {
               <label className="mb-1 block text-sm font-medium text-ink" htmlFor="cf-tipo">
                 Tipo
               </label>
-              <select id="cf-tipo" name="tipo" defaultValue="TEXTO" className={inputClass}>
+              <select
+                id="cf-tipo"
+                name="tipo"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as CampoTipo)}
+                className={inputClass}
+              >
                 {CAMPO_TIPOS.map((t) => (
                   <option key={t} value={t}>
                     {campoTipoLabels[t]}
@@ -246,6 +259,25 @@ export function CustomFieldsPanel({ campos }: { campos: CampoConUso[] }) {
               </select>
             </div>
           </div>
+
+          {tipo === "LISTA" && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-ink" htmlFor="cf-opciones">
+                Opciones del listado
+              </label>
+              <textarea
+                id="cf-opciones"
+                name="opciones"
+                required
+                rows={4}
+                placeholder={"Escribe una opción por línea, por ejemplo:\nExcelente\nBuena\nMala"}
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Cada línea será una opción del listado. Se quitan líneas vacías y repetidas.
+              </p>
+            </div>
+          )}
 
           <FormMessage state={state} />
           <SubmitButton />

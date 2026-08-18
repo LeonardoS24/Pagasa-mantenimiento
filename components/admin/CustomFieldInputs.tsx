@@ -31,6 +31,15 @@ export function CustomFieldInputs({
             </label>
             {campo.tipo === "TEXTO_LARGO" ? (
               <textarea id={name} name={name} rows={3} defaultValue={valor} className={inputClass} />
+            ) : campo.tipo === "LISTA" ? (
+              <select id={name} name={name} defaultValue={valor} className={inputClass}>
+                <option value="">Selecciona...</option>
+                {(campo.opciones ?? []).map((opcion) => (
+                  <option key={opcion} value={opcion}>
+                    {opcion}
+                  </option>
+                ))}
+              </select>
             ) : (
               <input
                 id={name}

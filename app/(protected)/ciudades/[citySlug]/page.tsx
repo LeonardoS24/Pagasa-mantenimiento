@@ -16,6 +16,9 @@ import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
 import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
 import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAlertsPanel";
 import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstrumentAlertsPanel";
+import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPanel";
+import { ComplianceOverviewPanel } from "@/components/city/ComplianceOverviewPanel";
+import { getComplianceOverview } from "@/lib/compliance-stats";
 
 export default async function CityPage({
   params,
@@ -44,7 +47,11 @@ export default async function CityPage({
     hoseAlertVehicles,
     stationValveAlertVehicles,
     plantaInstrumentAlertVehicles,
+    insuranceAlertVehicles,
   } = await getAllVehicleAlerts(alertCityIds);
+  // Solo Administración (ciudad agregada) muestra el resumen de
+  // cumplimiento de normatividad; cada ciudad real ya lo trae por unidad.
+  const complianceOverview = isAggregateCitySlug(city.slug) ? await getComplianceOverview(alertCityIds) : [];
 
   return (
     <div>
@@ -61,9 +68,23 @@ export default async function CityPage({
           </span>
           <h1 className="text-2xl font-semibold text-primary">{city.name}</h1>
         </div>
-        {!isAggregateCitySlug(city.slug) && (
-          <a
-            href={`/api/ciudades/${city.slug}/excel`}
+        <form
+          action={`/api/ciudades/${city.slug}/excel`}
+          method="get"
+          className="flex items-center gap-2"
+        >
+          <select
+            name="ambito"
+            defaultValue="todo"
+            className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-ink focus:border-primary focus:outline-none"
+          >
+            <option value="todo">Todo</option>
+            <option value="unidades">Unidades</option>
+            <option value="estaciones">Estaciones</option>
+            <option value="planta">Planta</option>
+          </select>
+          <button
+            type="submit"
             className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -71,8 +92,8 @@ export default async function CityPage({
               <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
             </svg>
             Descargar Excel
-          </a>
-        )}
+          </button>
+        </form>
       </div>
 
       <UltrasoundAlertsPanel vehicles={alertVehicles} />
@@ -86,6 +107,8 @@ export default async function CityPage({
       <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
       <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} />
       <HoseAlertsPanel vehicles={hoseAlertVehicles} />
+      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} />
+      <ComplianceOverviewPanel rows={complianceOverview} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {children.map((section) => (

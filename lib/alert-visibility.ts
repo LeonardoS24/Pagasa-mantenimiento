@@ -17,14 +17,15 @@ export type AlertType =
   | "extintor"
   | "mantenimiento"
   | "valvulas"
-  | "mangueras";
+  | "mangueras"
+  | "poliza";
 
 export function isAlertVisibleForSection(alertType: AlertType, sectionSlug: string): boolean {
   if (sectionSlug === "vehiculo-de-reparto") {
-    return alertType === "extintor" || alertType === "mantenimiento";
+    return alertType === "extintor" || alertType === "mantenimiento" || alertType === "poliza";
   }
   if (sectionSlug === "vehiculo-con-tanque-de-carburacion") {
-    return alertType !== "extintor" && alertType !== "mantenimiento";
+    return alertType !== "extintor" && alertType !== "mantenimiento" && alertType !== "poliza";
   }
   // Auto-Tanques, unidades utilitarias, etc: sin restricción adicional (el
   // dato solo existe si de verdad aplica a ese tipo de unidad).
