@@ -7,6 +7,7 @@ import {
   stationValveLabels,
   getStationValveVencimiento,
   getStationValveAlertLevel,
+  cantidadValvulasSeguridad,
 } from "@/lib/station-valves";
 import {
   PLANTA_INSTRUMENT_FIELDS,
@@ -54,7 +55,11 @@ export function StationTankTechnicalSheetView({
   showInspecciones?: boolean;
 }) {
   const tieneValvulas =
-    !!sheet && (!!sheet.fechaInstalacionValvulas || STATION_VALVE_FIELDS.some((campo) => sheet[campo]));
+    !!sheet &&
+    (!!sheet.fechaInstalacionValvulas ||
+      STATION_VALVE_FIELDS.some((campo) => sheet[campo]) ||
+      !!sheet.fechaFabricacionValvulaSeguridad2 ||
+      !!sheet.fechaFabricacionValvulaSeguridad3);
   const vencimiento = sheet ? getStationValveVencimiento(sheet) : null;
   const valveAlertLevel = getStationValveAlertLevel(vencimiento);
   const tieneInstrumentos =
@@ -150,13 +155,32 @@ export function StationTankTechnicalSheetView({
                 </div>
               )}
               <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {STATION_VALVE_FIELDS.map((campo) => (
-                  <Item
-                    key={campo}
-                    label={stationValveLabels[campo]}
-                    value={sheet?.[campo] ? formatDate(sheet[campo]!) : null}
-                  />
-                ))}
+                {STATION_VALVE_FIELDS.filter((campo) => campo !== "fechaFabricacionValvulaSeguridad").map(
+                  (campo) => (
+                    <Item
+                      key={campo}
+                      label={stationValveLabels[campo]}
+                      value={sheet?.[campo] ? formatDate(sheet[campo]!) : null}
+                    />
+                  )
+                )}
+                {sheet &&
+                  Array.from({ length: cantidadValvulasSeguridad(sheet) }, (_, i) => i + 1).map((n) => {
+                    const fecha =
+                      n === 1
+                        ? sheet.fechaFabricacionValvulaSeguridad
+                        : n === 2
+                          ? sheet.fechaFabricacionValvulaSeguridad2
+                          : sheet.fechaFabricacionValvulaSeguridad3;
+                    const cantidad = cantidadValvulasSeguridad(sheet);
+                    return (
+                      <Item
+                        key={`seguridad-${n}`}
+                        label={cantidad > 1 ? `Válvula de seguridad ${n}` : "Válvula de seguridad"}
+                        value={fecha ? formatDate(fecha) : null}
+                      />
+                    );
+                  })}
               </dl>
               <p className="mt-3 text-xs text-gray-500">
                 La vigencia real del juego de válvulas depende de lo que indique el fabricante en su

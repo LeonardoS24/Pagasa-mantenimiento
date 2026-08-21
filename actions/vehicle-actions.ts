@@ -15,7 +15,7 @@ import {
   vehicleEstatusLabels,
   type VehicleEstatus,
 } from "@/lib/vehicle-enums";
-import { STATION_VALVE_FIELDS, stationValveLabels } from "@/lib/station-valves";
+import { STATION_VALVE_FIELDS, stationValveFieldLabel } from "@/lib/station-valves";
 import {
   PLANTA_INSTRUMENT_FIELDS,
   plantaInstrumentLabels,
@@ -781,11 +781,19 @@ const stationTankTechnicalSheetSchema = z.object({
   materialCabeza: optionalText(100),
   diametroInterior: optionalText(50),
   tara: optionalText(50),
-  // Válvulas del tanque fijo (ver lib/station-valves.ts).
+  // Válvulas del tanque fijo (ver lib/station-valves.ts). La cantidad de
+  // válvulas de seguridad la elige el formulario (1 a 3); un valor fuera de
+  // ese rango cae a 1, igual que cuando no viene.
   fechaInstalacionValvulas: optionalDate,
   fechaFabricacionValvulaExcesoFlujo: optionalDate,
   fechaFabricacionValvulaNoRetroceso: optionalDate,
+  cantidadValvulasSeguridad: z.preprocess((value) => {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= 1 && n <= 3 ? n : 1;
+  }, z.number().int().min(1).max(3)),
   fechaFabricacionValvulaSeguridad: optionalDate,
+  fechaFabricacionValvulaSeguridad2: optionalDate,
+  fechaFabricacionValvulaSeguridad3: optionalDate,
   fechaFabricacionValvulaLlenado: optionalDate,
   fechaFabricacionValvulaServicio: optionalDate,
   fechaFabricacionValvulaCheckLock: optionalDate,
@@ -829,15 +837,24 @@ const stationTankTechnicalSheetSchema = z.object({
   fechaProximaPruebaHidrostatica: optionalDate,
 }).superRefine((data, ctx) => {
   // Misma regla que en la ficha técnica de una unidad: una válvula no se
-  // puede instalar antes de existir.
+  // puede instalar antes de existir. Las válvulas de seguridad 2/3 solo se
+  // revisan cuando la cantidad elegida las incluye.
   if (data.fechaInstalacionValvulas) {
-    for (const campo of STATION_VALVE_FIELDS) {
-      const fabricacion = data[campo];
+    const camposAValidar: { campo: string; fecha: Date | null | undefined }[] = STATION_VALVE_FIELDS.map(
+      (campo) => ({ campo, fecha: data[campo] })
+    );
+    if (data.cantidadValvulasSeguridad >= 2) {
+      camposAValidar.push({ campo: "fechaFabricacionValvulaSeguridad2", fecha: data.fechaFabricacionValvulaSeguridad2 });
+    }
+    if (data.cantidadValvulasSeguridad >= 3) {
+      camposAValidar.push({ campo: "fechaFabricacionValvulaSeguridad3", fecha: data.fechaFabricacionValvulaSeguridad3 });
+    }
+    for (const { campo, fecha: fabricacion } of camposAValidar) {
       if (!fabricacion) continue;
       if (data.fechaInstalacionValvulas.getTime() >= fabricacion.getTime()) continue;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Error en las fechas: la instalación de las válvulas (${formatoCortoFecha(data.fechaInstalacionValvulas)}) es anterior a la fabricación de la ${stationValveLabels[campo].toLowerCase()} (${formatoCortoFecha(fabricacion)}). Una válvula no puede instalarse antes de fabricarse.`,
+        message: `Error en las fechas: la instalación de las válvulas (${formatoCortoFecha(data.fechaInstalacionValvulas)}) es anterior a la fabricación de la ${stationValveFieldLabel(campo).toLowerCase()} (${formatoCortoFecha(fabricacion)}). Una válvula no puede instalarse antes de fabricarse.`,
         path: ["fechaInstalacionValvulas"],
       });
       return;
@@ -914,6 +931,9 @@ export async function upsertStationTankTechnicalSheet(
     tara: formData.get("tara"),
     fechaInstalacionValvulas: formData.get("fechaInstalacionValvulas"),
     ...Object.fromEntries(STATION_VALVE_FIELDS.map((campo) => [campo, formData.get(campo)])),
+    cantidadValvulasSeguridad: formData.get("cantidadValvulasSeguridad"),
+    fechaFabricacionValvulaSeguridad2: formData.get("fechaFabricacionValvulaSeguridad2"),
+    fechaFabricacionValvulaSeguridad3: formData.get("fechaFabricacionValvulaSeguridad3"),
     ...Object.fromEntries(
       PLANTA_INSTRUMENT_FIELDS.flatMap((campo) => [
         [instrumentFabricacionField(campo), formData.get(instrumentFabricacionField(campo))],
@@ -963,6 +983,58 @@ export async function upsertStationTankTechnicalSheet(
   // compartida como siempre (comportamiento sin cambios).
   const totalTanques = await prisma.stationTankTechnicalSheet.count({ where: { vehicleRecordId: vehicleId } });
   const esMultiTanque = totalTanques > 1;
+
+  // La primera vez que una estación pasa de un tanque a varios, lo que ya
+  // vivía en la ficha compartida (VehicleTechnicalSheet) era del ÚNICO
+  // tanque que existía hasta este momento — Tanque 1 — así que se migra ahí
+  // antes de que el criterio de multi-tanque empiece a ignorar la ficha
+  // compartida en todos lados (alertas, ficha técnica, Excel). Sin esto, esa
+  // información queda huérfana: ni la ficha compartida la sigue mostrando
+  // (porque ya es multi-tanque) ni Tanque 1 la tiene (porque nunca se copió).
+  // Es justo lo que le pasó a "P. Indust" antes de que existiera esta
+  // migración (ver scripts/limpia-fechas-huerfanas-p-indust.mjs). Solo pasa
+  // una vez, al crear el segundo tanque; de ahí en adelante cada tanque ya
+  // lleva sus propios datos.
+  if (totalTanques === 2 && etiqueta !== "Tanque 1" && vehicle.technicalSheet) {
+    const s = vehicle.technicalSheet;
+    const tanqueUno = await prisma.stationTankTechnicalSheet.findUnique({
+      where: { vehicleRecordId_etiqueta: { vehicleRecordId: vehicleId, etiqueta: "Tanque 1" } },
+    });
+    if (tanqueUno) {
+      const migracion: Record<string, string | Date | null> = {};
+      if (!tanqueUno.fechaProximoUltrasonido && s.fechaProximoUltrasonido) {
+        migracion.ultimoUltrasonido = s.ultimoUltrasonido;
+        migracion.fechaProximoUltrasonido = s.fechaProximoUltrasonido;
+        migracion.numeroUltimoUltrasonido = s.numeroUltimoUltrasonido;
+      }
+      if (!tanqueUno.fechaProximaInspeccionVisual && s.fechaProximaInspeccionVisual) {
+        migracion.ultimaInspeccionVisual = s.ultimaInspeccionVisual;
+        migracion.fechaProximaInspeccionVisual = s.fechaProximaInspeccionVisual;
+        migracion.numeroUltimaInspeccionVisual = s.numeroUltimaInspeccionVisual;
+      }
+      if (!tanqueUno.fechaProximaPruebaHermeticidad && s.fechaProximaPruebaHermeticidad) {
+        migracion.ultimaPruebaHermeticidad = s.ultimaPruebaHermeticidad;
+        migracion.fechaProximaPruebaHermeticidad = s.fechaProximaPruebaHermeticidad;
+        migracion.numeroUltimaPruebaHermeticidad = s.numeroUltimaPruebaHermeticidad;
+      }
+      if (!tanqueUno.fechaProximaInspeccionVisualInterna && s.fechaProximaInspeccionVisualInterna) {
+        migracion.ultimaInspeccionVisualInterna = s.ultimaInspeccionVisualInterna;
+        migracion.fechaProximaInspeccionVisualInterna = s.fechaProximaInspeccionVisualInterna;
+        migracion.numeroUltimaInspeccionVisualInterna = s.numeroUltimaInspeccionVisualInterna;
+      }
+      if (!tanqueUno.fechaProximaPruebaHidrostatica && s.fechaProximaPruebaHidrostatica) {
+        migracion.ultimaPruebaHidrostatica = s.ultimaPruebaHidrostatica;
+        migracion.fechaProximaPruebaHidrostatica = s.fechaProximaPruebaHidrostatica;
+        migracion.numeroUltimaPruebaHidrostatica = s.numeroUltimaPruebaHidrostatica;
+      }
+      if (Object.keys(migracion).length > 0) {
+        await prisma.stationTankTechnicalSheet.update({
+          where: { id: tanqueUno.id },
+          data: migracion,
+        });
+      }
+    }
+  }
 
   if (
     esMultiTanque &&

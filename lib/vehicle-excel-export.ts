@@ -11,12 +11,21 @@ import {
   type CalidadExtintor,
   type VehicleEstatus,
 } from "./vehicle-enums";
-import { STATION_VALVE_FIELDS, stationValveLabels, getStationValveVencimiento } from "./station-valves";
+import {
+  STATION_VALVE_FIELDS,
+  stationValveLabels,
+  getStationValveVencimiento,
+  cantidadValvulasSeguridad,
+} from "./station-valves";
 import { getAllRealCityIds } from "./aggregate-city";
+import { getCustomFields } from "./custom-fields-runtime";
+import type { CustomFieldDef } from "./custom-fields";
+import { complianceItemsFor, compliancePercentage, complianceAmbitoDe, type ComplianceAmbito } from "./compliance-checklist";
 import type {
   VehicleRecord,
   VehicleTechnicalSheet,
   StationTankTechnicalSheet,
+  InsurancePolicyLog,
 } from "@prisma/client";
 
 // Qué parte de la flota exportar: "todo" arma un libro con las 6 hojas de
@@ -28,6 +37,10 @@ export type ExcelAmbito = "todo" | "unidades" | "estaciones" | "planta";
 type VehicleWithSheet = VehicleRecord & {
   technicalSheet: VehicleTechnicalSheet | null;
   section: { city: { name: string } };
+  // Campos extra + cumplimiento normativo + póliza, ya armados como columnas
+  // antes de entrar a rowsForSection (ver buildFleetWorkbook), para no
+  // tener que pasar campos/ámbito hasta el fondo de cada función de fila.
+  extraColumns?: Record<string, string>;
 };
 
 function d(value: Date | null): string {
@@ -38,6 +51,72 @@ function t(value: string | null | undefined): string {
 }
 function n(value: number | null | undefined): string {
   return value != null ? String(value) : "";
+}
+
+// Los recuadros extra que un ADMIN agregó desde /admin/campos (ver
+// lib/custom-fields.ts), incluidos los de tipo "Listado para selección":
+// una columna por campo definido, con lo que se haya elegido/escrito en
+// cada unidad. Siempre trae las mismas columnas (aunque estén vacías), para
+// que los encabezados no cambien fila por fila.
+function customFieldColumns(
+  campos: CustomFieldDef[],
+  valores: Record<string, string> | undefined
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const campo of campos) {
+    out[`Extra — ${campo.etiqueta}`] = valores?.[campo.id] ?? "";
+  }
+  return out;
+}
+
+// El checklist de cumplimiento de normatividad (ver lib/compliance-checklist.ts):
+// el porcentaje y una columna "Sí"/"No" por cada documento de la lista fija
+// de ese ámbito. Se usa el listado completo (con activo=false, que incluye
+// el ítem extra de baja) para que las columnas salgan iguales en toda la
+// hoja aunque unas unidades estén activas y otras no; en las que no aplica
+// el ítem de baja, esa columna sale en blanco en vez de "No".
+function complianceColumns(
+  ambito: ComplianceAmbito,
+  activo: boolean,
+  filas: { clave: string; cumple: boolean }[]
+): Record<string, string> {
+  const itemsQueAplican = complianceItemsFor(ambito, activo);
+  const porcentaje = compliancePercentage(itemsQueAplican, filas);
+  const todosLosItems = complianceItemsFor(ambito, false);
+  const out: Record<string, string> = { "Cumplimiento normativo — %": `${porcentaje}%` };
+  for (const item of todosLosItems) {
+    const aplica = itemsQueAplican.some((i) => i.clave === item.clave);
+    out[`Cumple — ${item.nombre}`] = !aplica ? "" : filas.find((f) => f.clave === item.clave)?.cumple ? "Sí" : "No";
+  }
+  return out;
+}
+
+// Póliza de seguro vigente (ver lib/insurance-alerts.ts: la vigente es la de
+// vencimiento más lejano, no la última capturada). Solo aplica a unidades
+// reales, no a Estaciones ni Planta (instalaciones fijas sin seguro propio).
+function polizaColumns(vigente?: Pick<InsurancePolicyLog, "aseguradora" | "numeroPoliza" | "fechaRealizacion" | "fechaVencimiento">): Record<string, string> {
+  return {
+    "Póliza — Aseguradora": t(vigente?.aseguradora ?? null),
+    "Póliza — Número": t(vigente?.numeroPoliza ?? null),
+    "Póliza — Fecha de realización": vigente ? d(vigente.fechaRealizacion) : "",
+    "Póliza — Fecha de vencimiento": vigente ? d(vigente.fechaVencimiento) : "",
+  };
+}
+
+// Trae de un solo jalón los valores de campos extra de un lote de
+// registros, en vez de una consulta por cada uno.
+async function customFieldValuesByVehicle(vehicleIds: string[]): Promise<Map<string, Record<string, string>>> {
+  if (vehicleIds.length === 0) return new Map();
+  const filas = await prisma.customFieldValue.findMany({
+    where: { vehicleRecordId: { in: vehicleIds } },
+  });
+  const map = new Map<string, Record<string, string>>();
+  for (const fila of filas) {
+    const registro = map.get(fila.vehicleRecordId) ?? {};
+    registro[fila.fieldId] = fila.valor;
+    map.set(fila.vehicleRecordId, registro);
+  }
+  return map;
 }
 
 // Columnas comunes a las 4 hojas: identidad de la unidad, estatus y el
@@ -187,12 +266,14 @@ function rowsForSection(
         ...inspeccionesColumns(v),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
+        ...(v.extraColumns ?? {}),
       }));
     case "vehiculo-de-reparto":
       return vehicles.map((v) => ({
         ...baseColumns(v, true, includeCityColumn),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
+        ...(v.extraColumns ?? {}),
       }));
     case "vehiculo-con-tanque-de-carburacion":
       return vehicles.map((v) => ({
@@ -201,15 +282,17 @@ function rowsForSection(
         ...valvulasColumns(v),
         ...manguerasColumns(v),
         ...inspeccionesColumns(v),
+        ...(v.extraColumns ?? {}),
       }));
     case "unidades-utilitarias":
       return vehicles.map((v) => ({
         ...baseColumns(v, false, includeCityColumn),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
+        ...(v.extraColumns ?? {}),
       }));
     default:
-      return vehicles.map((v) => baseColumns(v, false, includeCityColumn));
+      return vehicles.map((v) => ({ ...baseColumns(v, false, includeCityColumn), ...(v.extraColumns ?? {}) }));
   }
 }
 
@@ -261,6 +344,9 @@ type StationRecord = VehicleRecord & {
   stationTankTechnicalSheets: StationTankTechnicalSheet[];
   technicalSheet: VehicleTechnicalSheet | null;
   section: { city: { name: string } };
+  // Campos extra + cumplimiento normativo (ver comentario en
+  // VehicleWithSheet); una Estación/Planta no tiene póliza propia.
+  extraColumns?: Record<string, string>;
 };
 
 const EMPTY_STATION: StationRecord = {
@@ -275,6 +361,32 @@ const EMPTY_STATION: StationRecord = {
 function stationRow(r: StationRecord, tanque: StationTankTechnicalSheet | null, includeCityColumn: boolean) {
   const s = r.technicalSheet;
   const vencimientoValvulas = tanque ? getStationValveVencimiento(tanque) : null;
+  // Con un solo tanque, las 5 pruebas periódicas viven en la ficha
+  // compartida del registro; con varios, en este mismo tanque (mismo
+  // criterio que isMultiTanque en la página de detalle del vehículo) — si
+  // no se distingue, un registro multi-tanque como Planta Hermosillo sale
+  // con estas columnas vacías aunque sí tenga datos capturados.
+  const isMultiTanque = r.stationTankTechnicalSheets.length > 1;
+  const ultimoUltrasonido = isMultiTanque ? tanque?.ultimoUltrasonido : s?.ultimoUltrasonido;
+  const fechaProximoUltrasonido = isMultiTanque ? tanque?.fechaProximoUltrasonido : s?.fechaProximoUltrasonido;
+  const ultimaInspeccionVisual = isMultiTanque ? tanque?.ultimaInspeccionVisual : s?.ultimaInspeccionVisual;
+  const fechaProximaInspeccionVisual = isMultiTanque
+    ? tanque?.fechaProximaInspeccionVisual
+    : s?.fechaProximaInspeccionVisual;
+  const ultimaPruebaHermeticidad = isMultiTanque ? tanque?.ultimaPruebaHermeticidad : s?.ultimaPruebaHermeticidad;
+  const fechaProximaPruebaHermeticidad = isMultiTanque
+    ? tanque?.fechaProximaPruebaHermeticidad
+    : s?.fechaProximaPruebaHermeticidad;
+  const ultimaInspeccionVisualInterna = isMultiTanque
+    ? tanque?.ultimaInspeccionVisualInterna
+    : s?.ultimaInspeccionVisualInterna;
+  const fechaProximaInspeccionVisualInterna = isMultiTanque
+    ? tanque?.fechaProximaInspeccionVisualInterna
+    : s?.fechaProximaInspeccionVisualInterna;
+  const ultimaPruebaHidrostatica = isMultiTanque ? tanque?.ultimaPruebaHidrostatica : s?.ultimaPruebaHidrostatica;
+  const fechaProximaPruebaHidrostatica = isMultiTanque
+    ? tanque?.fechaProximaPruebaHidrostatica
+    : s?.fechaProximaPruebaHidrostatica;
 
   return {
     ...(includeCityColumn ? { Ciudad: r.section.city.name } : {}),
@@ -307,26 +419,32 @@ function stationRow(r: StationRecord, tanque: StationTankTechnicalSheet | null, 
     "Tanque — Material cabeza": t(tanque?.materialCabeza),
     "Tanque — Diámetro interior": t(tanque?.diametroInterior),
     "Tanque — Tara": t(tanque?.tara),
-    // Válvulas del tanque fijo
+    // Válvulas del tanque fijo. La de seguridad puede ser 1, 2 o 3 (ver
+    // cantidadValvulasSeguridad en lib/station-valves.ts); las 3 columnas
+    // siempre están presentes, vacías las que no apliquen.
     "Válvulas — Fecha de instalación del juego": d(tanque?.fechaInstalacionValvulas ?? null),
     ...Object.fromEntries(
-      STATION_VALVE_FIELDS.map((campo) => [
+      STATION_VALVE_FIELDS.filter((campo) => campo !== "fechaFabricacionValvulaSeguridad").map((campo) => [
         `Válvulas — ${stationValveLabels[campo]}`,
         d(tanque?.[campo] ?? null),
       ])
     ),
+    "Válvulas — Cantidad de válvulas de seguridad": tanque ? String(cantidadValvulasSeguridad(tanque)) : "",
+    "Válvulas — Válvula de seguridad 1": d(tanque?.fechaFabricacionValvulaSeguridad ?? null),
+    "Válvulas — Válvula de seguridad 2": d(tanque?.fechaFabricacionValvulaSeguridad2 ?? null),
+    "Válvulas — Válvula de seguridad 3": d(tanque?.fechaFabricacionValvulaSeguridad3 ?? null),
     "Válvulas — Próximo cambio": d(vencimientoValvulas),
-    // Las 5 inspecciones periódicas siguen viviendo en la ficha del vehículo.
-    "Último ultrasonido": d(s?.ultimoUltrasonido ?? null),
-    "Próximo ultrasonido": d(s?.fechaProximoUltrasonido ?? null),
-    "Última inspección visual externa": d(s?.ultimaInspeccionVisual ?? null),
-    "Próxima inspección visual externa": d(s?.fechaProximaInspeccionVisual ?? null),
-    "Última prueba de hermeticidad": d(s?.ultimaPruebaHermeticidad ?? null),
-    "Próxima prueba de hermeticidad": d(s?.fechaProximaPruebaHermeticidad ?? null),
-    "Última inspección visual interna": d(s?.ultimaInspeccionVisualInterna ?? null),
-    "Próxima inspección visual interna": d(s?.fechaProximaInspeccionVisualInterna ?? null),
-    "Última prueba hidrostática": d(s?.ultimaPruebaHidrostatica ?? null),
-    "Próxima prueba hidrostática": d(s?.fechaProximaPruebaHidrostatica ?? null),
+    "Último ultrasonido": d(ultimoUltrasonido ?? null),
+    "Próximo ultrasonido": d(fechaProximoUltrasonido ?? null),
+    "Última inspección visual externa": d(ultimaInspeccionVisual ?? null),
+    "Próxima inspección visual externa": d(fechaProximaInspeccionVisual ?? null),
+    "Última prueba de hermeticidad": d(ultimaPruebaHermeticidad ?? null),
+    "Próxima prueba de hermeticidad": d(fechaProximaPruebaHermeticidad ?? null),
+    "Última inspección visual interna": d(ultimaInspeccionVisualInterna ?? null),
+    "Próxima inspección visual interna": d(fechaProximaInspeccionVisualInterna ?? null),
+    "Última prueba hidrostática": d(ultimaPruebaHidrostatica ?? null),
+    "Próxima prueba hidrostática": d(fechaProximaPruebaHidrostatica ?? null),
+    ...(r.extraColumns ?? {}),
   };
 }
 
@@ -346,18 +464,48 @@ async function buildFleetWorkbook(
   const workbook = XLSX.utils.book_new();
 
   if (ambito === "todo" || ambito === "unidades") {
+    // Los recuadros extra son los mismos para las 4 hojas de unidades (todas
+    // comparten el ámbito "VEHICULO" de /admin/campos): se traen una sola
+    // vez en vez de repetir la consulta por hoja.
+    const camposVehiculo = await getCustomFields("VEHICULO");
+    const encabezadoVacioUnidad = {
+      ...customFieldColumns(camposVehiculo, undefined),
+      ...complianceColumns("UNIDAD", false, []),
+      ...polizaColumns(undefined),
+    };
+
     for (const { slug, nombreHoja } of SUBSECCIONES) {
       const vehicles = await prisma.vehicleRecord.findMany({
         where: { section: { slug, parent: { slug: "unidad-de-distribucion", cityId: { in: cityIds } } } },
-        include: { technicalSheet: true, section: { include: { city: true } } },
+        include: {
+          technicalSheet: true,
+          section: { include: { city: true } },
+          complianceChecklistItems: { select: { clave: true, cumple: true } },
+          insurancePolicyLogs: { orderBy: { fechaVencimiento: "desc" }, take: 1 },
+        },
         orderBy: [{ activo: "desc" }, { numeroEconomico: "asc" }],
       });
 
-      const rows = rowsForSection(slug, vehicles, includeCityColumn);
+      // Los campos extra viven en su propia tabla, sin relación directa en
+      // este include: se traen aparte, de un jalón para todo el lote.
+      const valoresPorVehiculo = await customFieldValuesByVehicle(vehicles.map((v) => v.id));
+      const vehiclesConExtra: VehicleWithSheet[] = vehicles.map((v) => ({
+        ...v,
+        extraColumns: {
+          ...customFieldColumns(camposVehiculo, valoresPorVehiculo.get(v.id)),
+          ...complianceColumns("UNIDAD", v.activo, v.complianceChecklistItems),
+          ...polizaColumns(v.insurancePolicyLogs[0]),
+        },
+      }));
+
+      const rows = rowsForSection(slug, vehiclesConExtra, includeCityColumn);
       // Aunque no haya unidades todavía, la hoja trae sus encabezados (se
       // arman a partir de una unidad de mentira con ficha técnica vacía,
-      // para no duplicar la lista de columnas en otro lugar).
-      const headerRow = rows[0] ?? rowsForSection(slug, [EMPTY_VEHICLE], includeCityColumn)[0];
+      // para no duplicar la lista de columnas en otro lugar) — incluye los
+      // campos extra y el checklist aunque no haya ninguna fila real.
+      const headerRow =
+        rows[0] ??
+        rowsForSection(slug, [{ ...EMPTY_VEHICLE, extraColumns: encabezadoVacioUnidad }], includeCityColumn)[0];
       const worksheet =
         rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
       // Ancho fijo razonable: encabezados largos ("Válvula de descarga de
@@ -378,27 +526,50 @@ async function buildFleetWorkbook(
     if (ambito === "planta") return slug === "planta-ficha-tecnica";
     return false;
   });
-  for (const { slug, nombreHoja } of apartadosEstacion) {
-    const registros = await prisma.vehicleRecord.findMany({
-      where: { section: { slug, cityId: { in: cityIds } } },
-      include: {
-        stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" } },
-        technicalSheet: true,
-        section: { include: { city: true } },
-      },
-      orderBy: [{ activo: "desc" }, { numeroEconomico: "asc" }],
-    });
+  if (apartadosEstacion.length > 0) {
+    // Estaciones y Planta comparten el mismo ámbito "ESTACION" de
+    // /admin/campos (ver CAMPO_AMBITOS en lib/custom-fields.ts).
+    const camposEstacion = await getCustomFields("ESTACION");
 
-    const rows = registros.flatMap((r) =>
-      r.stationTankTechnicalSheets.length > 0
-        ? r.stationTankTechnicalSheets.map((tanque) => stationRow(r, tanque, includeCityColumn))
-        : [stationRow(r, null, includeCityColumn)]
-    );
-    const headerRow = rows[0] ?? stationRow(EMPTY_STATION, null, includeCityColumn);
-    const worksheet =
-      rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
-    worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
-    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
+    for (const { slug, nombreHoja } of apartadosEstacion) {
+      const complianceAmbito = complianceAmbitoDe(slug);
+      const encabezadoVacioEstacion = {
+        ...customFieldColumns(camposEstacion, undefined),
+        ...complianceColumns(complianceAmbito, false, []),
+      };
+
+      const registros = await prisma.vehicleRecord.findMany({
+        where: { section: { slug, cityId: { in: cityIds } } },
+        include: {
+          stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" } },
+          technicalSheet: true,
+          section: { include: { city: true } },
+          complianceChecklistItems: { select: { clave: true, cumple: true } },
+        },
+        orderBy: [{ activo: "desc" }, { numeroEconomico: "asc" }],
+      });
+
+      const valoresPorRegistro = await customFieldValuesByVehicle(registros.map((r) => r.id));
+      const registrosConExtra: StationRecord[] = registros.map((r) => ({
+        ...r,
+        extraColumns: {
+          ...customFieldColumns(camposEstacion, valoresPorRegistro.get(r.id)),
+          ...complianceColumns(complianceAmbito, r.activo, r.complianceChecklistItems),
+        },
+      }));
+
+      const rows = registrosConExtra.flatMap((r) =>
+        r.stationTankTechnicalSheets.length > 0
+          ? r.stationTankTechnicalSheets.map((tanque) => stationRow(r, tanque, includeCityColumn))
+          : [stationRow(r, null, includeCityColumn)]
+      );
+      const headerRow =
+        rows[0] ?? stationRow({ ...EMPTY_STATION, extraColumns: encabezadoVacioEstacion }, null, includeCityColumn);
+      const worksheet =
+        rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
+      worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
+      XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
+    }
   }
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;

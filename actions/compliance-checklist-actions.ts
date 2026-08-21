@@ -5,20 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { assertVehicleAccess } from "@/lib/access";
-import { complianceItemsFor, type ComplianceAmbito } from "@/lib/compliance-checklist";
+import { complianceItemsFor, complianceAmbitoDe as ambitoDe } from "@/lib/compliance-checklist";
 import type { ActionState } from "./user-actions";
-
-// Mismo criterio que usa cada página de detalle (isEstacionCarburacion /
-// isPlanta): a partir del slug del apartado, cuál de las tres listas fijas
-// de lib/compliance-checklist.ts le toca a este registro. Se recalcula aquí
-// (no se confía en lo que mande el formulario) para no dejar que alguien
-// marque "cumple" un documento que ni siquiera está en la lista de su tipo
-// de unidad.
-function ambitoDe(sectionSlug: string): ComplianceAmbito {
-  if (sectionSlug === "estaciones-de-carburacion") return "ESTACION";
-  if (sectionSlug === "planta-ficha-tecnica") return "PLANTA";
-  return "UNIDAD";
-}
 
 const optionalText = (max: number) =>
   z.preprocess((value) => {
@@ -61,6 +49,9 @@ export async function updateComplianceChecklistItem(
     return { error: "El registro no existe." };
   }
 
+  // Se recalcula aquí (no se confía en lo que mande el formulario) para no
+  // dejar que alguien marque "cumple" un documento que ni siquiera está en
+  // la lista de su tipo de registro.
   const ambito = ambitoDe(vehicle.section.slug);
   const items = complianceItemsFor(ambito, vehicle.activo);
   if (!items.some((item) => item.clave === clave)) {

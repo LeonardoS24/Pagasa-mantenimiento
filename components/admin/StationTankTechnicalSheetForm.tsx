@@ -13,6 +13,7 @@ import {
   stationValveLabels,
   getStationValveVencimiento,
   getStationValveAlertLevel,
+  cantidadValvulasSeguridad as calcularCantidadValvulasSeguridad,
 } from "@/lib/station-valves";
 import {
   PLANTA_INSTRUMENT_FIELDS,
@@ -105,13 +106,22 @@ export function StationTankTechnicalSheetForm({
   const action = upsertStationTankTechnicalSheet.bind(null, vehicleId, etiqueta);
   const [state, formAction] = useFormState(action, initialState);
   const [locked, setLocked] = useState(true);
+  const [cantidadSeguridad, setCantidadSeguridad] = useState(
+    sheet ? calcularCantidadValvulasSeguridad(sheet) : 1
+  );
   const formRef = useRef<HTMLFormElement>(null);
   const vencimiento = sheet ? getStationValveVencimiento(sheet) : null;
   const valveAlertLevel = getStationValveAlertLevel(vencimiento);
+  const fechaSeguridadPorNumero: Record<number, Date | null | undefined> = {
+    1: sheet?.fechaFabricacionValvulaSeguridad,
+    2: sheet?.fechaFabricacionValvulaSeguridad2,
+    3: sheet?.fechaFabricacionValvulaSeguridad3,
+  };
 
   function handleCancel() {
     formRef.current?.reset();
     setLocked(true);
+    setCantidadSeguridad(sheet ? calcularCantidadValvulasSeguridad(sheet) : 1);
   }
 
   return (
@@ -257,17 +267,44 @@ export function StationTankTechnicalSheetForm({
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
               />
             </div>
+            <div className="mb-4 max-w-xs">
+              <label className="mb-1 block text-sm font-medium text-ink" htmlFor="cantidadValvulasSeguridad">
+                ¿Cuántas válvulas de seguridad tiene?
+              </label>
+              <select
+                id="cantidadValvulasSeguridad"
+                name="cantidadValvulasSeguridad"
+                value={cantidadSeguridad}
+                onChange={(e) => setCantidadSeguridad(Number(e.target.value))}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
+              >
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+              </select>
+            </div>
             <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
               Fecha de fabricación de cada válvula
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {STATION_VALVE_FIELDS.map((campo) => (
+              {STATION_VALVE_FIELDS.filter((campo) => campo !== "fechaFabricacionValvulaSeguridad").map(
+                (campo) => (
+                  <Field
+                    key={campo}
+                    id={campo}
+                    label={stationValveLabels[campo]}
+                    type="date"
+                    defaultValue={toDateInputValue(sheet?.[campo])}
+                  />
+                )
+              )}
+              {Array.from({ length: cantidadSeguridad }, (_, i) => i + 1).map((n) => (
                 <Field
-                  key={campo}
-                  id={campo}
-                  label={stationValveLabels[campo]}
+                  key={`seguridad-${n}`}
+                  id={n === 1 ? "fechaFabricacionValvulaSeguridad" : `fechaFabricacionValvulaSeguridad${n}`}
+                  label={cantidadSeguridad > 1 ? `Válvula de seguridad ${n}` : "Válvula de seguridad"}
                   type="date"
-                  defaultValue={toDateInputValue(sheet?.[campo])}
+                  defaultValue={toDateInputValue(fechaSeguridadPorNumero[n])}
                 />
               ))}
               <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />

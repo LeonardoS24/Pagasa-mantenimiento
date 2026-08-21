@@ -13,11 +13,20 @@ import {
   type YearlySummaryTypeId,
   type ResumenAmbito,
 } from "@/lib/yearly-change-summary";
+import { getComplianceByUnit } from "@/lib/compliance-stats";
+import { complianceGaugeLevel, complianceGaugeColors, type ComplianceAmbito } from "@/lib/compliance-checklist";
+import { verRecordLabel } from "@/lib/section-labels";
+import { getStationsForSealSelect, getStationSeals } from "@/lib/seal-stats";
+import { formatDate } from "@/lib/dates";
 import { YearlyDueList } from "./YearlyDueList";
 
 function tabsForAmbito(ambito: ResumenAmbito) {
   return [
     { slug: "general", label: "Resumen general" },
+    { slug: "cumplimiento", label: "Cumplimiento normativo" },
+    // Los sellos solo existen en Estaciones de carburación (ver apartado
+    // "Sellos" en la página de detalle del vehículo).
+    ...(ambito === "ESTACIONES" ? [{ slug: "sellos", label: "Sellos" }] : []),
     ...summaryTypesForAmbito(ambito).map((type) => ({
       slug: yearlySummaryRouteSlugs[type],
       label: yearlySummaryLabels[type],
@@ -49,10 +58,15 @@ export async function ResumenPanel({
   citySlug,
   tab,
   ambito,
+  estacionId,
 }: {
   citySlug: string;
   tab: string;
   ambito: ResumenAmbito;
+  // Estación elegida en la pestaña "Sellos" (ver ?estacion= en la URL):
+  // ahí hay que seleccionar una para ver sus sellos, no se mezclan todas en
+  // una sola lista.
+  estacionId?: string;
 }) {
   const year = new Date().getFullYear();
   const TABS = tabsForAmbito(ambito);
@@ -106,6 +120,10 @@ export async function ResumenPanel({
 
       {activeTab === "general" ? (
         <ResumenGeneralTable year={year} ambito={ambito} />
+      ) : activeTab === "cumplimiento" ? (
+        <ResumenComplianceList ambito={ambito} />
+      ) : activeTab === "sellos" ? (
+        <ResumenSealsList citySlug={citySlug} ambitoParam={ambitoParam} estacionId={estacionId} />
       ) : activeTab === "sin-informacion" ? (
         <ResumenMissingList year={year} ambito={ambito} />
       ) : (
@@ -259,6 +277,221 @@ async function ResumenMissingList({ year, ambito }: { year: number; ambito: Resu
           </ul>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Porcentaje del checklist de cumplimiento de normatividad, unidad por
+// unidad (ver lib/compliance-checklist.ts) — a diferencia del medidor de
+// Administración (que solo trae el promedio por ámbito), esta lista deja ver
+// exactamente cuáles unidades están más atrasadas, ordenadas de menor a
+// mayor cumplimiento.
+async function ResumenComplianceList({ ambito }: { ambito: ResumenAmbito }) {
+  const cityIds = await getAllRealCityIds();
+  const complianceAmbitos: ComplianceAmbito[] = ambito === "ESTACIONES" ? ["ESTACION", "PLANTA"] : ["UNIDAD"];
+  const filas = await getComplianceByUnit(cityIds, complianceAmbitos);
+
+  if (filas.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-ink">
+        Todavía no hay registros de este tipo para calcular su cumplimiento.
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+          <tr>
+            <th className="whitespace-nowrap px-4 py-2">Número económico</th>
+            <th className="whitespace-nowrap px-4 py-2">Ciudad</th>
+            <th className="whitespace-nowrap px-4 py-2">Cumplimiento</th>
+            <th className="whitespace-nowrap px-4 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((fila) => {
+            const nivel = complianceGaugeLevel(fila.porcentaje);
+            const colores = complianceGaugeColors[nivel];
+            return (
+              <tr key={fila.id} className="border-t border-gray-100">
+                <td className="whitespace-nowrap px-4 py-2 font-medium text-ink">
+                  {fila.numeroEconomico}
+                  {!fila.activo && <span className="ml-2 text-xs text-orange-600">(dado de baja)</span>}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-ink">{fila.cityName}</td>
+                <td className="whitespace-nowrap px-4 py-2">
+                  <span className={`font-semibold ${colores.text}`}>{fila.porcentaje}%</span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-right">
+                  <Link
+                    href={`/ciudades/${fila.citySlug}/vehiculo/${fila.id}`}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    {verRecordLabel(fila.sectionSlug)} →
+                  </Link>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Hay que elegir una estación para ver sus sellos (los activos y el
+// historial de bajas, con qué perfil dio cada una) — no se mezclan todas
+// las estaciones en una sola lista. Ver lib/seal-stats.ts.
+async function ResumenSealsList({
+  citySlug,
+  ambitoParam,
+  estacionId,
+}: {
+  citySlug: string;
+  ambitoParam: string;
+  estacionId?: string;
+}) {
+  const cityIds = await getAllRealCityIds();
+  const estaciones = await getStationsForSealSelect(cityIds);
+  const basePath = `/ciudades/${citySlug}/resumen`;
+  const estacionValida = estacionId && estaciones.some((e) => e.id === estacionId) ? estacionId : undefined;
+
+  // Agrupa por ciudad para el <optgroup>, en el mismo orden en que ya
+  // vinieron (activas primero, luego alfabético — ver getStationsForSealSelect).
+  const porCiudad = new Map<string, typeof estaciones>();
+  for (const e of estaciones) {
+    const lista = porCiudad.get(e.cityName) ?? [];
+    lista.push(e);
+    porCiudad.set(e.cityName, lista);
+  }
+
+  return (
+    <div className="space-y-4">
+      <form action={basePath} method="get" className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="tab" value="sellos" />
+        <input type="hidden" name="ambito" value={ambitoParam} />
+        <div>
+          <label className="mb-1 block text-sm font-medium text-ink" htmlFor="resumen-sellos-estacion">
+            Estación
+          </label>
+          <select
+            id="resumen-sellos-estacion"
+            name="estacion"
+            defaultValue={estacionValida ?? ""}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            <option value="" disabled>
+              Selecciona una estación...
+            </option>
+            {[...porCiudad.entries()].map(([cityName, lista]) => (
+              <optgroup key={cityName} label={cityName}>
+                {lista.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.numeroEconomico}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark"
+        >
+          Ver sellos
+        </button>
+      </form>
+
+      {!estacionValida ? (
+        <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-ink">
+          Selecciona una estación para ver sus sellos activos y su historial de bajas.
+        </p>
+      ) : (
+        <SealsForStation vehicleId={estacionValida} citySlug={citySlug} estaciones={estaciones} />
+      )}
+    </div>
+  );
+}
+
+async function SealsForStation({
+  vehicleId,
+  citySlug,
+  estaciones,
+}: {
+  vehicleId: string;
+  citySlug: string;
+  estaciones: Awaited<ReturnType<typeof getStationsForSealSelect>>;
+}) {
+  const estacion = estaciones.find((e) => e.id === vehicleId)!;
+  const { activos, historial } = await getStationSeals(vehicleId);
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold uppercase text-primary-bright">
+          {estacion.numeroEconomico} ({estacion.cityName})
+        </h3>
+        <Link
+          href={`/ciudades/${citySlug}/vehiculo/${vehicleId}#sellos`}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          Ver estación →
+        </Link>
+      </div>
+
+      {activos.length === 0 && historial.length === 0 ? (
+        <p className="text-sm text-ink">Esta estación no tiene sellos registrados todavía.</p>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
+              Sellos activos ({activos.length})
+            </p>
+            {activos.length === 0 ? (
+              <p className="text-sm text-ink">Ninguno.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100 rounded-md border border-gray-200">
+                {activos.map((sello) => (
+                  <li key={sello.id} className="px-3 py-2 text-sm text-ink">
+                    <span className="font-medium text-primary">{sello.numeroSello}</span>
+                    {" — instalado "}
+                    {formatDate(sello.fechaInstalacion)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
+              Historial de bajas ({historial.length})
+            </p>
+            {historial.length === 0 ? (
+              <p className="text-sm text-ink">Ninguno.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100 rounded-md border border-gray-200 bg-gray-50">
+                {historial.map((sello) => (
+                  <li key={sello.id} className="px-3 py-2 text-sm text-gray-600">
+                    <span className="font-medium">{sello.numeroSello}</span>
+                    {" — instalado "}
+                    {formatDate(sello.fechaInstalacion)}
+                    {sello.fechaBaja && `, dado de baja ${formatDate(sello.fechaBaja)}`}
+                    {sello.deactivatedByUsername && (
+                      <>
+                        {" por "}
+                        <span className="font-medium text-primary">{sello.deactivatedByUsername}</span>
+                      </>
+                    )}
+                    {sello.motivoBaja && ` (${sello.motivoBaja})`}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

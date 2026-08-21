@@ -62,6 +62,8 @@ model User {
   activityLogs                   ActivityLog[]
   insurancePolicyLogs            InsurancePolicyLog[]
   complianceChecklistItems       ComplianceChecklistItem[]
+  sealLogsCreated                SealLog[]                      @relation("SealLogCreatedBy")
+  sealLogsDeactivated            SealLog[]                      @relation("SealLogDeactivatedBy")
 
   @@map("users")
 }
@@ -218,6 +220,7 @@ model VehicleRecord {
   updatedAt                DateTime                  @updatedAt
   insurancePolicyLogs      InsurancePolicyLog[]
   complianceChecklistItems ComplianceChecklistItem[]
+  sealLogs                 SealLog[]
 
   @@map("vehicle_records")
 }
@@ -397,7 +400,14 @@ model StationTankTechnicalSheet {
   fechaInstalacionValvulas           DateTime?
   fechaFabricacionValvulaExcesoFlujo DateTime?
   fechaFabricacionValvulaNoRetroceso DateTime?
+  // Cuántas válvulas de seguridad tiene este tanque (1, 2 o 3, ver
+  // lib/station-valves.ts): fechaFabricacionValvulaSeguridad es siempre la
+  // primera; las otras dos solo aplican cuando la cantidad lo pide. null se
+  // trata como 1 (la inmensa mayoría de estaciones solo tiene una).
+  cantidadValvulasSeguridad          Int?
   fechaFabricacionValvulaSeguridad   DateTime?
+  fechaFabricacionValvulaSeguridad2  DateTime?
+  fechaFabricacionValvulaSeguridad3  DateTime?
   fechaFabricacionValvulaLlenado     DateTime?
   fechaFabricacionValvulaServicio    DateTime?
   fechaFabricacionValvulaCheckLock   DateTime?
@@ -845,6 +855,39 @@ model InsurancePolicyLog {
   updatedAt DateTime @updatedAt
 
   @@map("insurance_policy_logs")
+}
+
+// Sellos de seguridad de una Estación de carburación: se cambian día con
+// día (al cortarse o por algún mantenimiento), así que viven en su propio
+// registro simple — solo número y fecha de instalación. Dar de baja NO
+// borra el sello (ver CLAUDE.md: ninguna función borra bitácoras): lo marca
+// inactivo y conserva cuándo y por qué se cortó/cambió.
+model SealLog {
+  id String @id @default(cuid())
+
+  vehicleRecordId String
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  numeroSello      String
+  fechaInstalacion DateTime
+
+  activo     Boolean   @default(true)
+  fechaBaja  DateTime?
+  motivoBaja String?
+
+  createdById String?
+  createdBy   User?   @relation("SealLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Qué perfil dio de baja el sello (lo pidió el usuario explícitamente:
+  // aunque USUARIO sí puede darlo de baja, debe quedar registrado quién lo
+  // hizo — ver el listado en Administración / Resumen).
+  deactivatedById String?
+  deactivatedBy   User?   @relation("SealLogDeactivatedBy", fields: [deactivatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("seal_logs")
 }
 
 // Un renglón del checklist de cumplimiento normativo de una unidad, estación

@@ -12,6 +12,15 @@ export const complianceAmbitoLabels: Record<ComplianceAmbito, string> = {
   PLANTA: "Planta",
 };
 
+// A qué ámbito de cumplimiento le toca un registro, a partir de su slug de
+// apartado — misma regla en todos lados donde hace falta saber qué lista de
+// documentos aplica (checklist, estadísticas, exportación a Excel).
+export function complianceAmbitoDe(sectionSlug: string): ComplianceAmbito {
+  if (sectionSlug === "estaciones-de-carburacion") return "ESTACION";
+  if (sectionSlug === "planta-ficha-tecnica") return "PLANTA";
+  return "UNIDAD";
+}
+
 export interface ComplianceItemDef {
   clave: string;
   nombre: string;

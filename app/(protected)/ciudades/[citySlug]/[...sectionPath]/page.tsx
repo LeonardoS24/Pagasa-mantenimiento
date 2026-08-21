@@ -54,6 +54,10 @@ import { getMaintenanceTypeStats } from "@/lib/maintenance-type-stats";
 import { MaintenanceTypePieChart } from "@/components/city/MaintenanceTypePieChart";
 import { getEquipmentMaintenanceTypeStats } from "@/lib/equipment-maintenance-type-stats";
 import { EquipmentMaintenanceTypePieChart } from "@/components/city/EquipmentMaintenanceTypePieChart";
+import { getEquipmentTipoStats } from "@/lib/equipment-tipo-stats";
+import { EquipmentTipoPieChart } from "@/components/city/EquipmentTipoPieChart";
+import { getDecommissionedEquipos } from "@/lib/decommissioned-equipos";
+import { DecommissionedEquiposPanel } from "@/components/city/DecommissionedEquiposPanel";
 import {
   getCurrentMonthRange,
   currentMonthLabel,
@@ -72,7 +76,7 @@ export default async function SectionPage({
   searchParams,
 }: {
   params: { citySlug: string; sectionPath: string[] };
-  searchParams: { mes?: string; tab?: string; ambito?: string };
+  searchParams: { mes?: string; tab?: string; ambito?: string; estacion?: string };
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
@@ -259,6 +263,12 @@ export default async function SectionPage({
   // propio en Bitácora de equipos).
   const equipmentMaintenanceTypeStats = isBitacoraEquiposFeed
     ? await getEquipmentMaintenanceTypeStats(isAggregateCity ? null : city.id)
+    : [];
+  const equipmentTipoStats = isBitacoraEquiposFeed
+    ? await getEquipmentTipoStats(isAggregateCity ? null : city.id)
+    : [];
+  const decommissionedEquipos = isBitacoraEquiposFeed
+    ? await getDecommissionedEquipos(isAggregateCity ? null : city.id)
     : [];
 
   // Mismo combinado que aggregateVehicleRecords, para equipos.
@@ -515,6 +525,14 @@ export default async function SectionPage({
             monthLabel={currentMonthLabel()}
             showCity={isAggregateCity}
           />
+          <EquipmentTipoPieChart
+            stats={equipmentTipoStats}
+            cityId={isAggregateCity ? null : city.id}
+            range={getCurrentMonthRange()}
+            monthLabel={currentMonthLabel()}
+            showCity={isAggregateCity}
+          />
+          <DecommissionedEquiposPanel equipos={decommissionedEquipos} showCity={isAggregateCity} />
           <CityEquipmentLogFeed logs={cityEquipmentLogs} showCity={isAggregateCity} />
         </div>
       ) : isEquiposSection ? (
@@ -568,6 +586,7 @@ export default async function SectionPage({
           citySlug={city.slug}
           tab={searchParams.tab ?? "general"}
           ambito={searchParams.ambito === "estaciones" ? "ESTACIONES" : "UNIDADES"}
+          estacionId={searchParams.estacion}
         />
       ) : isInventarios ? (
         isAggregateCity ? (

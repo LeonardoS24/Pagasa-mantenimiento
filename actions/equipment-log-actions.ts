@@ -14,6 +14,7 @@ import { saveDocumentFile, equipmentLogOwnerKey, readOptionalPdfFiles } from "@/
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import { assertCanViewCity } from "./record-drilldown-actions";
 import { getEquipmentLogsForType, type EquipmentMaintenanceTypeLogEntry } from "@/lib/equipment-maintenance-type-stats";
+import { getEquipmentLogsForTipo, type EquipmentTipoLogEntry } from "@/lib/equipment-tipo-stats";
 import type { MonthRange } from "@/lib/piece-maintenance-stats";
 import type { ActionState } from "./user-actions";
 
@@ -326,4 +327,16 @@ export async function fetchEquipmentLogsForType(
   const user = await requireUser();
   await assertCanViewCity(user, cityId);
   return getEquipmentLogsForType(cityId, tipoMantenimiento, range);
+}
+
+// Desglose al hacer clic en una rebanada de EquipmentTipoPieChart (ver
+// lib/equipment-tipo-stats.ts), mismo control de acceso que fetchEquipmentLogsForType.
+export async function fetchEquipmentLogsForTipo(
+  cityId: string | null,
+  tipoEquipo: string,
+  range: MonthRange
+): Promise<EquipmentTipoLogEntry[]> {
+  const user = await requireUser();
+  await assertCanViewCity(user, cityId);
+  return getEquipmentLogsForTipo(cityId, tipoEquipo, range);
 }

@@ -20,6 +20,8 @@ import { TankTabs } from "@/components/city/TankTabs";
 import { CreateEquipoForm } from "@/components/admin/CreateEquipoForm";
 import { CreateInsurancePolicyLogForm } from "@/components/admin/CreateInsurancePolicyLogForm";
 import { InsurancePolicyLogTable } from "@/components/city/InsurancePolicyLogTable";
+import { CreateSealLogForm } from "@/components/admin/CreateSealLogForm";
+import { SealLogTable } from "@/components/city/SealLogTable";
 import { ComplianceChecklistPanel } from "@/components/city/ComplianceChecklistPanel";
 import type { ComplianceAmbito } from "@/lib/compliance-checklist";
 import { EquipoTable } from "@/components/city/EquipoTable";
@@ -118,6 +120,10 @@ export default async function VehicleDetailPage({
       insurancePolicyLogs: {
         orderBy: { fechaVencimiento: "desc" },
         include: { documents: { orderBy: { createdAt: "desc" } } },
+      },
+      sealLogs: {
+        orderBy: { fechaInstalacion: "desc" },
+        include: { deactivatedBy: { select: { username: true } } },
       },
       complianceChecklistItems: true,
       documents: { orderBy: { createdAt: "desc" } },
@@ -628,6 +634,20 @@ export default async function VehicleDetailPage({
           />
         )}
       </div>
+
+      {/* Sellos de seguridad: solo Estaciones de carburación. Va justo abajo
+          de la ficha técnica del tanque porque se cambian día con día (al
+          cortarse o por mantenimiento), a diferencia del resto de la ficha
+          técnica — por eso necesita quedar de fácil acceso. */}
+      {isEstacionCarburacion && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">Sellos</h2>
+          <div className="space-y-3">
+            {isEditor && <CreateSealLogForm vehicleId={vehicle.id} />}
+            <SealLogTable logs={vehicle.sealLogs} canEdit={isEditor} isAdmin={isAdmin} />
+          </div>
+        </div>
+      )}
 
       {/* El checklist de cumplimiento de normatividad va después de las
           fichas técnicas del/de los tanque(s) (ver lib/compliance-checklist.ts). */}

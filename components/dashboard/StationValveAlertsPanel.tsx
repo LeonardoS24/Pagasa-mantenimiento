@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
-import { getStationValveAlertMessage, type StationValveField } from "@/lib/station-valves";
+import { getStationValveAlertMessage } from "@/lib/station-valves";
 
 type StationValveAlertVehicle = {
   id: string;
@@ -8,7 +8,7 @@ type StationValveAlertVehicle = {
   citySlug: string;
   cityName: string;
   vencimiento: Date;
-  valvulaMasAntigua?: StationValveField;
+  valvulaMasAntigua?: string;
   etiquetaTanque?: string;
   level: ValveAlertLevel;
 };
