@@ -14,10 +14,10 @@ datasource db {
 // pero no crear/eliminar ciudades ni apartados, ni renombrar nada existente;
 // LECTOR solo puede ver (equivalente al antiguo comportamiento de USUARIO).
 model User {
-  id                         String   @id @default(cuid())
-  username                   String   @unique
+  id                         String    @id @default(cuid())
+  username                   String    @unique
   passwordHash               String
-  role                       String   @default("USUARIO")
+  role                       String    @default("USUARIO")
   // Puesto de la persona (ej. "Jefe de mantenimiento"), visible para
   // cualquiera en vez del rol técnico (ADMIN/USUARIO/LECTOR): ese rol solo
   // lo ve un ADMIN, en /admin/usuarios (ver components/layout/Header.tsx).
@@ -25,7 +25,7 @@ model User {
   // Aviso de 5 minutos al iniciar sesión cuando hay mantenimientos "En
   // proceso" en sus ciudades accesibles (ver actions/auth-actions.ts). Cada
   // usuario lo puede apagar para sí mismo.
-  avisosMantenimientoActivos Boolean  @default(true)
+  avisosMantenimientoActivos Boolean   @default(true)
   // Acceso ampliado por horario (ver lib/elevated-access.ts): solo aplica a
   // rol USUARIO. Dentro de este horario puede editar/borrar registros y
   // ficha técnica como si fuera ADMIN; nunca alcanza para borrar
@@ -35,8 +35,14 @@ model User {
   accesoAmpliadoDias         String?
   accesoAmpliadoHoraInicio   String?
   accesoAmpliadoHoraFin      String?
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  // Protección contra fuerza bruta en el login (ver actions/auth-actions.ts):
+  // cada contraseña incorrecta suma uno; al llegar al máximo se bloquea la
+  // cuenta un rato (bloqueadoHasta) y el contador se reinicia. Un login
+  // correcto también reinicia el contador.
+  intentosFallidosLogin      Int       @default(0)
+  bloqueadoHasta             DateTime?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 
   // Todas estas relaciones usan onDelete: SetNull, nunca Cascade: eliminar a
   // un empleado no debe borrar el historial de mantenimiento de la flota. El
@@ -62,8 +68,8 @@ model User {
   activityLogs                   ActivityLog[]
   insurancePolicyLogs            InsurancePolicyLog[]
   complianceChecklistItems       ComplianceChecklistItem[]
-  sealLogsCreated                SealLog[]                      @relation("SealLogCreatedBy")
-  sealLogsDeactivated            SealLog[]                      @relation("SealLogDeactivatedBy")
+  sealLogsCreated                SealLog[]                       @relation("SealLogCreatedBy")
+  sealLogsDeactivated            SealLog[]                       @relation("SealLogDeactivatedBy")
 
   @@map("users")
 }
@@ -263,14 +269,44 @@ model VehicleTechnicalSheet {
   inciso           String?
 
   // Tanque
-  capacidadTanque         String?
-  marcaTanque             String?
-  anioFabricacionTanque   String?
+  capacidadTanque        String?
+  marcaTanque            String?
+  anioFabricacionTanque  String?
   // Fecha de fabricación real (a diferencia de anioFabricacionTanque, texto
   // libre): ancla el cálculo automático de la inspección visual interna y la
   // prueba hidrostática, que vencen cada 10 años a partir de esta fecha.
-  fechaFabricacionTanque  DateTime?
-  numeroSerieTanque       String?
+  fechaFabricacionTanque DateTime?
+  numeroSerieTanque      String?
+
+  // Resto de los datos de la placa metálica del tanque (Auto-Tanques, ver
+  // isAutoTanques en la página de vehículo) que no tenían ya un campo
+  // arriba: No. de serie, Capacidad y Año de fabricación ya se capturaban
+  // (numeroSerieTanque/capacidadTanque/anioFabricacionTanque), así que no
+  // se duplican. Son de referencia para llenar a mano leyendo la placa;
+  // ninguno alimenta cálculos de alerta ni se sincroniza con nada.
+  placaPresionMaximaTrabajo   String?
+  placaTemperaturaDiseno      String?
+  placaCabezales              String?
+  placaDiametroExterior       String?
+  placaLongitudTotal          String?
+  placaEspesorMinPlacaCuerpo  String?
+  placaMaterialCuerpo         String?
+  placaEspesorMinPlacaCabeza  String?
+  placaMaterialCabeza         String?
+  placaNormaFabricacion       String?
+  placaDT                     String?
+  placaNumeroSeriePropietario String?
+  placaCapacidadPorcentaje    String?
+  placaCapacidadKg            String?
+  placaTara                   String?
+  placaRayosXCuerpo           String?
+  placaRelevo                 String?
+  placaRayosXCabeza           String?
+  placaPresionDiseno          String?
+  placaFechaPruebaOriginal    String?
+  placaPresionMaximaVapor     String?
+  placaContenido              String?
+
   numeroUltimoUltrasonido String?
   ultimoUltrasonido       DateTime?
   fechaProximoUltrasonido DateTime?
@@ -551,7 +587,7 @@ model MaintenanceLog {
 // CustomFieldValue. Así las alertas, el semáforo y los vencimientos, que
 // dependen de esas columnas, siguen funcionando igual.
 model CustomField {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   // "VEHICULO" | "ESTACION" (ver CAMPO_AMBITOS en lib/custom-fields.ts)
   ambito   String
   // Recuadro donde aparece ("automovil", "tanque", ...): coincide con las

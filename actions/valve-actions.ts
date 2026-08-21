@@ -254,7 +254,7 @@ export async function updateValveChangeLog(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
 
   const parsed = createValveChangeLogSchema.safeParse({
     responsableCambio: formData.get("responsableCambio"),
@@ -284,6 +284,8 @@ export async function updateValveChangeLog(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   if (log.vehicleRecord.section.slug !== "vehiculo-con-tanque-de-carburacion") {
     const error = requireValvulasCompletas(parsed.data);
@@ -316,6 +318,8 @@ export async function deleteValveChangeLog(
   if (!log) {
     return { error: "El registro ya no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(admin, log.vehicleRecord.section.cityId);
 
   await logActivity({
     user: admin,

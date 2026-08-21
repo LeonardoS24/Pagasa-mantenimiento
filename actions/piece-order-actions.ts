@@ -216,7 +216,7 @@ export async function updatePieceOrderEstado(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireEditor();
+  const editor = await requireEditor();
 
   const parsed = pieceOrderStatusSchema.safeParse(formData.get("estado"));
   if (!parsed.success) {
@@ -230,6 +230,8 @@ export async function updatePieceOrderEstado(
   if (!order) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertSectionAccess(editor, order.sectionId);
 
   await prisma.pieceOrder.update({
     where: { id: orderId },
@@ -300,6 +302,8 @@ export async function deletePieceOrder(
   if (!order) {
     return { error: "La orden ya no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede borrar, no si puede borrar ESTO.
+  await assertSectionAccess(admin, order.sectionId);
 
   await logActivity({
     user: admin,

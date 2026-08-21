@@ -611,6 +611,7 @@ export default async function VehicleDetailPage({
             showValveSection={isTanqueCarburacion || isAutoTanques}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection && !isEstacionLike}
+            showTankNameplateSection={isAutoTanques}
             showInspeccionesSection={showInspeccionesSection && !isMultiTanque}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
             showAutomovilSection={!isEstacionLike}
@@ -626,6 +627,7 @@ export default async function VehicleDetailPage({
             showValveSection={isTanqueCarburacion || isAutoTanques}
             showHoseSection={isTanqueCarburacion}
             showTankSection={showTankSection && !isEstacionLike}
+            showTankNameplateSection={isAutoTanques}
             showInspeccionesSection={showInspeccionesSection && !isMultiTanque}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
             showAutomovilSection={!isEstacionLike}

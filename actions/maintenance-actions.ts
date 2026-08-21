@@ -399,7 +399,7 @@ export async function updateMaintenanceLog(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireEditor();
+  const editor = await requireEditor();
 
   const parsed = updateLogSchema.safeParse({
     estatus: formData.get("estatus"),
@@ -412,6 +412,8 @@ export async function updateMaintenanceLog(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, log.vehicleRecordId);
 
   await prisma.maintenanceLog.update({ where: { id: logId }, data: parsed.data });
 
@@ -457,7 +459,7 @@ export async function updateMaintenanceLogFull(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
 
   const parsed = updateLogFullSchema.safeParse({
     tipoMantenimiento: formData.get("tipoMantenimiento"),
@@ -485,6 +487,8 @@ export async function updateMaintenanceLogFull(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(editor, log.vehicleRecordId);
 
   await prisma.maintenanceLog.update({ where: { id: logId }, data: parsed.data });
   await recalcularFichaTecnicaMantenimiento(log.vehicleRecordId);
@@ -512,6 +516,8 @@ export async function deleteMaintenanceLog(
   if (!log) {
     return { error: "El registro ya no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertVehicleAccess(admin, log.vehicleRecordId);
 
   await logActivity({
     user: admin,

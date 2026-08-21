@@ -277,6 +277,7 @@ export function TechnicalSheetForm({
   showValveSection = false,
   showHoseSection = false,
   showTankSection = true,
+  showTankNameplateSection = false,
   showInspeccionesSection = true,
   showMaintenancePreventiveSection = true,
   showAutomovilSection = true,
@@ -302,6 +303,11 @@ export function TechnicalSheetForm({
   // false solo para Vehículo de reparto: no tiene tanque, así que no aplica
   // ninguna ficha técnica de tanque.
   showTankSection?: boolean;
+  // Solo Auto-Tanques: transcripción literal de la placa metálica del
+  // tanque (ver comentario en prisma/schema.prisma). Distinto de
+  // showTankSection: esos campos ya existían y alimentan cálculos; estos
+  // son puros datos de referencia para llenar a mano.
+  showTankNameplateSection?: boolean;
   // false solo para Vehículo de reparto: sus 5 pruebas de tanque (Visual
   // Externa, Hermeticidad, Visual Interna, Ultrasonido, Hidrostática) viven
   // en Auto-Tanques y en Vehículo con tanque de carburación, no aquí.
@@ -558,6 +564,96 @@ export function TechnicalSheetForm({
               type="date"
               defaultValue={toDateInputValue(sheet?.fechaFabricacionTanque)}
             />
+            {showTankNameplateSection && (
+              <>
+                <Field
+                  id="placaPresionMaximaTrabajo"
+                  label="Presión máxima de trabajo (kg/cm²)"
+                  defaultValue={sheet?.placaPresionMaximaTrabajo}
+                />
+                <Field
+                  id="placaTemperaturaDiseno"
+                  label="Temperatura de diseño (°C)"
+                  defaultValue={sheet?.placaTemperaturaDiseno}
+                />
+                <Field id="placaCabezales" label="Cabezales" defaultValue={sheet?.placaCabezales} />
+                <Field
+                  id="placaDiametroExterior"
+                  label="Diámetro exterior (m)"
+                  defaultValue={sheet?.placaDiametroExterior}
+                />
+                <Field
+                  id="placaLongitudTotal"
+                  label="Longitud total (m)"
+                  defaultValue={sheet?.placaLongitudTotal}
+                />
+                <Field
+                  id="placaEspesorMinPlacaCuerpo"
+                  label="Espesor mín. placa cuerpo (mm)"
+                  defaultValue={sheet?.placaEspesorMinPlacaCuerpo}
+                />
+                <Field
+                  id="placaMaterialCuerpo"
+                  label="Material cuerpo"
+                  defaultValue={sheet?.placaMaterialCuerpo}
+                />
+                <Field
+                  id="placaEspesorMinPlacaCabeza"
+                  label="Espesor mín. placa cabeza (mm)"
+                  defaultValue={sheet?.placaEspesorMinPlacaCabeza}
+                />
+                <Field
+                  id="placaMaterialCabeza"
+                  label="Material cabeza"
+                  defaultValue={sheet?.placaMaterialCabeza}
+                />
+                <Field
+                  id="placaNormaFabricacion"
+                  label="Norma de fabricación"
+                  defaultValue={sheet?.placaNormaFabricacion}
+                />
+                <Field id="placaDT" label="D.T." defaultValue={sheet?.placaDT} />
+                <Field
+                  id="placaNumeroSeriePropietario"
+                  label="No. de serie propietario"
+                  defaultValue={sheet?.placaNumeroSeriePropietario}
+                />
+                <Field
+                  id="placaCapacidadPorcentaje"
+                  label="Capacidad (%)"
+                  defaultValue={sheet?.placaCapacidadPorcentaje}
+                />
+                <Field id="placaCapacidadKg" label="Capacidad (kg)" defaultValue={sheet?.placaCapacidadKg} />
+                <Field id="placaTara" label="Tara (kg)" defaultValue={sheet?.placaTara} />
+                <Field
+                  id="placaRayosXCuerpo"
+                  label="Rayos X cuerpo (%)"
+                  defaultValue={sheet?.placaRayosXCuerpo}
+                />
+                <Field id="placaRelevo" label="Relevo (%)" defaultValue={sheet?.placaRelevo} />
+                <Field
+                  id="placaRayosXCabeza"
+                  label="Rayos X cabeza (%)"
+                  defaultValue={sheet?.placaRayosXCabeza}
+                />
+                <Field
+                  id="placaPresionDiseno"
+                  label="Presión de diseño (kg/cm²)"
+                  defaultValue={sheet?.placaPresionDiseno}
+                />
+                <Field
+                  id="placaFechaPruebaOriginal"
+                  label="Fecha prueba original"
+                  defaultValue={sheet?.placaFechaPruebaOriginal}
+                />
+                <Field
+                  id="placaPresionMaximaVapor"
+                  label="Presión máxima de vapor (kg/cm²)"
+                  defaultValue={sheet?.placaPresionMaximaVapor}
+                />
+                <Field id="placaContenido" label="Contenido" defaultValue={sheet?.placaContenido} />
+              </>
+            )}
             <CustomFieldInputs campos={camposExtra} seccion="tanque" valores={valoresExtra} />
           </div>
         </div>

@@ -60,6 +60,7 @@ export function TechnicalSheetView({
   showValveSection = false,
   showHoseSection = false,
   showTankSection = true,
+  showTankNameplateSection = false,
   showInspeccionesSection = true,
   showMaintenancePreventiveSection = true,
   showAutomovilSection = true,
@@ -82,6 +83,9 @@ export function TechnicalSheetView({
   showHoseSection?: boolean;
   // false solo para Vehículo de reparto: no tiene tanque.
   showTankSection?: boolean;
+  // Solo Auto-Tanques: transcripción literal de la placa metálica del
+  // tanque (ver comentario en prisma/schema.prisma).
+  showTankNameplateSection?: boolean;
   // false solo para Vehículo de reparto: sus 5 pruebas de tanque viven en
   // Auto-Tanques y en Vehículo con tanque de carburación.
   showInspeccionesSection?: boolean;
@@ -200,6 +204,32 @@ export function TechnicalSheetView({
             <Item label="Marca de tanque" value={sheet.marcaTanque} />
             <Item label="Año de fabricación" value={sheet.anioFabricacionTanque} />
             <Item label="Fecha de fabricación" value={formatDate(sheet.fechaFabricacionTanque) || null} />
+            {showTankNameplateSection && (
+              <>
+                <Item label="Presión máxima de trabajo (kg/cm²)" value={sheet.placaPresionMaximaTrabajo} />
+                <Item label="Temperatura de diseño (°C)" value={sheet.placaTemperaturaDiseno} />
+                <Item label="Cabezales" value={sheet.placaCabezales} />
+                <Item label="Diámetro exterior (m)" value={sheet.placaDiametroExterior} />
+                <Item label="Longitud total (m)" value={sheet.placaLongitudTotal} />
+                <Item label="Espesor mín. placa cuerpo (mm)" value={sheet.placaEspesorMinPlacaCuerpo} />
+                <Item label="Material cuerpo" value={sheet.placaMaterialCuerpo} />
+                <Item label="Espesor mín. placa cabeza (mm)" value={sheet.placaEspesorMinPlacaCabeza} />
+                <Item label="Material cabeza" value={sheet.placaMaterialCabeza} />
+                <Item label="Norma de fabricación" value={sheet.placaNormaFabricacion} />
+                <Item label="D.T." value={sheet.placaDT} />
+                <Item label="No. de serie propietario" value={sheet.placaNumeroSeriePropietario} />
+                <Item label="Capacidad (%)" value={sheet.placaCapacidadPorcentaje} />
+                <Item label="Capacidad (kg)" value={sheet.placaCapacidadKg} />
+                <Item label="Tara (kg)" value={sheet.placaTara} />
+                <Item label="Rayos X cuerpo (%)" value={sheet.placaRayosXCuerpo} />
+                <Item label="Relevo (%)" value={sheet.placaRelevo} />
+                <Item label="Rayos X cabeza (%)" value={sheet.placaRayosXCabeza} />
+                <Item label="Presión de diseño (kg/cm²)" value={sheet.placaPresionDiseno} />
+                <Item label="Fecha prueba original" value={sheet.placaFechaPruebaOriginal} />
+                <Item label="Presión máxima de vapor (kg/cm²)" value={sheet.placaPresionMaximaVapor} />
+                <Item label="Contenido" value={sheet.placaContenido} />
+              </>
+            )}
             <CustomFieldItems campos={camposExtra} seccion="tanque" valores={valoresExtra} />
           </dl>
         </div>

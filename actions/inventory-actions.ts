@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, requireUser } from "@/lib/auth";
-import { assertSectionAccess } from "@/lib/access";
+import { assertSectionAccess, assertCityAccessById, assertVehicleAccess } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import { sectionBasePath } from "@/lib/section-path";
@@ -58,13 +58,15 @@ export type MantenimientoOpcion = {
 export async function getMantenimientosDeUnidad(
   vehicleId: string
 ): Promise<{ opciones: MantenimientoOpcion[]; nuevos: { valor: string; etiqueta: string }[] }> {
-  await requireEditor();
+  const editor = await requireEditor();
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },
     include: { section: true },
   });
   if (!vehicle) return { opciones: [], nuevos: [] };
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertSectionAccess(editor, vehicle.sectionId);
 
   const tipos = destinosDisponibles(vehicle.section.slug);
   const opciones: MantenimientoOpcion[] = [];
@@ -131,7 +133,7 @@ export async function updateInventoryItemEstado(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireEditor();
+  const editor = await requireEditor();
 
   const parsed = inventoryItemStatusSchema.safeParse(formData.get("estado"));
   if (!parsed.success) {
@@ -145,6 +147,8 @@ export async function updateInventoryItemEstado(
   if (!item) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, item.section.cityId);
 
   // "Utilizada" exige indicar la unidad y el trabajo concreto donde se colocó
   // la pieza. Si ese trabajo ya está capturado, la pieza queda amarrada a él
@@ -261,7 +265,8 @@ export async function vincularPiezaARegistro(
 ): Promise<void> {
   // Misma razón que en sweepExpiredPorUtilizar: es exportada desde un
   // archivo "use server", así que se puede llamar desde fuera.
-  await requireEditor();
+  const editor = await requireEditor();
+  await assertVehicleAccess(editor, vehicleId);
   const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
   if (!item || item.usedOnVehicleId !== vehicleId) return;
 
@@ -286,7 +291,8 @@ export async function usarPiezaDesdeMantenimiento(
   vehicleId: string,
   logId: string
 ): Promise<void> {
-  await requireEditor();
+  const editor = await requireEditor();
+  await assertVehicleAccess(editor, vehicleId);
   const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
   if (!item || item.estado !== "EN_INVENTARIO") return;
 
@@ -320,6 +326,8 @@ export async function deleteInventoryItem(
   if (!item) {
     return { error: "El artículo ya no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(admin, item.section.cityId);
 
   await logActivity({
     user: admin,

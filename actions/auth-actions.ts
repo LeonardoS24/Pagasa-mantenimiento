@@ -20,6 +20,16 @@ export interface LoginState {
   error?: string;
 }
 
+// Protección contra fuerza bruta: 5 intentos fallidos seguidos bloquean la
+// cuenta 15 minutos. Un intento correcto reinicia el contador; un bloqueo
+// vencido también se limpia solo al siguiente intento.
+const MAX_INTENTOS_FALLIDOS = 5;
+const BLOQUEO_MINUTOS = 15;
+
+function minutosRestantes(bloqueadoHasta: Date): number {
+  return Math.max(1, Math.ceil((bloqueadoHasta.getTime() - Date.now()) / 60000));
+}
+
 export async function loginAction(
   _prevState: LoginState,
   formData: FormData
@@ -40,9 +50,36 @@ export async function loginAction(
     return { error: "Usuario o contraseña incorrectos." };
   }
 
+  if (user.bloqueadoHasta && user.bloqueadoHasta.getTime() > Date.now()) {
+    return {
+      error: `Cuenta bloqueada temporalmente por varios intentos fallidos. Intenta de nuevo en ${minutosRestantes(user.bloqueadoHasta)} minuto(s).`,
+    };
+  }
+
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
+    const intentos = user.intentosFallidosLogin + 1;
+    const bloquear = intentos >= MAX_INTENTOS_FALLIDOS;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        intentosFallidosLogin: bloquear ? 0 : intentos,
+        bloqueadoHasta: bloquear ? new Date(Date.now() + BLOQUEO_MINUTOS * 60 * 1000) : null,
+      },
+    });
+    if (bloquear) {
+      return {
+        error: `Demasiados intentos fallidos. Cuenta bloqueada ${BLOQUEO_MINUTOS} minutos.`,
+      };
+    }
     return { error: "Usuario o contraseña incorrectos." };
+  }
+
+  if (user.intentosFallidosLogin > 0 || user.bloqueadoHasta) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { intentosFallidosLogin: 0, bloqueadoHasta: null },
+    });
   }
 
   const role = roleSchema.parse(user.role);

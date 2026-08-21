@@ -483,6 +483,7 @@ export default async function PrintVehiclePage({
                 showValveSection={isTanqueCarburacion || isAutoTanques}
                 showHoseSection={isTanqueCarburacion}
                 showTankSection={showTankSection}
+                showTankNameplateSection={isAutoTanques}
                 showInspeccionesSection={showInspeccionesSection}
                 showMaintenancePreventiveSection={!isTanqueCarburacion || !isMerged}
                 showAutomovilSection={index === 0 && !isEstacionLike}

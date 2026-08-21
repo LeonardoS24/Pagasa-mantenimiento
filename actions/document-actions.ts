@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor, requireEditor, checkSessionUserExists } from "@/lib/auth";
-import { assertSectionAccess, assertVehicleAccess, assertEquipoAccess } from "@/lib/access";
+import { assertSectionAccess, assertVehicleAccess, assertEquipoAccess, assertCityAccessById } from "@/lib/access";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import {
@@ -184,6 +184,8 @@ export async function uploadStationPermit(
   if (!vehicle) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, vehicle.section.cityId);
 
   const { storedName } = await saveDocumentFile(vehicleOwnerKey(vehicleRecordId), file);
 
@@ -224,6 +226,8 @@ export async function uploadMaintenanceLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(maintenanceLogOwnerKey(maintenanceLogId), file);
 
@@ -264,6 +268,8 @@ export async function uploadUltrasoundLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(ultrasoundLogOwnerKey(ultrasoundLogId), file);
 
@@ -304,6 +310,8 @@ export async function uploadVisualInspectionLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(
     visualInspectionLogOwnerKey(visualInspectionLogId),
@@ -347,6 +355,8 @@ export async function uploadTightnessTestLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(tightnessTestLogOwnerKey(tightnessTestLogId), file);
 
@@ -387,6 +397,8 @@ export async function uploadInternalVisualInspectionLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(
     internalVisualInspectionLogOwnerKey(internalVisualInspectionLogId),
@@ -430,6 +442,8 @@ export async function uploadHydrostaticTestLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(
     hydrostaticTestLogOwnerKey(hydrostaticTestLogId),
@@ -518,6 +532,8 @@ export async function uploadExtinguisherChangeLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(
     extinguisherChangeLogOwnerKey(extinguisherChangeLogId),
@@ -561,6 +577,8 @@ export async function uploadValveChangeLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(valveChangeLogOwnerKey(valveChangeLogId), file);
 
@@ -601,6 +619,8 @@ export async function uploadValveCorrectiveMaintenanceLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(
     valveCorrectiveMaintenanceLogOwnerKey(valveCorrectiveMaintenanceLogId),
@@ -644,6 +664,8 @@ export async function uploadHoseChangeLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   const { storedName } = await saveDocumentFile(hoseChangeLogOwnerKey(hoseChangeLogId), file);
 
@@ -724,6 +746,8 @@ export async function uploadEquipmentLogDocument(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.equipo.section.cityId);
 
   const { storedName } = await saveDocumentFile(equipmentLogOwnerKey(equipmentLogId), file);
 
@@ -799,6 +823,11 @@ export async function deleteDocument(
   if (!document) {
     return { error: "El documento ya no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede borrar, no si puede borrar ESTO.
+  // document.sectionId siempre está lleno sin importar a qué bitácora
+  // pertenezca (ver lib/documents.ts: ownerKeyForDocument), así que basta
+  // con esta comprobación sin importar cuál de las variantes de arriba aplique.
+  await assertCityAccessById(admin, document.section.cityId);
 
   await logActivity({
     user: admin,

@@ -256,7 +256,7 @@ export async function updateEquipmentLog(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
 
   const parsed = updateLogSchema.safeParse({
     tipoMantenimiento: formData.get("tipoMantenimiento"),
@@ -274,6 +274,8 @@ export async function updateEquipmentLog(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(editor, log.equipoId);
 
   await prisma.equipmentLog.update({ where: { id: logId }, data: parsed.data });
   await recalcularCriticidadEquipo(log.equipoId);
@@ -300,6 +302,8 @@ export async function deleteEquipmentLog(
   if (!log) {
     return { error: "El registro ya no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertEquipoAccess(admin, log.equipoId);
 
   await logActivity({
     user: admin,

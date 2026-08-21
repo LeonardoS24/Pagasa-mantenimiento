@@ -115,7 +115,7 @@ export async function updateHoseChangeLog(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireElevatedEditor();
+  const editor = await requireElevatedEditor();
 
   const parsed = createHoseChangeLogSchema.safeParse({
     responsable: formData.get("responsable"),
@@ -133,6 +133,8 @@ export async function updateHoseChangeLog(
   if (!log) {
     return { error: "El registro no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(editor, log.vehicleRecord.section.cityId);
 
   await prisma.hoseChangeLog.update({ where: { id: logId }, data: parsed.data });
 
@@ -160,6 +162,8 @@ export async function deleteHoseChangeLog(
   if (!log) {
     return { error: "El registro ya no existe." };
   }
+  // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
+  await assertCityAccessById(admin, log.vehicleRecord.section.cityId);
 
   await logActivity({
     user: admin,
