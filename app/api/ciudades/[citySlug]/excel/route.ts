@@ -59,6 +59,12 @@ export async function GET(request: NextRequest, { params }: { params: { citySlug
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
       "Content-Length": String(buffer.length),
+      // Sin esto, el navegador puede reutilizar una descarga anterior de la
+      // misma URL (mismo citySlug/ambito) en vez de volver a pedir el
+      // archivo: el Excel se genera fresco en cada request (ver
+      // buildCityFleetWorkbook), pero sin este encabezado nadie se lo dice
+      // al navegador y a veces sirve la copia vieja de su caché.
+      "Cache-Control": "no-store, must-revalidate",
     },
   });
 }
