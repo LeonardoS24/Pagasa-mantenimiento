@@ -175,9 +175,9 @@ export function MaintenanceTypePieChart({
               className="cursor-pointer"
               onClick={() => toggle(slice.tipo)}
             >
-              <title>
-                {slice.tipo}: {slice.total} ({slice.pct.toFixed(0)}%)
-              </title>
+              {/* Un solo nodo de texto, ver el comentario en
+                  EquipmentMaintenanceTypePieChart.tsx. */}
+              <title>{`${slice.tipo}: ${slice.total} (${slice.pct.toFixed(0)}%)`}</title>
             </path>
           ))}
         </svg>

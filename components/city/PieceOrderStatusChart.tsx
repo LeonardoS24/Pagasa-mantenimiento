@@ -196,9 +196,9 @@ export function PieceOrderStatusChart({
                         fill={ESTADO_COLORS[estado]}
                         opacity={0.9}
                       >
-                        <title>
-                          {stat.cityName} · {pieceOrderStatusLabels[estado]}: {count}
-                        </title>
+                        {/* Un solo nodo de texto, ver el comentario en
+                            EquipmentMaintenanceTypePieChart.tsx. */}
+                        <title>{`${stat.cityName} · ${pieceOrderStatusLabels[estado]}: ${count}`}</title>
                       </rect>
                     );
                   })

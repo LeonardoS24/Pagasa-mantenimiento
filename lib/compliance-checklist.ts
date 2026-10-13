@@ -28,7 +28,11 @@ export interface ComplianceItemDef {
 
 export const UNIDAD_COMPLIANCE_ITEMS: readonly ComplianceItemDef[] = [
   { clave: "certificado_fabricante_tanque", nombre: "Certificado de fabricante (tanque)" },
-  { clave: "dictamen_nom_005_sesg_2010", nombre: "Dictamen NOM-005-SESG-2010" },
+  // La clave se queda como "sesg" a propósito: es el identificador con el que
+  // ya están guardadas las filas del checklist en la base. Lo que se corrige
+  // es el nombre visible — la norma es NOM-005-SESH-2010 (Secretaría de
+  // Energía, Seguridad e Hidrocarburos), no "SESG".
+  { clave: "dictamen_nom_005_sesg_2010", nombre: "Dictamen NOM-005-SESH-2010" },
   { clave: "dictamen_inicio_operacion", nombre: "Dictamen de inicio de operación" },
   {
     clave: "dictamen_operacion_mantenimiento_nom_em_007_asea",

@@ -3,13 +3,14 @@ import { getAllRealCityIds } from "@/lib/aggregate-city";
 import {
   YEARLY_SUMMARY_TYPES,
   STATION_SUMMARY_TYPES,
+  PLANTA_SUMMARY_TYPES,
   summaryTypesForAmbito,
   yearlySummaryLabels,
   yearlySummaryRouteSlugs,
   yearlySummaryAnchors,
   getYearlySummary,
   getYearlySummaryOverview,
-  getYearlySummaryAllMissing,
+  getYearlySummaryMissingByCity,
   type YearlySummaryTypeId,
   type ResumenAmbito,
 } from "@/lib/yearly-change-summary";
@@ -19,13 +20,14 @@ import { verRecordLabel } from "@/lib/section-labels";
 import { getStationsForSealSelect, getStationSeals } from "@/lib/seal-stats";
 import { formatDate } from "@/lib/dates";
 import { YearlyDueList } from "./YearlyDueList";
+import { ResumenMissingSearch } from "./ResumenMissingSearch";
 
 function tabsForAmbito(ambito: ResumenAmbito) {
   return [
     { slug: "general", label: "Resumen general" },
     { slug: "cumplimiento", label: "Cumplimiento normativo" },
     // Los sellos solo existen en Estaciones de carburación (ver apartado
-    // "Sellos" en la página de detalle del vehículo).
+    // "Sellos" en la página de detalle del vehículo) — ni Unidades ni Planta.
     ...(ambito === "ESTACIONES" ? [{ slug: "sellos", label: "Sellos" }] : []),
     ...summaryTypesForAmbito(ambito).map((type) => ({
       slug: yearlySummaryRouteSlugs[type],
@@ -36,13 +38,21 @@ function tabsForAmbito(ambito: ResumenAmbito) {
 }
 
 const typeBySlug = new Map<string, YearlySummaryTypeId>(
-  [...YEARLY_SUMMARY_TYPES, ...STATION_SUMMARY_TYPES].map((type) => [yearlySummaryRouteSlugs[type], type])
+  [...YEARLY_SUMMARY_TYPES, ...STATION_SUMMARY_TYPES, ...PLANTA_SUMMARY_TYPES].map((type) => [
+    yearlySummaryRouteSlugs[type],
+    type,
+  ])
 );
 
-const AMBITOS: { value: ResumenAmbito; label: string }[] = [
-  { value: "UNIDADES", label: "Unidades" },
-  { value: "ESTACIONES", label: "Estaciones" },
+const AMBITOS: { value: ResumenAmbito; label: string; param: string }[] = [
+  { value: "UNIDADES", label: "Unidades", param: "unidades" },
+  { value: "ESTACIONES", label: "Estaciones", param: "estaciones" },
+  { value: "PLANTA", label: "Planta", param: "planta" },
 ];
+
+function ambitoParamFor(ambito: ResumenAmbito): string {
+  return AMBITOS.find((a) => a.value === ambito)!.param;
+}
 
 // Vivía como sus propias 10 rutas en /admin/resumen; ahora es un solo
 // apartado ("Resumen", ver scripts/add-resumen-section.mjs) dentro de la
@@ -72,7 +82,7 @@ export async function ResumenPanel({
   const TABS = tabsForAmbito(ambito);
   const activeTab = TABS.some((t) => t.slug === tab) ? tab : "general";
   const basePath = `/ciudades/${citySlug}/resumen`;
-  const ambitoParam = ambito === "ESTACIONES" ? "estaciones" : "unidades";
+  const ambitoParam = ambitoParamFor(ambito);
 
   return (
     <div>
@@ -85,7 +95,7 @@ export async function ResumenPanel({
           {AMBITOS.map((a) => (
             <Link
               key={a.value}
-              href={a.value === "UNIDADES" ? basePath : `${basePath}?ambito=estaciones`}
+              href={`${basePath}?ambito=${a.param}`}
               className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
                 ambito === a.value
                   ? "border-primary bg-primary/10 text-primary"
@@ -104,7 +114,7 @@ export async function ResumenPanel({
             key={t.slug}
             href={
               t.slug === "general"
-                ? ambito === "ESTACIONES" ? `${basePath}?ambito=${ambitoParam}` : basePath
+                ? `${basePath}?ambito=${ambitoParam}`
                 : `${basePath}?tab=${t.slug}&ambito=${ambitoParam}`
             }
             className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
@@ -137,7 +147,7 @@ async function ResumenGeneralTable({ year, ambito }: { year: number; ambito: Res
   const cityIds = await getAllRealCityIds();
   const rows = await getYearlySummaryOverview(cityIds, year, ambito);
   const citySlug = "administracion";
-  const ambitoParam = ambito === "ESTACIONES" ? "&ambito=estaciones" : "";
+  const ambitoParam = ambito === "UNIDADES" ? "" : `&ambito=${ambitoParamFor(ambito)}`;
 
   return (
     <div className="space-y-4">
@@ -239,9 +249,13 @@ async function ResumenTypeList({
   );
 }
 
+// Agrupado por ciudad (cada unidad una sola vez, con todo lo que le falta
+// anotado junto a su nombre) en vez de por tipo, con un buscador para
+// encontrarla más rápido — ver lib/yearly-change-summary.ts:
+// getYearlySummaryMissingByCity y ResumenMissingSearch.
 async function ResumenMissingList({ year, ambito }: { year: number; ambito: ResumenAmbito }) {
   const cityIds = await getAllRealCityIds();
-  const groups = await getYearlySummaryAllMissing(cityIds, year, ambito);
+  const groups = await getYearlySummaryMissingByCity(cityIds, year, ambito);
 
   if (groups.length === 0) {
     return (
@@ -252,33 +266,7 @@ async function ResumenMissingList({ year, ambito }: { year: number; ambito: Resu
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {groups.map((group) => (
-        <div key={group.type} className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-primary-bright">
-            {group.label} — sin información ({group.items.length})
-          </h2>
-          <ul className="divide-y divide-gray-100">
-            {group.items.map((item, i) => (
-              <li key={`${item.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span className="text-sm text-ink">
-                  <span className="font-medium text-primary">{item.numeroEconomico}</span>{" "}
-                  <span className="text-gray-500">({item.cityName})</span>
-                </span>
-                <Link
-                  href={`/ciudades/${item.citySlug}/vehiculo/${item.id}#${yearlySummaryAnchors[group.type]}`}
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  Buscar y llenar →
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
+  return <ResumenMissingSearch groups={groups} />;
 }
 
 // Porcentaje del checklist de cumplimiento de normatividad, unidad por
@@ -288,7 +276,8 @@ async function ResumenMissingList({ year, ambito }: { year: number; ambito: Resu
 // mayor cumplimiento.
 async function ResumenComplianceList({ ambito }: { ambito: ResumenAmbito }) {
   const cityIds = await getAllRealCityIds();
-  const complianceAmbitos: ComplianceAmbito[] = ambito === "ESTACIONES" ? ["ESTACION", "PLANTA"] : ["UNIDAD"];
+  const complianceAmbitos: ComplianceAmbito[] =
+    ambito === "PLANTA" ? ["PLANTA"] : ambito === "ESTACIONES" ? ["ESTACION"] : ["UNIDAD"];
   const filas = await getComplianceByUnit(cityIds, complianceAmbitos);
 
   if (filas.length === 0) {

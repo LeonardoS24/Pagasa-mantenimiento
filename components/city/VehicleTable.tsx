@@ -37,7 +37,13 @@ import {
   maintenanceAlertBadgeStyles,
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
-import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import {
+  getValveAlertLevel,
+  getValveVencimiento,
+  valveAlertBadgeStyles,
+  valveAlertLabel,
+  valveDatesFromSheet,
+} from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { calidadMantenimientoLabels, calidadMantenimientoStyles, type CalidadMantenimiento } from "@/lib/vehicle-enums";
@@ -140,22 +146,7 @@ export function VehicleTable({
             const maintenanceAlertLevel = record.activo && isAlertVisibleForSection("mantenimiento", sectionSlug)
               ? getMaintenanceAlertLevel(record.technicalSheet?.fechaProximoMantenimiento)
               : "none";
-            const valveDates = {
-              fechaFabricacionValvulaLlenado: record.technicalSheet?.fechaFabricacionValvulaLlenado,
-              fechaFabricacionValvulaNoRetroceso:
-                record.technicalSheet?.fechaFabricacionValvulaNoRetroceso,
-              fechaFabricacionValvulaBypass: record.technicalSheet?.fechaFabricacionValvulaBypass,
-              fechaFabricacionValvulaRetornoVapores:
-                record.technicalSheet?.fechaFabricacionValvulaRetornoVapores,
-              fechaFabricacionValvulaServicio: record.technicalSheet?.fechaFabricacionValvulaServicio,
-              fechaFabricacionValvulaMaximoLlenado:
-                record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
-              fechaFabricacionValvulaMaximoLlenado85:
-                record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado85,
-              fechaFabricacionValvulaAlivio: record.technicalSheet?.fechaFabricacionValvulaAlivio,
-              fechaFabricacionValvulaDescargaEmergencia:
-                record.technicalSheet?.fechaFabricacionValvulaDescargaEmergencia,
-            };
+            const valveDates = valveDatesFromSheet(record.technicalSheet);
             const valveAlertLevel =
               record.activo && isAlertVisibleForSection("valvulas", sectionSlug)
                 ? getValveAlertLevel(valveDates)
@@ -176,6 +167,11 @@ export function VehicleTable({
                   .sort((a, b) => a.getTime() - b.getTime())[0] ?? null
               : null;
             const stationValveAlertLevel = getStationValveAlertLevel(stationValveVencimiento);
+            // Mismo criterio que en la ficha de detalle (ver
+            // app/.../vehiculo/[vehicleId]/page.tsx): válvulas vencidas
+            // fuerza "Mala" sin importar el último mantenimiento capturado.
+            const calidadEfectiva =
+              valveAlertLevel === "red" ? "MALA" : (record.calidad as CalidadMantenimiento | null);
             const semaforoLevel = record.activo
               ? getVehicleSemaforoLevel(record.technicalSheet, sectionSlug, stationTanques)
               : "none";
@@ -346,11 +342,11 @@ export function VehicleTable({
                     <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
                     <td className="whitespace-nowrap px-4 py-2 text-ink">{record.technicalSheet?.serie || "—"}</td>
                     <td className="whitespace-nowrap px-4 py-2">
-                      {record.calidad && (
+                      {calidadEfectiva && (
                         <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${calidadMantenimientoStyles[record.calidad as CalidadMantenimiento]}`}
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${calidadMantenimientoStyles[calidadEfectiva]}`}
                         >
-                          {calidadMantenimientoLabels[record.calidad as CalidadMantenimiento]}
+                          {calidadMantenimientoLabels[calidadEfectiva]}
                         </span>
                       )}
                     </td>

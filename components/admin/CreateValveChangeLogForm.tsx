@@ -119,7 +119,7 @@ export function CreateValveChangeLogForm({
                 className="mb-1 block text-sm font-medium text-ink"
                 htmlFor="valv-fechaFabricacionValvulaLlenado"
               >
-                Válvula de llenado (Doble check)
+                Válvula de llenado (doble check)
               </label>
               <input
                 id="valv-fechaFabricacionValvulaLlenado"
@@ -134,7 +134,7 @@ export function CreateValveChangeLogForm({
                 className="mb-1 block text-sm font-medium text-ink"
                 htmlFor="valv-fechaFabricacionValvulaMaximoLlenado"
               >
-                Válvula de máximo llenado (purgador)
+                Válvula de máximo llenado 90%
               </label>
               <input
                 id="valv-fechaFabricacionValvulaMaximoLlenado"
@@ -149,7 +149,7 @@ export function CreateValveChangeLogForm({
                 className="mb-1 block text-sm font-medium text-ink"
                 htmlFor="valv-fechaFabricacionValvulaServicio"
               >
-                Válvula de servicio (reguladora)
+                Válvula de servicio
               </label>
               <input
                 id="valv-fechaFabricacionValvulaServicio"
@@ -164,7 +164,7 @@ export function CreateValveChangeLogForm({
                 className="mb-1 block text-sm font-medium text-ink"
                 htmlFor="valv-fechaFabricacionValvulaAlivio"
               >
-                Válvula de seguridad
+                Válvula de alivio (seguridad)
               </label>
               <input
                 id="valv-fechaFabricacionValvulaAlivio"
@@ -213,7 +213,7 @@ export function CreateValveChangeLogForm({
                   className="mb-1 block text-sm font-medium text-ink"
                   htmlFor="valv-fechaFabricacionValvulaBypass"
                 >
-                  Válvula de retroceso (bypass)
+                  Válvula de bypass
                 </label>
                 <input
                   id="valv-fechaFabricacionValvulaBypass"
@@ -273,7 +273,7 @@ export function CreateValveChangeLogForm({
                   className="mb-1 block text-sm font-medium text-ink"
                   htmlFor="valv-fechaFabricacionValvulaAlivio"
                 >
-                  Válvula de seguridad
+                  Válvula de alivio (seguridad)
                 </label>
                 <input
                   id="valv-fechaFabricacionValvulaAlivio"
@@ -295,6 +295,37 @@ export function CreateValveChangeLogForm({
                   name="fechaFabricacionValvulaDescargaEmergencia"
                   type="date"
                   required
+                  className={inputClass}
+                />
+              </div>
+              {/* Opcionales: si no se cambiaron en este juego, la ficha
+                  técnica conserva la fecha que ya tenía (ver
+                  actions/valve-actions.ts). */}
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaExcesoFlujo"
+                >
+                  Válvula de exceso de flujo (litrómetro) <span className="text-xs text-gray-500">(opcional)</span>
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaExcesoFlujo"
+                  name="fechaFabricacionValvulaExcesoFlujo"
+                  type="date"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium text-ink"
+                  htmlFor="valv-fechaFabricacionValvulaCheckLock"
+                >
+                  Válvula check lock <span className="text-xs text-gray-500">(opcional)</span>
+                </label>
+                <input
+                  id="valv-fechaFabricacionValvulaCheckLock"
+                  name="fechaFabricacionValvulaCheckLock"
+                  type="date"
                   className={inputClass}
                 />
               </div>

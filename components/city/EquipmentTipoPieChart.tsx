@@ -164,9 +164,9 @@ export function EquipmentTipoPieChart({
               className="cursor-pointer"
               onClick={() => toggle(slice.tipoEquipo)}
             >
-              <title>
-                {tipoEquipoLabels[slice.tipoEquipo]}: {slice.total} ({slice.pct.toFixed(0)}%)
-              </title>
+              {/* Un solo nodo de texto, ver el comentario en
+                  EquipmentMaintenanceTypePieChart.tsx. */}
+              <title>{`${tipoEquipoLabels[slice.tipoEquipo]}: ${slice.total} (${slice.pct.toFixed(0)}%)`}</title>
             </path>
           ))}
         </svg>

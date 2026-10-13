@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { assertCityAccess } from "@/lib/access";
 import { resolveSectionPath } from "@/lib/section-path";
@@ -68,6 +69,17 @@ export default async function CityPage({
           </span>
           <h1 className="text-2xl font-semibold text-primary">{city.name}</h1>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href={`/ciudades/${city.slug}/documentos-de-pruebas`}
+          className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 3h7l5 5v13H7z" />
+            <path d="M14 3v5h5M10 13h6M10 17h6" />
+          </svg>
+          Documentos de pruebas
+        </Link>
         <form
           action={`/api/ciudades/${city.slug}/excel`}
           method="get"
@@ -94,6 +106,7 @@ export default async function CityPage({
             Descargar Excel
           </button>
         </form>
+        </div>
       </div>
 
       <UltrasoundAlertsPanel vehicles={alertVehicles} />

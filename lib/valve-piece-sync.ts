@@ -18,7 +18,14 @@ type ValveField =
 const VALVE_PIECE_CATEGORY = "Válvulas";
 const VALVE_REPLACEMENT_ACTION = "Sustitución";
 
+// Nombres actuales del catálogo (los del Excel de flotilla) y los que tenía
+// antes, para que un mantenimiento capturado con el nombre viejo siga
+// actualizando la ficha.
 const VALVULA_PIEZA_A_CAMPO: Record<string, ValveField> = {
+  [normalizePieceName("Válvula de llenado (doble check)")]: "fechaFabricacionValvulaLlenado",
+  [normalizePieceName("Válvula de máximo llenado 90%")]: "fechaFabricacionValvulaMaximoLlenado",
+  [normalizePieceName("Válvula de servicio")]: "fechaFabricacionValvulaServicio",
+  [normalizePieceName("Válvula de alivio (seguridad)")]: "fechaFabricacionValvulaAlivio",
   [normalizePieceName("Válvula de llenado (Doble check)")]: "fechaFabricacionValvulaLlenado",
   [normalizePieceName("Válvula de máximo llenado (purgador)")]: "fechaFabricacionValvulaMaximoLlenado",
   [normalizePieceName("Válvula de servicio (reguladora)")]: "fechaFabricacionValvulaServicio",

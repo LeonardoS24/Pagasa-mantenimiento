@@ -164,9 +164,9 @@ export function RecordTypeComparisonSection({
                   fill={stat.color}
                   opacity={0.9}
                 >
-                  <title>
-                    {stat.label}: {stat.total}
-                  </title>
+                  {/* Un solo nodo de texto, ver el comentario en
+                      EquipmentMaintenanceTypePieChart.tsx. */}
+                  <title>{`${stat.label}: ${stat.total}`}</title>
                 </rect>
                 <text
                   x={LABEL_WIDTH + Math.max(width, 4) + 6}

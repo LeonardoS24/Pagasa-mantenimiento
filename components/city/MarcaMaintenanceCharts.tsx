@@ -70,9 +70,9 @@ function MarcaBarChart({ group }: { group: MarcaMaintenanceGroup }) {
                       fill={ACCION_COLORS[seg.accion]}
                       opacity={0.9}
                     >
-                      <title>
-                        {stat.pieza} · {seg.accion}: {seg.count}
-                      </title>
+                      {/* Un solo nodo de texto, ver el comentario en
+                          EquipmentMaintenanceTypePieChart.tsx. */}
+                      <title>{`${stat.pieza} · ${seg.accion}: ${seg.count}`}</title>
                     </rect>
                   );
                 })}

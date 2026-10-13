@@ -61,9 +61,14 @@ const createValveChangeLogSchema = z
     ),
     fechaFabricacionValvulaMaximoLlenado85: optionalDate,
     fechaFabricacionValvulaAlivio: requiredDate(
-      "La fecha de fabricación de la válvula de seguridad es requerida"
+      "La fecha de fabricación de la válvula de alivio (seguridad) es requerida"
     ),
     fechaFabricacionValvulaDescargaEmergencia: optionalDate,
+    // Solo tanque de carga y opcionales: llegaron después al juego (ver
+    // lib/ficha-campos.ts). Si se dejan vacías, la ficha conserva la fecha
+    // que ya tenía (ver valveSheetFields más abajo).
+    fechaFabricacionValvulaExcesoFlujo: optionalDate,
+    fechaFabricacionValvulaCheckLock: optionalDate,
   })
   .superRefine((data, ctx) => {
     if (data.tieneValvulaMaximoLlenado85 && !data.fechaFabricacionValvulaMaximoLlenado85) {
@@ -103,13 +108,15 @@ const createValveChangeLogSchema = z
 const VALVULA_ETIQUETAS = [
   ["fechaFabricacionValvulaLlenado", "válvula de llenado"],
   ["fechaFabricacionValvulaNoRetroceso", "válvula de no retroceso (check)"],
-  ["fechaFabricacionValvulaBypass", "válvula de retroceso (bypass)"],
+  ["fechaFabricacionValvulaBypass", "válvula de bypass"],
   ["fechaFabricacionValvulaRetornoVapores", "válvula de retorno de vapores"],
   ["fechaFabricacionValvulaServicio", "válvula de servicio de vapor"],
   ["fechaFabricacionValvulaMaximoLlenado", "válvula de máximo llenado 90%"],
   ["fechaFabricacionValvulaMaximoLlenado85", "válvula de máximo llenado 85%"],
-  ["fechaFabricacionValvulaAlivio", "válvula de seguridad"],
+  ["fechaFabricacionValvulaAlivio", "válvula de alivio (seguridad)"],
   ["fechaFabricacionValvulaDescargaEmergencia", "válvula de descarga de emergencia"],
+  ["fechaFabricacionValvulaExcesoFlujo", "válvula de exceso de flujo (litrómetro)"],
+  ["fechaFabricacionValvulaCheckLock", "válvula check lock"],
 ] as const;
 
 function formatoCorto(fecha: Date): string {
@@ -126,7 +133,7 @@ function requireValvulasCompletas(
     return "La fecha de fabricación de la válvula de no retroceso (check) es requerida.";
   }
   if (!data.fechaFabricacionValvulaBypass) {
-    return "La fecha de fabricación de la válvula de retroceso (bypass) es requerida.";
+    return "La fecha de fabricación de la válvula de bypass es requerida.";
   }
   if (!data.fechaFabricacionValvulaRetornoVapores) {
     return "La fecha de fabricación de la válvula de retorno de vapores es requerida.";
@@ -162,6 +169,8 @@ export async function createValveChangeLog(
     fechaFabricacionValvulaDescargaEmergencia: formData.get(
       "fechaFabricacionValvulaDescargaEmergencia"
     ),
+    fechaFabricacionValvulaExcesoFlujo: formData.get("fechaFabricacionValvulaExcesoFlujo"),
+    fechaFabricacionValvulaCheckLock: formData.get("fechaFabricacionValvulaCheckLock"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -235,6 +244,10 @@ export async function createValveChangeLog(
     fechaFabricacionValvulaMaximoLlenado85: parsed.data.fechaFabricacionValvulaMaximoLlenado85,
     fechaFabricacionValvulaAlivio: parsed.data.fechaFabricacionValvulaAlivio,
     fechaFabricacionValvulaDescargaEmergencia: parsed.data.fechaFabricacionValvulaDescargaEmergencia,
+    // undefined = Prisma no lo toca: si no se capturaron en este cambio, la
+    // ficha se queda con la fecha que ya tenía.
+    fechaFabricacionValvulaExcesoFlujo: parsed.data.fechaFabricacionValvulaExcesoFlujo ?? undefined,
+    fechaFabricacionValvulaCheckLock: parsed.data.fechaFabricacionValvulaCheckLock ?? undefined,
   };
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
@@ -272,6 +285,8 @@ export async function updateValveChangeLog(
     fechaFabricacionValvulaDescargaEmergencia: formData.get(
       "fechaFabricacionValvulaDescargaEmergencia"
     ),
+    fechaFabricacionValvulaExcesoFlujo: formData.get("fechaFabricacionValvulaExcesoFlujo"),
+    fechaFabricacionValvulaCheckLock: formData.get("fechaFabricacionValvulaCheckLock"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };

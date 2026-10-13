@@ -294,9 +294,9 @@ export function PieceMaintenanceChart({
                         onMouseEnter={() => setHovered({ key, accion: seg.accion })}
                         onMouseLeave={() => setHovered(null)}
                       >
-                        <title>
-                          {label} · {seg.accion}: {seg.count}
-                        </title>
+                        {/* Un solo nodo de texto, ver el comentario en
+                            EquipmentMaintenanceTypePieChart.tsx. */}
+                        <title>{`${label} · ${seg.accion}: ${seg.count}`}</title>
                       </rect>
                     );
                   })}

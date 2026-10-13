@@ -172,9 +172,10 @@ export function EquipmentMaintenanceTypePieChart({
               className="cursor-pointer"
               onClick={() => toggle(slice.tipo)}
             >
-              <title>
-                {slice.tipo}: {slice.total} ({slice.pct.toFixed(0)}%)
-              </title>
+              {/* Un solo nodo de texto: con varias interpolaciones sueltas,
+                  el servidor manda un nodo por trozo y el navegador los junta
+                  distinto al hidratar (ver React "hydration mismatch"). */}
+              <title>{`${slice.tipo}: ${slice.total} (${slice.pct.toFixed(0)}%)`}</title>
             </path>
           ))}
         </svg>

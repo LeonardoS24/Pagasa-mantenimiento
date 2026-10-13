@@ -1,4 +1,5 @@
-import * as XLSX from "xlsx";
+import { XLSX, hojaConFormato } from "./excel-formato";
+import { getConjuntosDeCiudad } from "./conjuntos";
 import { prisma } from "./prisma";
 import { formatDate } from "./dates";
 import {
@@ -18,6 +19,14 @@ import {
   cantidadValvulasSeguridad,
 } from "./station-valves";
 import { getAllRealCityIds } from "./aggregate-city";
+import {
+  VALVULAS_TANQUE_CARGA,
+  VALVULAS_CARBURACION,
+  VALVULA_MAXIMO_LLENADO_85,
+  CAMPOS_TRACTOCAMION,
+  CAMPOS_SEMIRREMOLQUE,
+} from "./ficha-campos";
+import { TRACTOCAMIONES_SLUG, SEMIRREMOLQUES_SLUG } from "./kino-sections";
 import { getCustomFields } from "./custom-fields-runtime";
 import type { CustomFieldDef } from "./custom-fields";
 import { complianceItemsFor, compliancePercentage, complianceAmbitoDe, type ComplianceAmbito } from "./compliance-checklist";
@@ -41,6 +50,9 @@ type VehicleWithSheet = VehicleRecord & {
   // antes de entrar a rowsForSection (ver buildFleetWorkbook), para no
   // tener que pasar campos/ámbito hasta el fondo de cada función de fila.
   extraColumns?: Record<string, string>;
+  // Transportadora Kino: en qué conjunto (dictamen) va y con quién (ver
+  // ConjuntoTransporte), armado antes de entrar a rowsForSection.
+  conjuntoColumns?: Record<string, string>;
 };
 
 function d(value: Date | null): string {
@@ -198,24 +210,67 @@ function mantenimientoColumns(v: VehicleWithSheet) {
   };
 }
 
-// Juego completo de 9 válvulas (Auto-Tanques). Vehículo con tanque de
-// carburación solo usa 4 de estas (llenado/máximo llenado/servicio/alivio,
-// con otros nombres de campo, ver lib/valve-alerts.ts), pero se exportan con
-// su nombre canónico para no tener dos esquemas de columnas distintos.
-function valvulasColumns(v: VehicleWithSheet) {
+// Juego del tanque de carga (Auto-Tanques y Semirremolques): fecha de
+// fabricación y código grabado de cada válvula (ver lib/ficha-campos.ts).
+// Vehículo con tanque de carburación usa solo 4, con sus nombres de campo.
+function valvulasColumns(v: VehicleWithSheet, carburacion = false) {
+  const s = v.technicalSheet;
+  const valvulas = carburacion ? VALVULAS_CARBURACION : VALVULAS_TANQUE_CARGA;
+  const out: Record<string, string> = {
+    "Válvulas — Fecha de instalación del juego": d(s?.fechaInstalacionValvulas ?? null),
+  };
+  for (const valvula of valvulas) {
+    out[`${valvula.etiqueta} — Fecha de fabricación`] = d(s?.[valvula.fecha] ?? null);
+    out[`${valvula.etiqueta} — Número de serie`] = t(s?.[valvula.codigo]);
+  }
+  if (!carburacion) {
+    out["¿Tiene válvula de máximo llenado 85%?"] = s?.tieneValvulaMaximoLlenado85 ? "Sí" : "No";
+    out[`${VALVULA_MAXIMO_LLENADO_85.etiqueta} — Fecha de fabricación`] = d(s?.fechaFabricacionValvulaMaximoLlenado85 ?? null);
+    out[`${VALVULA_MAXIMO_LLENADO_85.etiqueta} — Número de serie`] = t(s?.codigoValvulaMaximoLlenado85);
+    out["Manguera de surtir — Fecha de fabricación"] = d(s?.fechaFabricacionMangueraSurtir ?? null);
+    out["Manguera de surtir — Medida"] = t(s?.medidaMangueraSurtir);
+  }
+  return out;
+}
+
+function gobernadorColumns(v: VehicleWithSheet) {
   const s = v.technicalSheet;
   return {
-    "Válvulas — Fecha de instalación del juego": d(s?.fechaInstalacionValvulas ?? null),
-    "Válvula de llenado — Fecha de fabricación": d(s?.fechaFabricacionValvulaLlenado ?? null),
-    "Válvula de no retroceso — Fecha de fabricación": d(s?.fechaFabricacionValvulaNoRetroceso ?? null),
-    "Válvula de bypass — Fecha de fabricación": d(s?.fechaFabricacionValvulaBypass ?? null),
-    "Válvula de retorno de vapores — Fecha de fabricación": d(s?.fechaFabricacionValvulaRetornoVapores ?? null),
-    "Válvula de servicio — Fecha de fabricación": d(s?.fechaFabricacionValvulaServicio ?? null),
-    "Válvula de máximo llenado 90% — Fecha de fabricación": d(s?.fechaFabricacionValvulaMaximoLlenado ?? null),
-    "¿Tiene válvula de máximo llenado 85%?": s?.tieneValvulaMaximoLlenado85 ? "Sí" : "No",
-    "Válvula de máximo llenado 85% — Fecha de fabricación": d(s?.fechaFabricacionValvulaMaximoLlenado85 ?? null),
-    "Válvula de alivio (seguridad) — Fecha de fabricación": d(s?.fechaFabricacionValvulaAlivio ?? null),
-    "Válvula de descarga de emergencia — Fecha de fabricación": d(s?.fechaFabricacionValvulaDescargaEmergencia ?? null),
+    "¿Tiene gobernador?": s?.tieneGobernador ? "Sí" : "No",
+    "Gobernador — Número de identificación": t(s?.numeroGobernador),
+    "Gobernador — Empresa que lo instaló": t(s?.empresaGobernador),
+  };
+}
+
+// Transportadora Kino (ver lib/kino-sections.ts): una columna por cada
+// campo propio de la ficha del tractocamión o del semirremolque.
+function camposKinoColumns(v: VehicleWithSheet, grupos: typeof CAMPOS_TRACTOCAMION) {
+  const s = v.technicalSheet;
+  const out: Record<string, string> = { "Conjunto (dictamen)": "", "Viaja con": "", ...(v.conjuntoColumns ?? {}) };
+  for (const { campo, etiqueta } of grupos.flatMap((g) => g.campos)) {
+    out[etiqueta] = t(s?.[campo]);
+  }
+  return out;
+}
+
+function placaTanqueColumns(v: VehicleWithSheet) {
+  const s = v.technicalSheet;
+  return {
+    "Placa — Presión de diseño": t(s?.placaPresionDiseno),
+    "Placa — Presión máxima de trabajo": t(s?.placaPresionMaximaTrabajo),
+    "Placa — Temperatura de diseño": t(s?.placaTemperaturaDiseno),
+    "Placa — Cabezales": t(s?.placaCabezales),
+    "Placa — Diámetro": t(s?.placaDiametroExterior),
+    "Placa — Longitud total": t(s?.placaLongitudTotal),
+    "Placa — Espesor cuerpo": t(s?.placaEspesorMinPlacaCuerpo),
+    "Placa — Espesor cabeza": t(s?.placaEspesorMinPlacaCabeza),
+    "Placa — Material cuerpo": t(s?.placaMaterialCuerpo),
+    "Placa — Material cabeza": t(s?.placaMaterialCabeza),
+    "Placa — Norma de fabricación": t(s?.placaNormaFabricacion),
+    "Placa — Capacidad (kg)": t(s?.placaCapacidadKg),
+    "Placa — Capacidad (%)": t(s?.placaCapacidadPorcentaje),
+    "Placa — Relevo": t(s?.placaRelevo),
+    "Placa — Fecha prueba original": t(s?.placaFechaPruebaOriginal),
   };
 }
 
@@ -263,6 +318,7 @@ function rowsForSection(
         ...baseColumns(v, false, includeCityColumn),
         ...tanqueColumns(v, "Tanque"),
         ...valvulasColumns(v),
+        ...gobernadorColumns(v),
         ...inspeccionesColumns(v),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
@@ -279,9 +335,30 @@ function rowsForSection(
       return vehicles.map((v) => ({
         ...baseColumns(v, true, includeCityColumn),
         ...tanqueColumns(v, "Tanque de carburación"),
-        ...valvulasColumns(v),
+        ...valvulasColumns(v, true),
         ...manguerasColumns(v),
         ...inspeccionesColumns(v),
+        ...(v.extraColumns ?? {}),
+      }));
+    case SEMIRREMOLQUES_SLUG:
+      return vehicles.map((v) => ({
+        ...baseColumns(v, false, includeCityColumn),
+        ...camposKinoColumns(v, CAMPOS_SEMIRREMOLQUE),
+        ...tanqueColumns(v, "Tanque"),
+        ...placaTanqueColumns(v),
+        ...valvulasColumns(v),
+        ...inspeccionesColumns(v),
+        ...extintorColumns(v),
+        ...mantenimientoColumns(v),
+        ...(v.extraColumns ?? {}),
+      }));
+    case TRACTOCAMIONES_SLUG:
+      return vehicles.map((v) => ({
+        ...baseColumns(v, false, includeCityColumn),
+        ...camposKinoColumns(v, CAMPOS_TRACTOCAMION),
+        ...gobernadorColumns(v),
+        ...extintorColumns(v),
+        ...mantenimientoColumns(v),
         ...(v.extraColumns ?? {}),
       }));
     case "unidades-utilitarias":
@@ -301,6 +378,12 @@ const SUBSECCIONES: { slug: string; nombreHoja: string }[] = [
   { slug: "vehiculo-de-reparto", nombreHoja: "Vehículo de reparto" },
   { slug: "vehiculo-con-tanque-de-carburacion", nombreHoja: "Vehículo con tanque de carburación" },
   { slug: "unidades-utilitarias", nombreHoja: "Unidades utilitarias" },
+];
+
+// Apartados de Transportadora Kino (ver lib/kino-sections.ts).
+const SUBSECCIONES_KINO: { slug: string; nombreHoja: string }[] = [
+  { slug: TRACTOCAMIONES_SLUG, nombreHoja: "Tractocamiones" },
+  { slug: SEMIRREMOLQUES_SLUG, nombreHoja: "Semirremolques" },
 ];
 
 // Unidad de mentira, solo para sacar los encabezados de columna de una hoja
@@ -474,7 +557,62 @@ async function buildFleetWorkbook(
       ...polizaColumns(undefined),
     };
 
-    for (const { slug, nombreHoja } of SUBSECCIONES) {
+    // Una hoja por apartado que de verdad exista en estas ciudades: Kino no
+    // tiene los 4 de siempre y las demás ciudades no tienen los de Kino. Un
+    // apartado que existe pero sigue vacío sí trae su hoja (solo encabezados).
+    const subseccionesExistentes: { slug: string; nombreHoja: string }[] = [];
+    for (const sub of [...SUBSECCIONES, ...SUBSECCIONES_KINO]) {
+      const existe = await prisma.section.count({
+        where: { slug: sub.slug, parent: { slug: "unidad-de-distribucion", cityId: { in: cityIds } } },
+      });
+      if (existe > 0) subseccionesExistentes.push(sub);
+    }
+
+    // Conjuntos de Transportadora Kino: una hoja propia con cada
+    // tractocamión y sus semirremolques (como en los dictámenes) y, en las
+    // hojas de Tractocamiones/Semirremolques, en qué conjunto va cada uno.
+    const conjuntosPorUnidad = new Map<string, Record<string, string>>();
+    const filasConjuntos: Record<string, string>[] = [];
+    if (subseccionesExistentes.some((sub) => SUBSECCIONES_KINO.includes(sub))) {
+      const ciudadesKino = await prisma.city.findMany({
+        where: { id: { in: cityIds }, sections: { some: { slug: { in: SUBSECCIONES_KINO.map((k) => k.slug) } } } },
+        orderBy: { order: "asc" },
+      });
+      for (const ciudad of ciudadesKino) {
+        const { conjuntos } = await getConjuntosDeCiudad(ciudad.id);
+        for (const c of conjuntos) {
+          const miembros = [...(c.tractocamion ? [c.tractocamion] : []), ...c.semirremolques];
+          for (const u of miembros) {
+            const previo = conjuntosPorUnidad.get(u.id);
+            const otros = miembros.filter((m) => m.id !== u.id).map((m) => m.numeroEconomico).join(" + ");
+            conjuntosPorUnidad.set(u.id, {
+              "Conjunto (dictamen)": previo ? `${previo["Conjunto (dictamen)"]}; ${c.nombre}` : c.nombre,
+              "Viaja con": previo ? `${previo["Viaja con"]}; ${otros}` : otros,
+            });
+          }
+          const [s1, s2] = c.semirremolques;
+          filasConjuntos.push({
+            ...(includeCityColumn ? { Ciudad: ciudad.name } : {}),
+            Conjunto: c.nombre,
+            Tractocamión: c.tractocamion?.numeroEconomico ?? "",
+            "Tractocamión — Placas": t(c.tractocamion?.placas),
+            "Tractocamión — Serie (VIN)": t(c.tractocamion?.serie),
+            "Semirremolque 1": s1?.numeroEconomico ?? "",
+            "Semirremolque 1 — No. Pemex": t(s1?.numeroPemex),
+            "Semirremolque 1 — Placas": t(s1?.placas),
+            "Semirremolque 2": s2?.numeroEconomico ?? "",
+            "Semirremolque 2 — No. Pemex": t(s2?.numeroPemex),
+            "Semirremolque 2 — Placas": t(s2?.placas),
+            Observaciones: t(c.observaciones),
+          });
+        }
+      }
+      if (filasConjuntos.length > 0) {
+        XLSX.utils.book_append_sheet(workbook, hojaConFormato(filasConjuntos, Object.keys(filasConjuntos[0])), "Conjuntos (dictámenes)");
+      }
+    }
+
+    for (const { slug, nombreHoja } of subseccionesExistentes) {
       const vehicles = await prisma.vehicleRecord.findMany({
         where: { section: { slug, parent: { slug: "unidad-de-distribucion", cityId: { in: cityIds } } } },
         include: {
@@ -491,6 +629,7 @@ async function buildFleetWorkbook(
       const valoresPorVehiculo = await customFieldValuesByVehicle(vehicles.map((v) => v.id));
       const vehiclesConExtra: VehicleWithSheet[] = vehicles.map((v) => ({
         ...v,
+        conjuntoColumns: conjuntosPorUnidad.get(v.id),
         extraColumns: {
           ...customFieldColumns(camposVehiculo, valoresPorVehiculo.get(v.id)),
           ...complianceColumns("UNIDAD", v.activo, v.complianceChecklistItems),
@@ -506,12 +645,8 @@ async function buildFleetWorkbook(
       const headerRow =
         rows[0] ??
         rowsForSection(slug, [{ ...EMPTY_VEHICLE, extraColumns: encabezadoVacioUnidad }], includeCityColumn)[0];
-      const worksheet =
-        rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
-      // Ancho fijo razonable: encabezados largos ("Válvula de descarga de
-      // emergencia — Fecha de fabricación") si no, se ven amontonados por
-      // default en 8 caracteres.
-      worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
+      // Formato del Excel del equipo (ver lib/excel-formato.ts).
+      const worksheet = hojaConFormato(rows, Object.keys(headerRow));
       XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
     }
   }
@@ -520,7 +655,13 @@ async function buildFleetWorkbook(
   // propias hojas con el vocabulario de un recipiente fijo (ver
   // StationTankTechnicalSheet) más sus válvulas, en vez de las columnas de
   // motor/chofer/placas que no aplican.
+  // Igual que arriba: solo los apartados que existen en estas ciudades
+  // (Transportadora Kino no tiene Estaciones ni Planta).
+  const slugsEstacionExistentes = new Set(
+    (await prisma.section.findMany({ where: { cityId: { in: cityIds }, slug: { in: APARTADOS_ESTACION.map((x) => x.slug) } }, select: { slug: true } })).map((x) => x.slug)
+  );
   const apartadosEstacion = APARTADOS_ESTACION.filter(({ slug }) => {
+    if (!slugsEstacionExistentes.has(slug)) return false;
     if (ambito === "todo") return true;
     if (ambito === "estaciones") return slug === "estaciones-de-carburacion";
     if (ambito === "planta") return slug === "planta-ficha-tecnica";
@@ -565,13 +706,16 @@ async function buildFleetWorkbook(
       );
       const headerRow =
         rows[0] ?? stationRow({ ...EMPTY_STATION, extraColumns: encabezadoVacioEstacion }, null, includeCityColumn);
-      const worksheet =
-        rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([Object.keys(headerRow)]);
-      worksheet["!cols"] = Array.from({ length: Object.keys(headerRow).length }, () => ({ wch: 22 }));
+      const worksheet = hojaConFormato(rows, Object.keys(headerRow));
       XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(nombreHoja));
     }
   }
 
+  // Un libro sin hojas no se puede escribir (p. ej. "Unidades" de una ciudad
+  // sin ningún apartado de unidades).
+  if (workbook.SheetNames.length === 0) {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["Sin registros"]]), "Sin registros");
+  }
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 

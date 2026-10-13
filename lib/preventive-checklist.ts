@@ -51,10 +51,10 @@ export type PreventiveChecklistItem = (typeof PREVENTIVE_CHECKLIST_ITEMS)[number
 // "Válvulas" y "Sistema de carburación", salvo "Uniones", que no es una
 // pieza que se compre/reemplace por separado).
 export const CARBURACION_LEAK_CHECK_ITEMS = [
-  "Válvula de llenado (Doble check)",
-  "Válvula de máximo llenado (purgador)",
-  "Válvula de servicio (reguladora)",
-  "Válvula de seguridad",
+  "Válvula de llenado (doble check)",
+  "Válvula de máximo llenado 90%",
+  "Válvula de servicio",
+  "Válvula de alivio (seguridad)",
   "Manguera de alta presión",
   "Uniones",
 ] as const;
@@ -74,8 +74,17 @@ export const CARBURACION_CHECKLIST_ITEMS = [
 
 export type CarburacionChecklistItem = (typeof CARBURACION_CHECKLIST_ITEMS)[number];
 
+// Nombres que tenían antes las válvulas (ver lib/ficha-campos.ts): un
+// checklist guardado con ellos se sigue reconociendo como revisión de fugas.
+const NOMBRES_ANTERIORES_FUGAS = [
+  "Válvula de llenado (Doble check)",
+  "Válvula de máximo llenado (purgador)",
+  "Válvula de servicio (reguladora)",
+  "Válvula de seguridad",
+];
+
 export function isCarburacionLeakCheckItem(item: string): boolean {
-  return (CARBURACION_LEAK_CHECK_ITEMS as readonly string[]).includes(item);
+  return (CARBURACION_LEAK_CHECK_ITEMS as readonly string[]).includes(item) || NOMBRES_ANTERIORES_FUGAS.includes(item);
 }
 
 // Unión de los 3 juegos de estados posibles: el genérico (Buen estado/

@@ -14,6 +14,7 @@ import {
 } from "@/lib/vehicle-enums";
 import { PIECE_CATALOG, getPieceCategories, PIECE_CATEGORY_OTRO, accionPiezaOptions } from "@/lib/piece-catalog";
 import { unidadAbreviatura } from "@/lib/inventory-enums";
+import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
 import {
   PREVENTIVE_CHECKLIST_ITEMS,
   CARBURACION_CHECKLIST_ITEMS,
@@ -96,6 +97,11 @@ export function CreateMaintenanceLogForm({
   // solo de lo relacionado a su sistema de gas LP (ver
   // lib/preventive-checklist.ts) — reemplaza al genérico, no lo complementa.
   const isCarburacion = sectionSlug === "vehiculo-con-tanque-de-carburacion";
+  // Estaciones de carburación y Planta no tienen kilometraje, operador ni
+  // auxiliar técnico (esos campos son de un vehículo), y su "Preventivo" usa
+  // los mismos campos de pieza que un Correctivo en vez del checklist
+  // genérico de vehículo (aceite, frenos, llantas...), que no les aplica.
+  const isEstacionLike = ESTACION_LIKE_SECTION_SLUGS.includes(sectionSlug);
   const checklistItems: readonly string[] =
     checklistItemsProp ?? (isCarburacion ? CARBURACION_CHECKLIST_ITEMS : PREVENTIVE_CHECKLIST_ITEMS);
   const action = createMaintenanceLog.bind(null, vehicleId);
@@ -127,6 +133,9 @@ export function CreateMaintenanceLogForm({
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryOption | null>(null);
   const [tipo, setTipo] = useState<MaintenanceType | "">("");
   const isPreventivo = tipo === "Preventivo";
+  // Solo un vehículo usa el checklist genérico en su Preventivo; una
+  // estación/planta captura Preventivo igual que Correctivo (pieza/acción).
+  const usesChecklist = isPreventivo && !isEstacionLike;
   // Checklist de mantenimiento preventivo: se llena solo cuando el tipo es
   // "Preventivo" (ver lib/preventive-checklist.ts). Reemplaza al selector de
   // una sola pieza para ese tipo, no lo complementa.
@@ -216,22 +225,24 @@ export function CreateMaintenanceLogForm({
             </label>
             <input id="mnt-fecha" name="fecha" type="date" required className={inputClass} />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-kilometraje">
-              Kilometraje actual
-            </label>
-            <input
-              id="mnt-kilometraje"
-              name="kilometraje"
-              type="number"
-              min={0}
-              required
-              className={inputClass}
-            />
-          </div>
+          {!isEstacionLike && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-kilometraje">
+                Kilometraje actual
+              </label>
+              <input
+                id="mnt-kilometraje"
+                name="kilometraje"
+                type="number"
+                min={0}
+                required
+                className={inputClass}
+              />
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-calidad">
-              Calidad general de la unidad
+              Calidad general de la {isEstacionLike ? "estación" : "unidad"}
             </label>
             <select id="mnt-calidad" name="calidad" required defaultValue="" className={inputClass}>
               <option value="" disabled>
@@ -244,7 +255,7 @@ export function CreateMaintenanceLogForm({
               ))}
             </select>
           </div>
-          {!isPreventivo && availableInventory.length > 0 && (
+          {!usesChecklist && availableInventory.length > 0 && (
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-piezaInventario">
                 Pieza de inventario (opcional)
@@ -272,7 +283,7 @@ export function CreateMaintenanceLogForm({
               </p>
             </div>
           )}
-          {!isPreventivo && (
+          {!usesChecklist && (
             <>
               <div>
                 <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-categoriaPieza">
@@ -369,7 +380,7 @@ export function CreateMaintenanceLogForm({
               </div>
             </>
           )}
-          {!isPreventivo && (
+          {!usesChecklist && (
             <>
               {selectedInventoryItem && (
                 <input type="hidden" name="piezaInventarioId" value={selectedInventoryItem.id} />
@@ -416,18 +427,22 @@ export function CreateMaintenanceLogForm({
               ))}
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-nombreOperador">
-              Nombre del operador
-            </label>
-            <input id="mnt-nombreOperador" name="nombreOperador" className={inputClass} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-auxiliarTecnico">
-              Auxiliar técnico
-            </label>
-            <input id="mnt-auxiliarTecnico" name="auxiliarTecnico" className={inputClass} />
-          </div>
+          {!isEstacionLike && (
+            <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-nombreOperador">
+                  Nombre del operador
+                </label>
+                <input id="mnt-nombreOperador" name="nombreOperador" className={inputClass} />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="mnt-auxiliarTecnico">
+                  Auxiliar técnico
+                </label>
+                <input id="mnt-auxiliarTecnico" name="auxiliarTecnico" className={inputClass} />
+              </div>
+            </>
+          )}
           <div>
             <label
               className="mb-1 block text-sm font-medium text-ink"
@@ -443,7 +458,7 @@ export function CreateMaintenanceLogForm({
           </div>
         </div>
 
-        {isPreventivo && (
+        {usesChecklist && (
           <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
             <input type="hidden" name="checklistPreventivo" value={JSON.stringify(checklistEntries)} readOnly />
             <p className="mb-2 text-sm font-medium text-ink">

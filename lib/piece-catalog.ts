@@ -208,10 +208,10 @@ export const PIECE_CATALOG: Record<string, string[]> = {
   // una de estas 4 en un mantenimiento normal, su fecha de fabricación se
   // actualiza sola ahí).
   Válvulas: [
-    "Válvula de llenado (Doble check)",
-    "Válvula de máximo llenado (purgador)",
-    "Válvula de servicio (reguladora)",
-    "Válvula de seguridad",
+    "Válvula de llenado (doble check)",
+    "Válvula de máximo llenado 90%",
+    "Válvula de servicio",
+    "Válvula de alivio (seguridad)",
   ],
   // Solo Vehículo con tanque de carburación: el resto del kit de conversión
   // a gas LP para el motor (distinto de las válvulas de arriba). "Mangueras
@@ -379,7 +379,8 @@ export function getPieceCategories(sectionSlug?: string): string[] {
     (categoria) => !SECTION_ONLY_CATEGORIES.includes(categoria)
   );
   const categorias = [...base];
-  if (sectionSlug === "auto-tanques") categorias.push(TANQUE_CATEGORY);
+  // Semirremolque (Transportadora Kino) lleva el mismo tanque de carga.
+  if (sectionSlug === "auto-tanques" || sectionSlug === "semirremolques") categorias.push(TANQUE_CATEGORY);
   return [...categorias, PIECE_CATEGORY_OTRO];
 }
 

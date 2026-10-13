@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,7 @@ import {
   instrumentInstalacionField,
 } from "@/lib/planta-tank-instruments";
 import { saveCustomFieldValues } from "@/lib/custom-fields-runtime";
+import { CAMPOS_TEXTO_CONSERVABLES } from "@/lib/ficha-campos";
 import { collapseSpaces } from "@/lib/text-normalize";
 import { verifySessionPassword } from "@/lib/reauth";
 import { deleteVehicleDocumentFiles } from "@/lib/document-cleanup";
@@ -359,14 +361,38 @@ async function recordExtinguisherQualityChange(params: {
 const VALVULA_ETIQUETAS = [
   ["fechaFabricacionValvulaLlenado", "válvula de llenado"],
   ["fechaFabricacionValvulaNoRetroceso", "válvula de no retroceso (check)"],
-  ["fechaFabricacionValvulaBypass", "válvula de retroceso (bypass)"],
+  ["fechaFabricacionValvulaBypass", "válvula de bypass"],
   ["fechaFabricacionValvulaRetornoVapores", "válvula de retorno de vapores"],
   ["fechaFabricacionValvulaServicio", "válvula de servicio de vapor"],
   ["fechaFabricacionValvulaMaximoLlenado", "válvula de máximo llenado 90%"],
   ["fechaFabricacionValvulaMaximoLlenado85", "válvula de máximo llenado 85%"],
-  ["fechaFabricacionValvulaAlivio", "válvula de seguridad"],
+  ["fechaFabricacionValvulaAlivio", "válvula de alivio (seguridad)"],
   ["fechaFabricacionValvulaDescargaEmergencia", "válvula de descarga de emergencia"],
+  ["fechaFabricacionValvulaExcesoFlujo", "válvula de exceso de flujo (litrómetro)"],
+  ["fechaFabricacionValvulaCheckLock", "válvula check lock"],
 ] as const;
+
+// Campos que llegaron después (códigos de válvula, tractocamión,
+// semirremolque, gobernador...): se guardan solo si el formulario los trae.
+// A diferencia de optionalText, un campo ausente queda undefined y Prisma no
+// lo toca — así el formulario de un tipo de unidad que no los pinta no borra
+// lo que se haya capturado o importado (ver lib/ficha-campos.ts).
+const optionalTextConservable = (max: number) =>
+  z.preprocess((value) => {
+    if (value === undefined) return undefined;
+    const text = String(value ?? "").trim();
+    return text.length > 0 ? text : null;
+  }, z.string().max(max).nullable().optional());
+
+const optionalDateConservable = z.preprocess((value) => {
+  if (value === undefined) return undefined;
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? new Date(text) : null;
+}, z.date().nullable().optional());
+
+function campoSiViene(formData: FormData, campo: string): FormDataEntryValue | undefined {
+  return formData.has(campo) ? (formData.get(campo) ?? undefined) : undefined;
+}
 
 function formatoCortoFecha(fecha: Date): string {
   return fecha.toISOString().slice(0, 10).split("-").reverse().join("/");
@@ -454,6 +480,11 @@ const technicalSheetSchema = z.object({
   fechaFabricacionValvulaDescargaEmergencia: optionalDate,
   fechaInstalacionMangueras: optionalDate,
   fechaFabricacionManguera: optionalDate,
+  fechaFabricacionValvulaExcesoFlujo: optionalDateConservable,
+  fechaFabricacionValvulaCheckLock: optionalDateConservable,
+  fechaFabricacionValvulaInterna: optionalDateConservable,
+  fechaFabricacionMangueraSurtir: optionalDateConservable,
+  tieneGobernador: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   // Una válvula no se puede instalar antes de existir. Si la fecha de
   // instalación queda antes que la de fabricación de cualquiera de ellas es
@@ -632,6 +663,16 @@ export async function upsertTechnicalSheet(
     fechaFabricacionValvulaDescargaEmergencia: formData.get("fechaFabricacionValvulaDescargaEmergencia"),
     fechaInstalacionMangueras: formData.get("fechaInstalacionMangueras"),
     fechaFabricacionManguera: formData.get("fechaFabricacionManguera"),
+    fechaFabricacionValvulaExcesoFlujo: campoSiViene(formData, "fechaFabricacionValvulaExcesoFlujo"),
+    fechaFabricacionValvulaCheckLock: campoSiViene(formData, "fechaFabricacionValvulaCheckLock"),
+    fechaFabricacionValvulaInterna: campoSiViene(formData, "fechaFabricacionValvulaInterna"),
+    fechaFabricacionMangueraSurtir: campoSiViene(formData, "fechaFabricacionMangueraSurtir"),
+    // Una casilla sin marcar no viaja en el formulario: el campo oculto
+    // "tieneGobernadorPresente" dice si el formulario la pintaba, para
+    // distinguir "la desmarcaron" de "este formulario no la trae".
+    tieneGobernador: formData.has("tieneGobernadorPresente")
+      ? formData.get("tieneGobernador") === "on"
+      : undefined,
   });
 
   if (!parsed.success) {
@@ -646,6 +687,20 @@ export async function upsertTechnicalSheet(
   // fabricación, pero cada medición posterior recorre el ciclo solo 5 años
   // (ver addFiveYears en actions/ultrasound-actions.ts).
   const data = { ...parsed.data };
+
+  // Códigos de válvula, datos de tractocamión/semirremolque, gobernador:
+  // solo los que vengan en el formulario (ver optionalTextConservable).
+  // Las llaves salen de CAMPOS_TEXTO_CONSERVABLES (solo columnas de texto
+  // opcionales de la ficha), de ahí el cast al tipo de Prisma al guardar.
+  const textosConservables: Record<string, string | null> = {};
+  for (const campo of CAMPOS_TEXTO_CONSERVABLES) {
+    const resultado = optionalTextConservable(150).safeParse(campoSiViene(formData, campo));
+    if (!resultado.success) {
+      return { error: `El campo "${campo}" es demasiado largo (máximo 150 caracteres).` };
+    }
+    if (resultado.data !== undefined) textosConservables[campo] = resultado.data;
+  }
+
   if (data.fechaFabricacionTanque && !data.fechaProximaInspeccionVisualInterna) {
     data.fechaProximaInspeccionVisualInterna = addTenYears(data.fechaFabricacionTanque);
   }
@@ -733,8 +788,12 @@ export async function upsertTechnicalSheet(
 
   await prisma.vehicleTechnicalSheet.upsert({
     where: { vehicleRecordId: vehicleId },
-    update: data,
-    create: { vehicleRecordId: vehicleId, ...data },
+    update: { ...data, ...(textosConservables as Prisma.VehicleTechnicalSheetUncheckedUpdateInput) },
+    create: {
+      vehicleRecordId: vehicleId,
+      ...data,
+      ...(textosConservables as Omit<Prisma.VehicleTechnicalSheetUncheckedCreateInput, "vehicleRecordId">),
+    },
   });
 
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).

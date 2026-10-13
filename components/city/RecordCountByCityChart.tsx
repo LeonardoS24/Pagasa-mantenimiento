@@ -202,9 +202,9 @@ export function RecordCountByCityChart({
                     fill={color}
                     opacity={0.9}
                   >
-                    <title>
-                      {stat.cityName}: {stat.total}
-                    </title>
+                    {/* Un solo nodo de texto, ver el comentario en
+                        EquipmentMaintenanceTypePieChart.tsx. */}
+                    <title>{`${stat.cityName}: ${stat.total}`}</title>
                   </rect>
                   <text
                     x={LABEL_WIDTH + Math.max(width, 4) + 6}

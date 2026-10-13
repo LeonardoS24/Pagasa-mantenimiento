@@ -6,7 +6,7 @@ import { getInternalVisualInspectionAlertLevel } from "@/lib/internal-visual-ins
 import { getHydrostaticTestAlertLevel } from "@/lib/hydrostatic-test-alerts";
 import { getExtinguisherAlertLevel } from "@/lib/extinguisher-alerts";
 import { getMaintenanceAlertLevel } from "@/lib/maintenance-alerts";
-import { getValveAlertLevel, getValveVencimiento, oldestValve } from "@/lib/valve-alerts";
+import { getValveAlertLevel, getValveVencimiento, oldestValve, valveDatesFromSheet } from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { getInsuranceAlertLevel } from "@/lib/insurance-alerts";
@@ -48,6 +48,8 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
           { fechaFabricacionValvulaMaximoLlenado85: { not: null } },
           { fechaFabricacionValvulaAlivio: { not: null } },
           { fechaFabricacionValvulaDescargaEmergencia: { not: null } },
+          { fechaFabricacionValvulaExcesoFlujo: { not: null } },
+          { fechaFabricacionValvulaCheckLock: { not: null } },
           { fechaFabricacionManguera: { not: null } },
         ],
       },
@@ -356,21 +358,7 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
   const valveAlertVehicles = upcomingRecords
     .map((record) => {
       if (!isAlertVisibleForSection("valvulas", record.section.slug)) return null;
-      const dates = {
-        fechaFabricacionValvulaLlenado: record.technicalSheet?.fechaFabricacionValvulaLlenado,
-        fechaFabricacionValvulaNoRetroceso: record.technicalSheet?.fechaFabricacionValvulaNoRetroceso,
-        fechaFabricacionValvulaBypass: record.technicalSheet?.fechaFabricacionValvulaBypass,
-        fechaFabricacionValvulaRetornoVapores:
-          record.technicalSheet?.fechaFabricacionValvulaRetornoVapores,
-        fechaFabricacionValvulaServicio: record.technicalSheet?.fechaFabricacionValvulaServicio,
-        fechaFabricacionValvulaMaximoLlenado:
-          record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
-        fechaFabricacionValvulaMaximoLlenado85:
-          record.technicalSheet?.fechaFabricacionValvulaMaximoLlenado85,
-        fechaFabricacionValvulaAlivio: record.technicalSheet?.fechaFabricacionValvulaAlivio,
-        fechaFabricacionValvulaDescargaEmergencia:
-          record.technicalSheet?.fechaFabricacionValvulaDescargaEmergencia,
-      };
+      const dates = valveDatesFromSheet(record.technicalSheet);
       const level = getValveAlertLevel(dates);
       if (level === "none") return null;
       const vencimiento = getValveVencimiento(dates);

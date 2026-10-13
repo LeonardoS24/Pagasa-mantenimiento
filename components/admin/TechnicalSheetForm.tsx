@@ -13,7 +13,22 @@ import {
   maintenanceAlertBadgeStyles,
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
-import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import {
+  getValveAlertLevel,
+  getValveVencimiento,
+  valveAlertBadgeStyles,
+  valveAlertLabel,
+  valveDatesFromSheet,
+} from "@/lib/valve-alerts";
+import {
+  VALVULAS_TANQUE_CARGA,
+  VALVULAS_CARBURACION,
+  VALVULA_MAXIMO_LLENADO_85,
+  CAMPOS_TRACTOCAMION,
+  CAMPOS_SEMIRREMOLQUE,
+  type ValvulaDef,
+  type CampoTextoDef,
+} from "@/lib/ficha-campos";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { FormMessage } from "./FormMessage";
 import { SECTION_STYLES } from "@/lib/section-colors";
@@ -256,6 +271,60 @@ function VehicleBrandFields({
   );
 }
 
+// Una válvula = su fecha de fabricación (la que cuenta para la alerta) más
+// el número de serie (código grabado) tal cual se leyó en campo, como en el
+// Excel de flotilla (ver lib/ficha-campos.ts).
+function ValvulaInputs({ valvula, sheet }: { valvula: ValvulaDef; sheet: VehicleTechnicalSheet | null }) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-white/60 p-2">
+      <p className="mb-1 text-sm font-medium text-ink">
+        {valvula.etiqueta}
+        {!valvula.entraEnAlerta && (
+          <span className="ml-1 text-xs font-normal text-gray-500">(referencia, no entra en la alerta)</span>
+        )}
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-0.5 block text-xs text-gray-600" htmlFor={valvula.fecha}>
+            Fecha de fabricación
+          </label>
+          <input
+            id={valvula.fecha}
+            name={valvula.fecha}
+            type="date"
+            defaultValue={toDateInputValue(sheet?.[valvula.fecha])}
+            className={CATALOG_INPUT_CLASS}
+          />
+        </div>
+        <div>
+          <label className="mb-0.5 block text-xs text-gray-600" htmlFor={valvula.codigo}>
+            Número de serie
+          </label>
+          <input
+            id={valvula.codigo}
+            name={valvula.codigo}
+            type="text"
+            maxLength={150}
+            defaultValue={sheet?.[valvula.codigo] ?? ""}
+            placeholder="p. ej. 03C26"
+            className={CATALOG_INPUT_CLASS}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CamposTexto({ campos, sheet }: { campos: CampoTextoDef[]; sheet: VehicleTechnicalSheet | null }) {
+  return (
+    <>
+      {campos.map(({ campo, etiqueta }) => (
+        <Field key={campo} id={campo} label={etiqueta} defaultValue={sheet?.[campo]} />
+      ))}
+    </>
+  );
+}
+
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -281,6 +350,10 @@ export function TechnicalSheetForm({
   showInspeccionesSection = true,
   showMaintenancePreventiveSection = true,
   showAutomovilSection = true,
+  showGobernadorSection = false,
+  showTractocamionSection = false,
+  showSemirremolqueSection = false,
+  showUnidadAsignada = false,
   lockCombustibleGasLpGasolina = false,
   camposExtra = [],
   valoresExtra = {},
@@ -321,6 +394,12 @@ export function TechnicalSheetForm({
   // identidad ya es "Nombre"/"Dirección" (ver VehicleForm.tsx), así que esta
   // sección de datos del automóvil no aplica.
   showAutomovilSection?: boolean;
+  // Gobernador de velocidad: Auto-Tanques y Tractocamiones.
+  showGobernadorSection?: boolean;
+  // Transportadora Kino (ver lib/kino-sections.ts).
+  showTractocamionSection?: boolean;
+  showSemirremolqueSection?: boolean;
+  showUnidadAsignada?: boolean;
   // Vehículo con tanque de carburación, y Auto-Tanques cuyo número
   // económico se repite en Vehículo con tanque de carburación (misma
   // ciudad), siempre usan Gas LP/Gasolina: el select queda visible pero el
@@ -338,12 +417,14 @@ export function TechnicalSheetForm({
   // apretar "Editar" para poder tocar los campos.
   const [locked, setLocked] = useState(true);
   const [tieneValvula85, setTieneValvula85] = useState(sheet?.tieneValvulaMaximoLlenado85 ?? false);
+  const [tieneGobernador, setTieneGobernador] = useState(sheet?.tieneGobernador ?? false);
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleCancel() {
     formRef.current?.reset();
     setLocked(true);
     setTieneValvula85(sheet?.tieneValvulaMaximoLlenado85 ?? false);
+    setTieneGobernador(sheet?.tieneGobernador ?? false);
   }
 
   // Calidad del extintor: se puede cambiar sin desbloquear toda la ficha
@@ -399,27 +480,16 @@ export function TechnicalSheetForm({
   // Vehículo con tanque de carburación tiene su propio sistema de gas LP
   // para el motor, con solo 4 de las 9 válvulas de Auto-Tanques (que son las
   // del tanque de carga que transporta, un sistema físico distinto) y con
-  // otros nombres de campo: llenado = "Doble check", máximo llenado 90% =
-  // "purgador", servicio = "reguladora" (ver también lib/piece-catalog.ts y
-  // lib/valve-piece-sync.ts, que usan estos mismos 4 nombres al reemplazar
-  // una de estas válvulas desde un mantenimiento normal).
+  // nombres propios (ver VALVULAS_CARBURACION en lib/ficha-campos.ts;
+  // lib/piece-catalog.ts y lib/valve-piece-sync.ts usan estos mismos 4
+  // nombres al reemplazar una de estas válvulas desde un mantenimiento normal).
   const isCarburacionValves = sectionSlug === "vehiculo-con-tanque-de-carburacion";
   const extinguisherAlertLevel = getExtinguisherAlertLevel(
     sheet?.calidadExtintor,
     sheet?.fechaCalidadMalaExtintor
   );
   const maintenanceAlertLevel = getMaintenanceAlertLevel(sheet?.fechaProximoMantenimiento);
-  const valveDatesForAlert = {
-    fechaFabricacionValvulaLlenado: sheet?.fechaFabricacionValvulaLlenado,
-    fechaFabricacionValvulaNoRetroceso: sheet?.fechaFabricacionValvulaNoRetroceso,
-    fechaFabricacionValvulaBypass: sheet?.fechaFabricacionValvulaBypass,
-    fechaFabricacionValvulaRetornoVapores: sheet?.fechaFabricacionValvulaRetornoVapores,
-    fechaFabricacionValvulaServicio: sheet?.fechaFabricacionValvulaServicio,
-    fechaFabricacionValvulaMaximoLlenado: sheet?.fechaFabricacionValvulaMaximoLlenado,
-    fechaFabricacionValvulaMaximoLlenado85: sheet?.fechaFabricacionValvulaMaximoLlenado85,
-    fechaFabricacionValvulaAlivio: sheet?.fechaFabricacionValvulaAlivio,
-    fechaFabricacionValvulaDescargaEmergencia: sheet?.fechaFabricacionValvulaDescargaEmergencia,
-  };
+  const valveDatesForAlert = valveDatesFromSheet(sheet);
   const valveAlertLevel = getValveAlertLevel(valveDatesForAlert);
   const valveVencimiento = getValveVencimiento(valveDatesForAlert);
   const hoseAlertLevel = getHoseAlertLevel(sheet?.fechaFabricacionManguera);
@@ -536,7 +606,54 @@ export function TechnicalSheetForm({
             <Field id="chofer" label="Chofer" defaultValue={sheet?.chofer} />
             <Field id="numeroPoliza" label="Número de póliza" defaultValue={sheet?.numeroPoliza} />
             <Field id="inciso" label="Inciso" defaultValue={sheet?.inciso} />
+            {showUnidadAsignada && (
+              <Field
+                id="unidadAsignada"
+                label={showTractocamionSection ? "Semirremolques asignados" : "Tractocamión asignado"}
+                defaultValue={sheet?.unidadAsignada}
+              />
+            )}
           </div>
+        </div>
+      )}
+
+      {showTractocamionSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Datos del tractocamión</h3>
+          <div className="space-y-4">
+            {CAMPOS_TRACTOCAMION.map((grupo) => (
+              <div key={grupo.grupo}>
+                <p className="mb-2 text-xs font-semibold uppercase text-gray-500">{grupo.grupo}</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <CamposTexto campos={grupo.campos} sheet={sheet} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showGobernadorSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Gobernador de velocidad</h3>
+          <input type="hidden" name="tieneGobernadorPresente" value="1" />
+          <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneGobernador">
+            <input
+              id="tieneGobernador"
+              name="tieneGobernador"
+              type="checkbox"
+              checked={tieneGobernador}
+              onChange={(event) => setTieneGobernador(event.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+            />
+            ¿Tiene gobernador instalado?
+          </label>
+          {tieneGobernador && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Field id="numeroGobernador" label="Número de identificación" defaultValue={sheet?.numeroGobernador} />
+              <Field id="empresaGobernador" label="Empresa que lo instaló" defaultValue={sheet?.empresaGobernador} />
+            </div>
+          )}
         </div>
       )}
 
@@ -655,6 +772,22 @@ export function TechnicalSheetForm({
               </>
             )}
             <CustomFieldInputs campos={camposExtra} seccion="tanque" valores={valoresExtra} />
+          </div>
+        </div>
+      )}
+
+      {showSemirremolqueSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Datos del semirremolque</h3>
+          <div className="space-y-4">
+            {CAMPOS_SEMIRREMOLQUE.map((grupo) => (
+              <div key={grupo.grupo}>
+                <p className="mb-2 text-xs font-semibold uppercase text-gray-500">{grupo.grupo}</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <CamposTexto campos={grupo.campos} sheet={sheet} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -871,83 +1004,17 @@ export function TechnicalSheetForm({
           </p>
           {isCarburacionValves ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Field
-                id="fechaFabricacionValvulaLlenado"
-                label="Válvula de llenado (Doble check)"
-                type="date"
-                defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaLlenado)}
-              />
-              <Field
-                id="fechaFabricacionValvulaMaximoLlenado"
-                label="Válvula de máximo llenado (purgador)"
-                type="date"
-                defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado)}
-              />
-              <Field
-                id="fechaFabricacionValvulaServicio"
-                label="Válvula de servicio (reguladora)"
-                type="date"
-                defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaServicio)}
-              />
-              <Field
-                id="fechaFabricacionValvulaAlivio"
-                label="Válvula de seguridad"
-                type="date"
-                defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaAlivio)}
-              />
+              {VALVULAS_CARBURACION.map((valvula) => (
+                <ValvulaInputs key={valvula.fecha} valvula={valvula} sheet={sheet} />
+              ))}
               <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
             </div>
           ) : (
             <>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Field
-                  id="fechaFabricacionValvulaLlenado"
-                  label="Válvula de llenado"
-                  type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaLlenado)}
-                />
-                <Field
-                  id="fechaFabricacionValvulaNoRetroceso"
-                  label="Válvula de no retroceso (check)"
-                  type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaNoRetroceso)}
-                />
-                <Field
-                  id="fechaFabricacionValvulaBypass"
-                  label="Válvula de retroceso (bypass)"
-                  type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaBypass)}
-                />
-                <Field
-                  id="fechaFabricacionValvulaRetornoVapores"
-                  label="Válvula de retorno de vapores"
-                  type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaRetornoVapores)}
-                />
-                <Field
-                  id="fechaFabricacionValvulaServicio"
-                  label="Válvula de servicio de vapor"
-                  type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaServicio)}
-                />
-                <Field
-                  id="fechaFabricacionValvulaMaximoLlenado"
-                  label="Válvula de máximo llenado 90%"
-                  type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado)}
-                />
-                <Field
-                  id="fechaFabricacionValvulaAlivio"
-                  label="Válvula de seguridad"
-                  type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaAlivio)}
-                />
-                <Field
-                  id="fechaFabricacionValvulaDescargaEmergencia"
-                  label="Válvula de descarga de emergencia"
-                  type="date"
-                  defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaDescargaEmergencia)}
-                />
+                {VALVULAS_TANQUE_CARGA.map((valvula) => (
+                  <ValvulaInputs key={valvula.fecha} valvula={valvula} sheet={sheet} />
+                ))}
               </div>
               <div className="mt-3 rounded-md border border-dashed border-gray-300 p-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneValvulaMaximoLlenado85">
@@ -962,15 +1029,22 @@ export function TechnicalSheetForm({
                   ¿Esta unidad tiene válvula de máximo llenado al 85%?
                 </label>
                 {tieneValvula85 && (
-                  <div className="mt-3 max-w-xs">
-                    <Field
-                      id="fechaFabricacionValvulaMaximoLlenado85"
-                      label="Fecha de fabricación de la válvula de máximo llenado 85%"
-                      type="date"
-                      defaultValue={toDateInputValue(sheet?.fechaFabricacionValvulaMaximoLlenado85)}
-                    />
+                  <div className="mt-3 max-w-md">
+                    <ValvulaInputs valvula={VALVULA_MAXIMO_LLENADO_85} sheet={sheet} />
                   </div>
                 )}
+              </div>
+              <div className="mt-3 rounded-md border border-gray-200 bg-white/60 p-3">
+                <p className="mb-2 text-sm font-medium text-ink">Manguera de surtir</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Field
+                    id="fechaFabricacionMangueraSurtir"
+                    label="Fecha de fabricación"
+                    type="date"
+                    defaultValue={toDateInputValue(sheet?.fechaFabricacionMangueraSurtir)}
+                  />
+                  <Field id="medidaMangueraSurtir" label="Medida" defaultValue={sheet?.medidaMangueraSurtir} />
+                </div>
               </div>
             </>
           )}

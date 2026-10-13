@@ -97,7 +97,15 @@ import {
   maintenanceAlertBadgeStyles,
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
-import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import {
+  getValveAlertLevel,
+  getValveVencimiento,
+  valveAlertBadgeStyles,
+  valveAlertLabel,
+  valveDatesFromSheet,
+} from "@/lib/valve-alerts";
+import { esTanqueDeCarga, esTractocamion, esSemirremolque } from "@/lib/kino-sections";
+import { getConjuntosDeUnidad } from "@/lib/conjuntos";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { tipoRegistro, tipoRegistroLabel } from "@/lib/section-labels";
@@ -233,6 +241,18 @@ export default async function VehicleDetailPage({
   const vehicleYearRange = getCurrentYearRange();
   const vehiclePieceStats = await getPieceMaintenanceStats(null, 10, vehicleYearRange, vehicle.id);
   const isAutoTanques = vehicle.section.slug === "auto-tanques";
+  // Auto-Tanques y Semirremolques (Transportadora Kino, ver
+  // lib/kino-sections.ts) llevan el mismo tanque de carga: placa, juego de
+  // válvulas y las 5 pruebas. isAutoTanques a secas se queda solo para lo
+  // que de verdad es del camión con motor (el pareo con Vehículo con tanque
+  // de carburación).
+  const isTanqueDeCarga = esTanqueDeCarga(vehicle.section.slug);
+  const isTractocamion = esTractocamion(vehicle.section.slug);
+  const isSemirremolque = esSemirremolque(vehicle.section.slug);
+  // Con quién viaja (Transportadora Kino): sale de los conjuntos de los
+  // dictámenes, no de un campo de texto, para que coincida con la vista
+  // "Por conjunto" de los apartados.
+  const conjuntosDeLaUnidad = isTractocamion || isSemirremolque ? await getConjuntosDeUnidad(vehicle.id) : [];
   // "Estaciones de carburación" (ver scripts/add-estaciones-de-carburacion.mjs)
   // no es un vehículo (no tiene número económico/año/placas, ver
   // components/admin/VehicleForm.tsx) pero sí tiene tanque propio: su ficha
@@ -280,7 +300,7 @@ export default async function VehicleDetailPage({
   // Ultrasonido, Hidrostática) viven en Auto-Tanques, Vehículo con tanque de
   // carburación, Estaciones de carburación y Planta; Vehículo de reparto no
   // tiene tanque, así que no le corresponden.
-  const showInspeccionesSection = isAutoTanques || isTanqueCarburacion || isEstacionLike;
+  const showInspeccionesSection = isTanqueDeCarga || isTanqueCarburacion || isEstacionLike;
   // Algunas unidades de Auto-Tanques repiten el mismo número económico en
   // Vehículo con tanque de carburación (mismo camión, pero su motor también
   // usa el sistema dual de combustible). Cuando eso pasa, el combustible se
@@ -324,25 +344,19 @@ export default async function VehicleDetailPage({
     vehicle.activo && isAlertVisibleForSection("mantenimiento", vehicle.section.slug)
       ? getMaintenanceAlertLevel(vehicle.technicalSheet?.fechaProximoMantenimiento)
       : "none";
-  const valveDates = {
-    fechaFabricacionValvulaLlenado: vehicle.technicalSheet?.fechaFabricacionValvulaLlenado,
-    fechaFabricacionValvulaNoRetroceso: vehicle.technicalSheet?.fechaFabricacionValvulaNoRetroceso,
-    fechaFabricacionValvulaBypass: vehicle.technicalSheet?.fechaFabricacionValvulaBypass,
-    fechaFabricacionValvulaRetornoVapores:
-      vehicle.technicalSheet?.fechaFabricacionValvulaRetornoVapores,
-    fechaFabricacionValvulaServicio: vehicle.technicalSheet?.fechaFabricacionValvulaServicio,
-    fechaFabricacionValvulaMaximoLlenado: vehicle.technicalSheet?.fechaFabricacionValvulaMaximoLlenado,
-    fechaFabricacionValvulaMaximoLlenado85:
-      vehicle.technicalSheet?.fechaFabricacionValvulaMaximoLlenado85,
-    fechaFabricacionValvulaAlivio: vehicle.technicalSheet?.fechaFabricacionValvulaAlivio,
-    fechaFabricacionValvulaDescargaEmergencia:
-      vehicle.technicalSheet?.fechaFabricacionValvulaDescargaEmergencia,
-  };
+  const valveDates = valveDatesFromSheet(vehicle.technicalSheet);
   const valveAlertLevel =
     vehicle.activo && isAlertVisibleForSection("valvulas", vehicle.section.slug)
       ? getValveAlertLevel(valveDates)
       : "none";
   const valveVencimiento = getValveVencimiento(valveDates);
+  // Si el cambio de válvulas está vencido, la unidad se considera en mal
+  // estado sin importar lo que diga el último mantenimiento registrado — se
+  // recalcula en cada carga de la página, así que en cuanto se registre el
+  // cambio de válvulas (y ya no esté vencido) vuelve a mostrar la calidad
+  // real capturada.
+  const calidadEfectiva: CalidadMantenimiento | null =
+    valveAlertLevel === "red" ? "MALA" : (vehicle.calidad as CalidadMantenimiento | null);
   const hoseAlertLevel = vehicle.activo && isAlertVisibleForSection("mangueras", vehicle.section.slug)
     ? getHoseAlertLevel(vehicle.technicalSheet?.fechaFabricacionManguera)
     : "none";
@@ -376,11 +390,11 @@ export default async function VehicleDetailPage({
             Dado de baja{vehicle.fechaBaja ? ` · ${formatDate(vehicle.fechaBaja)}` : ""}
           </span>
         )}
-        {vehicle.calidad && (
+        {calidadEfectiva && (
           <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${calidadMantenimientoStyles[vehicle.calidad as CalidadMantenimiento]}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${calidadMantenimientoStyles[calidadEfectiva]}`}
           >
-            Calidad: {calidadMantenimientoLabels[vehicle.calidad as CalidadMantenimiento]}
+            Calidad: {calidadMantenimientoLabels[calidadEfectiva]}
           </span>
         )}
         {alertLevel !== "none" && vehicle.technicalSheet?.fechaProximoUltrasonido && (
@@ -608,13 +622,16 @@ export default async function VehicleDetailPage({
             sheet={vehicle.technicalSheet}
             sectionSlug={vehicle.section.slug}
             useDeliveryFormat={useDeliveryFormat}
-            showValveSection={isTanqueCarburacion || isAutoTanques}
+            showValveSection={isTanqueCarburacion || isTanqueDeCarga}
             showHoseSection={isTanqueCarburacion}
-            showTankSection={showTankSection && !isEstacionLike}
-            showTankNameplateSection={isAutoTanques}
+            showTankSection={showTankSection && !isEstacionLike && !isTractocamion}
+            showTankNameplateSection={isTanqueDeCarga}
             showInspeccionesSection={showInspeccionesSection && !isMultiTanque}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
             showAutomovilSection={!isEstacionLike}
+            showGobernadorSection={isAutoTanques || isTractocamion}
+            showTractocamionSection={isTractocamion}
+            showSemirremolqueSection={isSemirremolque}
             lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
             camposExtra={camposVehiculo}
             valoresExtra={valoresCampos}
@@ -624,18 +641,58 @@ export default async function VehicleDetailPage({
             sheet={vehicle.technicalSheet}
             sectionSlug={vehicle.section.slug}
             useDeliveryFormat={useDeliveryFormat}
-            showValveSection={isTanqueCarburacion || isAutoTanques}
+            showValveSection={isTanqueCarburacion || isTanqueDeCarga}
             showHoseSection={isTanqueCarburacion}
-            showTankSection={showTankSection && !isEstacionLike}
-            showTankNameplateSection={isAutoTanques}
+            showTankSection={showTankSection && !isEstacionLike && !isTractocamion}
+            showTankNameplateSection={isTanqueDeCarga}
             showInspeccionesSection={showInspeccionesSection && !isMultiTanque}
             showMaintenancePreventiveSection={!isTanqueCarburacion}
             showAutomovilSection={!isEstacionLike}
+            showGobernadorSection={isAutoTanques || isTractocamion}
+            showTractocamionSection={isTractocamion}
+            showSemirremolqueSection={isSemirremolque}
             camposExtra={camposVehiculo}
             valoresExtra={valoresCampos}
           />
         )}
       </div>
+
+      {(isTractocamion || isSemirremolque) && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase text-primary-bright">Conjunto (dictamen)</h2>
+            <Link
+              href={`${sectionBasePath(params.citySlug, chain)}?vista=conjuntos`}
+              className="text-xs text-primary hover:underline"
+            >
+              Ver todos los conjuntos →
+            </Link>
+          </div>
+          {conjuntosDeLaUnidad.length === 0 ? (
+            <p className="text-sm text-ink">Esta unidad no está en ningún conjunto.</p>
+          ) : (
+            <ul className="space-y-2">
+              {conjuntosDeLaUnidad.map((c) => (
+                <li key={c.id} className="text-sm text-ink">
+                  <span className="font-medium">{c.nombre}:</span>{" "}
+                  {[...(c.tractocamion ? [c.tractocamion] : []), ...c.semirremolques].map((u, i) => (
+                    <span key={u.id}>
+                      {i > 0 && " + "}
+                      {u.id === vehicle.id ? (
+                        <strong>{u.numeroEconomico}</strong>
+                      ) : (
+                        <Link href={`/ciudades/${params.citySlug}/vehiculo/${u.id}`} className="text-primary hover:underline">
+                          {u.numeroEconomico}
+                        </Link>
+                      )}
+                    </span>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Sellos de seguridad: solo Estaciones de carburación. Va justo abajo
           de la ficha técnica del tanque porque se cambian día con día (al
@@ -758,7 +815,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {(isTanqueCarburacion || isAutoTanques) && (
+      {(isTanqueCarburacion || isTanqueDeCarga) && (
         <div id="valvulas" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Cambio de válvulas
@@ -782,7 +839,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {(isTanqueCarburacion || isAutoTanques) && (
+      {(isTanqueCarburacion || isTanqueDeCarga) && (
         <div id="valvulas-correctivo" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Mantenimiento correctivo de válvulas

@@ -9,6 +9,7 @@ import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { maintenanceStatusSchema, maintenanceTypeSchema, calidadMantenimientoSchema } from "@/lib/vehicle-enums";
+import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
 import { accionPiezaSchema, PIECE_CATEGORY_OTRO } from "@/lib/piece-catalog";
 import { maybeLearnPiece } from "@/lib/learned-pieces";
 import { maybeSyncValvePieceReplacement } from "@/lib/valve-piece-sync";
@@ -39,11 +40,14 @@ const optionalText = (max: number) =>
     return text.length > 0 ? text : null;
   }, z.string().max(max).nullable());
 
-const requiredInt = (label: string) =>
+// Kilometraje: obligatorio para un vehículo, pero una Estación/Planta no
+// tiene odómetro (ver ESTACION_LIKE_SECTION_SLUGS) — se valida como opcional
+// aquí y se exige más abajo solo cuando de verdad aplica.
+const optionalInt = () =>
   z.preprocess((value) => {
     const text = String(value ?? "").trim();
-    return text.length > 0 ? Number(text) : undefined;
-  }, z.number({ required_error: `${label} es requerido`, invalid_type_error: `${label} inválido` }).int().min(0));
+    return text.length > 0 ? Number(text) : null;
+  }, z.number({ invalid_type_error: "Kilometraje inválido" }).int().min(0).nullable());
 
 const createLogSchema = z.object({
   tipoMantenimiento: maintenanceTypeSchema,
@@ -64,7 +68,7 @@ const createLogSchema = z.object({
     const text = String(value ?? "").trim();
     return text.length > 0 ? new Date(text) : undefined;
   }, z.date({ required_error: "La fecha es requerida", invalid_type_error: "Fecha inválida" })),
-  kilometraje: requiredInt("El kilometraje"),
+  kilometraje: optionalInt(),
   nombreOperador: optionalText(150),
   auxiliarTecnico: optionalText(150),
   responsableTrabajoMecanico: optionalText(150),
@@ -244,16 +248,27 @@ export async function createMaintenanceLog(
   const fotoDespues = readOptionalImageFile(formData, "fotoDespues");
   if (fotoDespues && !(fotoDespues instanceof File)) return fotoDespues;
 
-  const vehicle = await prisma.vehicleRecord.findUnique({ where: { id: vehicleId } });
+  const vehicle = await prisma.vehicleRecord.findUnique({
+    where: { id: vehicleId },
+    include: { section: true },
+  });
   if (!vehicle) {
     return { error: "El registro no existe." };
   }
+  // Estación de carburación/Planta no tiene odómetro: el kilometraje no se
+  // pide en su formulario (ver CreateMaintenanceLogForm.tsx), así que aquí
+  // solo se exige para un vehículo de verdad.
+  const isEstacionLike = ESTACION_LIKE_SECTION_SLUGS.includes(vehicle.section.slug);
+  if (!isEstacionLike && parsed.data.kilometraje == null) {
+    return { error: "El kilometraje es requerido" };
+  }
 
   // El checklist de mantenimiento preventivo solo aplica (y solo se confía
-  // en él) cuando ese es el tipo elegido; para Correctivo/Predictivo la
-  // pieza viene del selector de categoría/pieza/acción de siempre.
+  // en él) cuando ese es el tipo elegido Y es un vehículo — una estación
+  // captura su Preventivo igual que un Correctivo, con el selector de
+  // categoría/pieza/acción de siempre (ver isEstacionLike arriba).
   const checklist =
-    parsed.data.tipoMantenimiento === "Preventivo"
+    parsed.data.tipoMantenimiento === "Preventivo" && !isEstacionLike
       ? parseChecklistPreventivo(parsed.data.checklistPreventivo)
       : null;
 
@@ -439,7 +454,7 @@ const updateLogFullSchema = z.object({
     const text = String(value ?? "").trim();
     return text.length > 0 ? new Date(text) : undefined;
   }, z.date({ required_error: "La fecha es requerida", invalid_type_error: "Fecha inválida" })),
-  kilometraje: requiredInt("El kilometraje"),
+  kilometraje: optionalInt(),
   nombreOperador: optionalText(150),
   auxiliarTecnico: optionalText(150),
   responsableTrabajoMecanico: optionalText(150),

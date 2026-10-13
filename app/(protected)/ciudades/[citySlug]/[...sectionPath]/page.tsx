@@ -70,13 +70,17 @@ import {
 import { MonthPicker } from "@/components/city/MonthPicker";
 import { ResumenPanel } from "@/components/admin/ResumenPanel";
 import { getPieceCatalog, getCategoriasPorGrupo } from "@/lib/piece-catalog-runtime";
+import { esApartadoKino, TRACTOCAMIONES_SLUG } from "@/lib/kino-sections";
+import { getConjuntosDeCiudad } from "@/lib/conjuntos";
+import { ConjuntosTransporteView } from "@/components/city/ConjuntosTransporteView";
+import Link from "next/link";
 
 export default async function SectionPage({
   params,
   searchParams,
 }: {
   params: { citySlug: string; sectionPath: string[] };
-  searchParams: { mes?: string; tab?: string; ambito?: string; estacion?: string };
+  searchParams: { mes?: string; tab?: string; ambito?: string; estacion?: string; vista?: string };
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
@@ -163,6 +167,18 @@ export default async function SectionPage({
         return [...activeRecords, ...inactiveRecords];
       })()
     : [];
+
+  // Tractocamiones/Semirremolques de Transportadora Kino (ver
+  // lib/kino-sections.ts): se pueden ver separados (la tabla de siempre) o
+  // agrupados por conjunto, tractocamión con sus semirremolques como en los
+  // dictámenes (ver ConjuntoTransporte en el schema).
+  const kinoVista: "separados" | "conjuntos" | null =
+    isVehicleSection && !isAggregateCity && esApartadoKino(current.slug)
+      ? searchParams.vista === "conjuntos"
+        ? "conjuntos"
+        : "separados"
+      : null;
+  const kinoConjuntos = kinoVista === "conjuntos" ? await getConjuntosDeCiudad(city.id) : null;
 
   // Planta (ver isPlantaFichaTecnicaSection abajo): en vez de tabla, cada
   // planta se ve como su propio recuadro con nombre + listado (ver
@@ -585,7 +601,13 @@ export default async function SectionPage({
         <ResumenPanel
           citySlug={city.slug}
           tab={searchParams.tab ?? "general"}
-          ambito={searchParams.ambito === "estaciones" ? "ESTACIONES" : "UNIDADES"}
+          ambito={
+            searchParams.ambito === "estaciones"
+              ? "ESTACIONES"
+              : searchParams.ambito === "planta"
+                ? "PLANTA"
+                : "UNIDADES"
+          }
           estacionId={searchParams.estacion}
         />
       ) : isInventarios ? (
@@ -611,7 +633,36 @@ export default async function SectionPage({
         </div>
       ) : isVehicleSection ? (
         <div>
-          {isAggregateCity ? (
+          {kinoVista && (
+            <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-white p-1 text-sm" role="tablist">
+              {(
+                [
+                  ["separados", current.slug === TRACTOCAMIONES_SLUG ? "Solo tractocamiones" : "Solo semirremolques"],
+                  ["conjuntos", "Por conjunto (como en los dictámenes)"],
+                ] as const
+              ).map(([valor, etiqueta]) => (
+                <Link
+                  key={valor}
+                  href={valor === "separados" ? "?" : "?vista=conjuntos"}
+                  role="tab"
+                  aria-selected={kinoVista === valor}
+                  className={`rounded-md px-3 py-1.5 font-medium transition ${
+                    kinoVista === valor ? "bg-primary text-white" : "text-ink hover:bg-gray-50"
+                  }`}
+                >
+                  {etiqueta}
+                </Link>
+              ))}
+            </div>
+          )}
+          {kinoConjuntos ? (
+            <ConjuntosTransporteView
+              cityId={city.id}
+              citySlug={city.slug}
+              {...kinoConjuntos}
+              puedeEditar={isAdmin}
+            />
+          ) : isAggregateCity ? (
             <AggregateVehicleTable records={aggregateVehicleRecords} sectionSlug={current.slug} />
           ) : (
             <>

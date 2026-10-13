@@ -36,7 +36,21 @@ import {
   maintenanceAlertBadgeStyles,
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
-import { getValveAlertLevel, getValveVencimiento, valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import {
+  getValveAlertLevel,
+  getValveVencimiento,
+  valveAlertBadgeStyles,
+  valveAlertLabel,
+  valveDatesFromSheet,
+} from "@/lib/valve-alerts";
+import {
+  VALVULAS_TANQUE_CARGA,
+  VALVULAS_CARBURACION,
+  VALVULA_MAXIMO_LLENADO_85,
+  CAMPOS_TRACTOCAMION,
+  CAMPOS_SEMIRREMOLQUE,
+  type ValvulaDef,
+} from "@/lib/ficha-campos";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { SECTION_STYLES } from "@/lib/section-colors";
 import type { CustomFieldDef } from "@/lib/custom-fields";
@@ -53,6 +67,14 @@ function Item({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+// Fecha de fabricación de la válvula y, si se capturó, su número de serie.
+function valvulaTexto(sheet: VehicleTechnicalSheet, valvula: ValvulaDef): string | null {
+  const fecha = formatDate(sheet[valvula.fecha]);
+  const codigo = sheet[valvula.codigo];
+  if (fecha && codigo) return `${fecha} · No. de serie ${codigo}`;
+  return fecha || (codigo ? `No. de serie ${codigo}` : null);
+}
+
 export function TechnicalSheetView({
   sheet,
   sectionSlug,
@@ -65,6 +87,10 @@ export function TechnicalSheetView({
   showMaintenancePreventiveSection = true,
   showAutomovilSection = true,
   showExtintorSection = true,
+  showGobernadorSection = false,
+  showTractocamionSection = false,
+  showSemirremolqueSection = false,
+  showUnidadAsignada = false,
   camposExtra = [],
   valoresExtra = {},
 }: {
@@ -104,6 +130,11 @@ export function TechnicalSheetView({
   // desde Auto-Tanques (ver imprimir/page.tsx y lib/alert-visibility.ts, que
   // ya trata a Auto-Tanques como el dueño del extintor en ese par).
   showExtintorSection?: boolean;
+  // Ver TechnicalSheetForm (Auto-Tanques/Tractocamiones y Transportadora Kino).
+  showGobernadorSection?: boolean;
+  showTractocamionSection?: boolean;
+  showSemirremolqueSection?: boolean;
+  showUnidadAsignada?: boolean;
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
   camposExtra?: CustomFieldDef[];
   valoresExtra?: Record<string, string>;
@@ -124,17 +155,7 @@ export function TechnicalSheetView({
     sheet.fechaCalidadMalaExtintor
   );
   const maintenanceAlertLevel = getMaintenanceAlertLevel(sheet.fechaProximoMantenimiento);
-  const valveDates = {
-    fechaFabricacionValvulaLlenado: sheet.fechaFabricacionValvulaLlenado,
-    fechaFabricacionValvulaNoRetroceso: sheet.fechaFabricacionValvulaNoRetroceso,
-    fechaFabricacionValvulaBypass: sheet.fechaFabricacionValvulaBypass,
-    fechaFabricacionValvulaRetornoVapores: sheet.fechaFabricacionValvulaRetornoVapores,
-    fechaFabricacionValvulaServicio: sheet.fechaFabricacionValvulaServicio,
-    fechaFabricacionValvulaMaximoLlenado: sheet.fechaFabricacionValvulaMaximoLlenado,
-    fechaFabricacionValvulaMaximoLlenado85: sheet.fechaFabricacionValvulaMaximoLlenado85,
-    fechaFabricacionValvulaAlivio: sheet.fechaFabricacionValvulaAlivio,
-    fechaFabricacionValvulaDescargaEmergencia: sheet.fechaFabricacionValvulaDescargaEmergencia,
-  };
+  const valveDates = valveDatesFromSheet(sheet);
   const valveAlertLevel = getValveAlertLevel(valveDates);
   const valveVencimiento = getValveVencimiento(valveDates);
   const hoseAlertLevel = getHoseAlertLevel(sheet.fechaFabricacionManguera);
@@ -188,7 +209,39 @@ export function TechnicalSheetView({
             <Item label="Chofer" value={sheet.chofer} />
             <Item label="Número de póliza" value={sheet.numeroPoliza} />
             <Item label="Inciso" value={sheet.inciso} />
+            {showUnidadAsignada && (
+              <Item
+                label={showTractocamionSection ? "Semirremolques asignados" : "Tractocamión asignado"}
+                value={sheet.unidadAsignada}
+              />
+            )}
             <CustomFieldItems campos={camposExtra} seccion="automovil" valores={valoresExtra} />
+          </dl>
+        </div>
+      )}
+
+      {showTractocamionSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Datos del tractocamión</h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {CAMPOS_TRACTOCAMION.flatMap((grupo) => grupo.campos).map(({ campo, etiqueta }) => (
+              <Item key={campo} label={etiqueta} value={sheet[campo]} />
+            ))}
+          </dl>
+        </div>
+      )}
+
+      {showGobernadorSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Gobernador de velocidad</h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Item label="¿Tiene gobernador?" value={sheet.tieneGobernador ? "Sí" : "No"} />
+            {sheet.tieneGobernador && (
+              <>
+                <Item label="Número de identificación" value={sheet.numeroGobernador} />
+                <Item label="Empresa que lo instaló" value={sheet.empresaGobernador} />
+              </>
+            )}
           </dl>
         </div>
       )}
@@ -231,6 +284,17 @@ export function TechnicalSheetView({
               </>
             )}
             <CustomFieldItems campos={camposExtra} seccion="tanque" valores={valoresExtra} />
+          </dl>
+        </div>
+      )}
+
+      {showSemirremolqueSection && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Datos del semirremolque</h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {CAMPOS_SEMIRREMOLQUE.flatMap((grupo) => grupo.campos).map(({ campo, etiqueta }) => (
+              <Item key={campo} label={etiqueta} value={sheet[campo]} />
+            ))}
           </dl>
         </div>
       )}
@@ -371,63 +435,33 @@ export function TechnicalSheetView({
           )}
           {sectionSlug === "vehiculo-con-tanque-de-carburacion" ? (
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Item
-                label="Válvula de llenado (Doble check)"
-                value={formatDate(sheet.fechaFabricacionValvulaLlenado) || null}
-              />
-              <Item
-                label="Válvula de máximo llenado (purgador)"
-                value={formatDate(sheet.fechaFabricacionValvulaMaximoLlenado) || null}
-              />
-              <Item
-                label="Válvula de servicio (reguladora)"
-                value={formatDate(sheet.fechaFabricacionValvulaServicio) || null}
-              />
-              <Item
-                label="Válvula de seguridad"
-                value={formatDate(sheet.fechaFabricacionValvulaAlivio) || null}
-              />
+              {VALVULAS_CARBURACION.map((valvula) => (
+                <Item key={valvula.fecha} label={valvula.etiqueta} value={valvulaTexto(sheet, valvula)} />
+              ))}
               <CustomFieldItems campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
             </dl>
           ) : (
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Item
-                label="Válvula de llenado"
-                value={formatDate(sheet.fechaFabricacionValvulaLlenado) || null}
-              />
-              <Item
-                label="Válvula de no retroceso (check)"
-                value={formatDate(sheet.fechaFabricacionValvulaNoRetroceso) || null}
-              />
-              <Item
-                label="Válvula de retroceso (bypass)"
-                value={formatDate(sheet.fechaFabricacionValvulaBypass) || null}
-              />
-              <Item
-                label="Válvula de retorno de vapores"
-                value={formatDate(sheet.fechaFabricacionValvulaRetornoVapores) || null}
-              />
-              <Item
-                label="Válvula de servicio de vapor"
-                value={formatDate(sheet.fechaFabricacionValvulaServicio) || null}
-              />
-              <Item
-                label="Válvula de máximo llenado 90%"
-                value={formatDate(sheet.fechaFabricacionValvulaMaximoLlenado) || null}
-              />
+              {VALVULAS_TANQUE_CARGA.map((valvula) => (
+                <Item
+                  key={valvula.fecha}
+                  label={valvula.entraEnAlerta ? valvula.etiqueta : `${valvula.etiqueta} (referencia)`}
+                  value={valvulaTexto(sheet, valvula)}
+                />
+              ))}
               {sheet.tieneValvulaMaximoLlenado85 && (
                 <Item
-                  label="Válvula de máximo llenado 85%"
-                  value={formatDate(sheet.fechaFabricacionValvulaMaximoLlenado85) || null}
+                  label={VALVULA_MAXIMO_LLENADO_85.etiqueta}
+                  value={valvulaTexto(sheet, VALVULA_MAXIMO_LLENADO_85)}
                 />
               )}
               <Item
-                label="Válvula de seguridad"
-                value={formatDate(sheet.fechaFabricacionValvulaAlivio) || null}
-              />
-              <Item
-                label="Válvula de descarga de emergencia"
-                value={formatDate(sheet.fechaFabricacionValvulaDescargaEmergencia) || null}
+                label="Manguera de surtir"
+                value={
+                  [formatDate(sheet.fechaFabricacionMangueraSurtir), sheet.medidaMangueraSurtir]
+                    .filter(Boolean)
+                    .join(" · ") || null
+                }
               />
             </dl>
           )}

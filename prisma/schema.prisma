@@ -84,6 +84,8 @@ model City {
 
   sections   Section[]
   userAccess UserCityAccess[]
+  // Solo Transportadora Kino (ver ConjuntoTransporte).
+  conjuntosTransporte ConjuntoTransporte[]
 
   @@map("cities")
 }
@@ -227,6 +229,10 @@ model VehicleRecord {
   insurancePolicyLogs      InsurancePolicyLog[]
   complianceChecklistItems ComplianceChecklistItem[]
   sealLogs                 SealLog[]
+  // Transportadora Kino (ver ConjuntoTransporte): un tractocamión puede
+  // encabezar varios conjuntos; un semirremolque está en uno solo a la vez.
+  conjuntosComoTractocamion ConjuntoTransporte[]    @relation("ConjuntoTractocamion")
+  conjuntoSemirremolque     ConjuntoSemirremolque?
 
   @@map("vehicle_records")
 }
@@ -384,6 +390,83 @@ model VehicleTechnicalSheet {
   // manguera (ver lib/hose-alerts.ts).
   fechaInstalacionMangueras DateTime?
   fechaFabricacionManguera  DateTime?
+
+  // Dos válvulas más del tanque de carga (Auto-Tanques y Semirremolques),
+  // que llegaron con el levantamiento de válvulas de la flotilla: entran al
+  // cálculo de la alerta igual que las de arriba (ver lib/valve-alerts.ts).
+  fechaFabricacionValvulaExcesoFlujo DateTime?
+  fechaFabricacionValvulaCheckLock   DateTime?
+  // La válvula interna NO entra a la alerta de 5 años: en el levantamiento
+  // viene con fechas de 2005 a 2019 y no se cambia con el juego; es dato de
+  // referencia.
+  fechaFabricacionValvulaInterna     DateTime?
+
+  // Código grabado en cada válvula, tal cual se leyó en campo ("03C26" =
+  // marzo 2026, lote C; o "Ilegible", "No tiene"). Es texto libre de
+  // referencia: la fecha que alimenta la alerta es fechaFabricacionValvula*.
+  codigoValvulaLlenado            String?
+  codigoValvulaNoRetroceso        String?
+  codigoValvulaBypass             String?
+  codigoValvulaRetornoVapores     String?
+  codigoValvulaServicio           String?
+  codigoValvulaMaximoLlenado      String?
+  codigoValvulaMaximoLlenado85    String?
+  codigoValvulaAlivio             String?
+  codigoValvulaDescargaEmergencia String?
+  codigoValvulaExcesoFlujo        String?
+  codigoValvulaCheckLock          String?
+  codigoValvulaInterna            String?
+
+  // Manguera de surtir del tanque de carga (Auto-Tanques). Distinta de la
+  // manguera de carburación de arriba: no tiene alerta, es dato de referencia.
+  fechaFabricacionMangueraSurtir DateTime?
+  medidaMangueraSurtir           String?
+
+  // Gobernador (limitador) de velocidad.
+  tieneGobernador    Boolean @default(false)
+  numeroGobernador   String?
+  empresaGobernador  String?
+
+  // Unidad(es) con las que se acopla: en un Tractocamión, sus
+  // semirremolques; en un Semirremolque, su tractocamión (Transportadora
+  // Kino, ver lib/kino-sections.ts). Texto libre, sin relación en la base:
+  // la asignación cambia y no alimenta ningún cálculo.
+  unidadAsignada String?
+
+  // Tractocamión (Transportadora Kino): datos de la ficha técnica que se
+  // arma con la factura de compra. "potencia" ya existía arriba.
+  claveVehicular       String?
+  facturaNumero        String?
+  facturaFecha         String?
+  motorMarca           String?
+  motorModelo          String?
+  motorTorque          String?
+  numeroMotor          String?
+  transmisionMarca     String?
+  transmisionModelo    String?
+  transmisionVelocidades String?
+  numeroTransmision    String?
+  ejeDelantero         String?
+  ejesTraseros         String?
+  suspension           String?
+  cabina               String?
+  dormitorio           String?
+  quintaRueda          String?
+
+  // Semirremolque (Transportadora Kino): identificación ante Pemex/CRE y
+  // datos del certificado de fabricación del recipiente que no tenían ya
+  // un campo en la placa del tanque (placa* de arriba).
+  numeroPemex               String?
+  idCre                     String?
+  fabricadoPara             String?
+  ordenTrabajo              String?
+  factorSeguridad           String?
+  sobreespesorCorrosion     String?
+  soldadura                 String?
+  relevadoEsfuerzos         String?
+  pruebasFabricacion        String?
+  presionPruebaHidrostatica String?
+  resultadoPruebas          String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1041,6 +1124,9 @@ model ValveChangeLog {
   // carga la tienen.
   tieneValvulaMaximoLlenado85               Boolean   @default(false)
   fechaFabricacionValvulaMaximoLlenado85    DateTime?
+  // Opcionales, solo tanque de carga (ver VehicleTechnicalSheet).
+  fechaFabricacionValvulaExcesoFlujo        DateTime?
+  fechaFabricacionValvulaCheckLock          DateTime?
 
   createdById String?
   createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -1482,4 +1568,48 @@ model ActivityLog {
   createdAt DateTime @default(now())
 
   @@map("activity_log")
+}
+
+// Unidad de transporte de Transportadora Kino tal como se dictamina:
+// un tractocamión con uno o dos semirremolques acoplados (con dolly), y su
+// nombre es el del dictamen ("Dictamen 05"). Sirve para ver juntos, en los
+// apartados de Tractocamiones y Semirremolques, los que viajan juntos (ver
+// components/city/ConjuntosTransporteView.tsx). Es solo la agrupación: no
+// guarda datos de mantenimiento, así que borrar un conjunto no toca ninguna
+// unidad ni bitácora.
+model ConjuntoTransporte {
+  id String @id @default(cuid())
+
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  nombre        String
+  orden         Int     @default(0)
+  observaciones String?
+
+  tractocamionId String?
+  tractocamion   VehicleRecord? @relation("ConjuntoTractocamion", fields: [tractocamionId], references: [id], onDelete: SetNull)
+
+  semirremolques ConjuntoSemirremolque[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("conjuntos_transporte")
+}
+
+// Un semirremolque dentro de un conjunto. vehicleRecordId es único: un
+// semirremolque no puede estar en dos conjuntos a la vez.
+model ConjuntoSemirremolque {
+  id String @id @default(cuid())
+
+  conjuntoId String
+  conjunto   ConjuntoTransporte @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+
+  vehicleRecordId String        @unique
+  vehicleRecord   VehicleRecord @relation(fields: [vehicleRecordId], references: [id], onDelete: Cascade)
+
+  orden Int @default(0)
+
+  @@map("conjunto_semirremolques")
 }

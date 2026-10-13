@@ -1,18 +1,33 @@
 import type { StationTankTechnicalSheet } from "@prisma/client";
 import { prisma } from "./prisma";
 import { isAlertVisibleForSection, type AlertType } from "./alert-visibility";
-import { getValveVencimiento, type ValveDates } from "./valve-alerts";
+import { getValveVencimiento, valveDatesFromSheet } from "./valve-alerts";
 import { getHoseVencimiento } from "./hose-alerts";
 import { getStationValveVencimiento } from "./station-valves";
+import { PLANTA_INSTRUMENT_FIELDS, getPlantaInstrumentVencimiento } from "./planta-tank-instruments";
 import { ESTACION_LIKE_SECTION_SLUGS } from "./estacion-sections";
 
-// A qué ámbito pertenece el resumen: una unidad normal o una Estación de
-// carburación/Planta (ver ESTACION_LIKE_SECTION_SLUGS). Ambas cuentan con las
-// mismas 5 inspecciones periódicas (viven igual en VehicleTechnicalSheet),
-// pero "valvulas" es un juego totalmente distinto en cada una (ver
-// lib/valve-alerts.ts vs lib/station-valves.ts), y extintor/mangueras no
-// aplican a una estación fija.
-export type ResumenAmbito = "UNIDADES" | "ESTACIONES";
+// A qué ámbito pertenece el resumen: una unidad normal, una Estación de
+// carburación, o Planta. Los tres cuentan con las mismas 5 inspecciones
+// periódicas (viven igual en VehicleTechnicalSheet/StationTankTechnicalSheet),
+// pero el "juego de válvulas" es un sistema físico distinto en cada una (ver
+// lib/valve-alerts.ts para unidad, lib/station-valves.ts para estación,
+// lib/planta-tank-instruments.ts para planta — CLAUDE.md los documenta como
+// "los tres sistemas de válvulas que no se mezclan a propósito"), y
+// extintor/mangueras no aplican ni a estación ni a planta.
+export type ResumenAmbito = "UNIDADES" | "ESTACIONES" | "PLANTA";
+
+// Fecha más próxima entre los 5 instrumentos de un tanque de Planta (cada
+// uno vence por separado, ver lib/planta-tank-instruments.ts): se combinan
+// en una sola fecha aquí solo para que quepan en una fila de este resumen,
+// igual que getStationValveVencimiento combina las 7 válvulas de estación.
+function getPlantaTankEarliestVencimiento(tanque: StationTankTechnicalSheet): Date | null {
+  const vencimientos = PLANTA_INSTRUMENT_FIELDS.map((campo) => getPlantaInstrumentVencimiento(tanque, campo)).filter(
+    (d): d is Date => d !== null
+  );
+  if (vencimientos.length === 0) return null;
+  return vencimientos.reduce((min, d) => (d.getTime() < min.getTime() ? d : min));
+}
 
 // Resumen anual de "Administración": a diferencia de lib/vehicle-alerts-summary.ts
 // (que solo mira los próximos 30 días para las alertas de Inicio), este
@@ -28,6 +43,7 @@ export type YearlySummaryTypeId =
   | "hermeticidad"
   | "hidrostatica"
   | "valvulas"
+  | "instrumentos"
   | "mangueras";
 
 export const YEARLY_SUMMARY_TYPES: YearlySummaryTypeId[] = [
@@ -51,7 +67,20 @@ export const STATION_SUMMARY_TYPES: YearlySummaryTypeId[] = [
   "valvulas",
 ];
 
+// Igual que STATION_SUMMARY_TYPES, pero "instrumentos" en vez de "valvulas":
+// Planta no tiene el juego de 7 válvulas de una estación, tiene 5
+// instrumentos con su propia fecha cada uno (ver lib/planta-tank-instruments.ts).
+export const PLANTA_SUMMARY_TYPES: YearlySummaryTypeId[] = [
+  "ultrasonido",
+  "visualExterna",
+  "visualInterna",
+  "hermeticidad",
+  "hidrostatica",
+  "instrumentos",
+];
+
 export function summaryTypesForAmbito(ambito: ResumenAmbito): YearlySummaryTypeId[] {
+  if (ambito === "PLANTA") return PLANTA_SUMMARY_TYPES;
   return ambito === "ESTACIONES" ? STATION_SUMMARY_TYPES : YEARLY_SUMMARY_TYPES;
 }
 
@@ -83,6 +112,7 @@ export const yearlySummaryLabels: Record<YearlySummaryTypeId, string> = {
   hermeticidad: "Prueba de Hermeticidad",
   hidrostatica: "Prueba Hidrostática",
   valvulas: "Cambio de Válvulas",
+  instrumentos: "Instrumentos del tanque",
   mangueras: "Cambio de Mangueras",
 };
 
@@ -95,13 +125,17 @@ export const yearlySummaryRouteSlugs: Record<YearlySummaryTypeId, string> = {
   hermeticidad: "hermeticidad",
   hidrostatica: "hidrostatica",
   valvulas: "valvulas",
+  instrumentos: "instrumentos",
   mangueras: "mangueras",
 };
 
 // Mismo filtro de visibilidad que las alertas de Inicio (ver
 // lib/alert-visibility.ts), para no repetir la misma unidad dos veces
 // cuando vive en dos apartados pareados (Auto-Tanques / Vehículo con
-// tanque de carburación).
+// tanque de carburación). "instrumentos" reutiliza "valvulas": Planta nunca
+// es "vehiculo-de-reparto"/"vehiculo-con-tanque-de-carburacion" (los únicos
+// casos que isAlertVisibleForSection distingue), así que el resultado es el
+// mismo sin tener que agregar un AlertType nuevo solo para esto.
 const ALERT_TYPE_FOR_SUMMARY_TYPE: Record<YearlySummaryTypeId, AlertType> = {
   extintor: "extintor",
   ultrasonido: "ultrasonido",
@@ -110,11 +144,16 @@ const ALERT_TYPE_FOR_SUMMARY_TYPE: Record<YearlySummaryTypeId, AlertType> = {
   hermeticidad: "hermeticidad",
   hidrostatica: "hidrostatica",
   valvulas: "valvulas",
+  instrumentos: "valvulas",
   mangueras: "mangueras",
 };
 
 // Ancla de la ficha técnica de la unidad a la que debe llevar el link de
 // cada renglón (mismos id= que app/(protected)/ciudades/[citySlug]/vehiculo/[vehicleId]/page.tsx).
+// "instrumentos" usa la misma ancla "valvulas": en la página de detalle es
+// el mismo bloque (id={isEstacionLike ? "valvulas" : undefined}) el que
+// envuelve tanto la ficha del tanque como las válvulas/instrumentos, para
+// Estación y Planta por igual.
 export const yearlySummaryAnchors: Record<YearlySummaryTypeId, string> = {
   extintor: "extintor",
   ultrasonido: "ultrasonido",
@@ -123,6 +162,7 @@ export const yearlySummaryAnchors: Record<YearlySummaryTypeId, string> = {
   hermeticidad: "hermeticidad",
   hidrostatica: "hidrostatica",
   valvulas: "valvulas",
+  instrumentos: "valvulas",
   mangueras: "mangueras",
 };
 
@@ -161,6 +201,8 @@ type TechnicalSheetLike = {
   fechaFabricacionValvulaMaximoLlenado85: Date | null;
   fechaFabricacionValvulaAlivio: Date | null;
   fechaFabricacionValvulaDescargaEmergencia: Date | null;
+  fechaFabricacionValvulaExcesoFlujo?: Date | null;
+  fechaFabricacionValvulaCheckLock?: Date | null;
   fechaFabricacionManguera: Date | null;
 } | null;
 
@@ -173,6 +215,9 @@ function getDueDate(
 ): Date | null {
   if (type === "valvulas" && ambito === "ESTACIONES") {
     return stationSheet ? getStationValveVencimiento(stationSheet) : null;
+  }
+  if (type === "instrumentos" && ambito === "PLANTA") {
+    return stationSheet ? getPlantaTankEarliestVencimiento(stationSheet) : null;
   }
   // Estación/planta con varios tanques: para estos 5 tipos, cada tanque
   // agenda su propia fecha próxima (ver StationTankTechnicalSheet), no la
@@ -209,21 +254,14 @@ function getDueDate(
     case "hidrostatica":
       return sheet.fechaProximaPruebaHidrostatica;
     case "valvulas": {
-      const dates: ValveDates = {
-        fechaFabricacionValvulaLlenado: sheet.fechaFabricacionValvulaLlenado,
-        fechaFabricacionValvulaNoRetroceso: sheet.fechaFabricacionValvulaNoRetroceso,
-        fechaFabricacionValvulaBypass: sheet.fechaFabricacionValvulaBypass,
-        fechaFabricacionValvulaRetornoVapores: sheet.fechaFabricacionValvulaRetornoVapores,
-        fechaFabricacionValvulaServicio: sheet.fechaFabricacionValvulaServicio,
-        fechaFabricacionValvulaMaximoLlenado: sheet.fechaFabricacionValvulaMaximoLlenado,
-        fechaFabricacionValvulaMaximoLlenado85: sheet.fechaFabricacionValvulaMaximoLlenado85,
-        fechaFabricacionValvulaAlivio: sheet.fechaFabricacionValvulaAlivio,
-        fechaFabricacionValvulaDescargaEmergencia: sheet.fechaFabricacionValvulaDescargaEmergencia,
-      };
-      return getValveVencimiento(dates);
+      return getValveVencimiento(valveDatesFromSheet(sheet));
     }
     case "mangueras":
       return getHoseVencimiento(sheet.fechaFabricacionManguera);
+    case "instrumentos":
+      // Inalcanzable en la práctica (siempre entra por la rama de arriba,
+      // ambito === "PLANTA"); solo para que el switch quede exhaustivo.
+      return null;
   }
 }
 
@@ -239,12 +277,14 @@ async function getLogDatesThisYear(
   ambito: ResumenAmbito
 ): Promise<Map<string, Date>> {
   if (vehicleIds.length === 0) return new Map();
-  // El juego de válvulas de una estación (ver lib/station-valves.ts) no
-  // tiene una bitácora propia de cambios: las fechas se sobrescriben
-  // directo en StationTankTechnicalSheet. Sin log no hay forma de saber si
-  // ya se registró un cambio este año, así que ese tipo siempre queda como
+  // El juego de válvulas de una estación (ver lib/station-valves.ts) y los
+  // instrumentos de Planta (ver lib/planta-tank-instruments.ts) no tienen
+  // bitácora propia de cambios: las fechas se sobrescriben directo en
+  // StationTankTechnicalSheet. Sin log no hay forma de saber si ya se
+  // registró un cambio este año, así que esos tipos siempre quedan como
   // "vence"/"sin información", nunca "ya registrado".
   if (type === "valvulas" && ambito === "ESTACIONES") return new Map();
+  if (type === "instrumentos" && ambito === "PLANTA") return new Map();
 
   const where = { vehicleRecordId: { in: vehicleIds } };
   // Los 5 tipos con tanque (ver INSPECTION_TYPES_WITH_TANK) sí guardan
@@ -326,6 +366,11 @@ async function getLogDatesThisYear(
         })
       ).map((r) => ({ key: r.vehicleRecordId, fecha: r.fechaInstalacion }));
       break;
+    case "instrumentos":
+      // Inalcanzable en la práctica (siempre entra por el return de arriba);
+      // solo para que el switch quede exhaustivo.
+      rows = [];
+      break;
   }
 
   const map = new Map<string, Date>();
@@ -369,8 +414,9 @@ export async function getYearlySummary(
 
   const inScope = vehicles.filter((v) => {
     if (!isAlertVisibleForSection(alertType, v.section.slug)) return false;
-    const esEstacion = ESTACION_LIKE_SECTION_SLUGS.includes(v.section.slug);
-    return ambito === "ESTACIONES" ? esEstacion : !esEstacion;
+    if (ambito === "PLANTA") return v.section.slug === "planta-ficha-tecnica";
+    if (ambito === "ESTACIONES") return v.section.slug === "estaciones-de-carburacion";
+    return !ESTACION_LIKE_SECTION_SLUGS.includes(v.section.slug);
   });
   const logDates = await getLogDatesThisYear(
     type,
@@ -387,13 +433,18 @@ export async function getYearlySummary(
   for (const v of inScope) {
     const isMultiTanqueRecord = v.stationTankTechnicalSheets.length > 1;
     // Cuándo se abre un renglón por tanque en vez de uno por registro:
-    // válvulas de estación siempre (juego propio de cada tanque, ver
-    // lib/station-valves.ts), y los 5 tipos de inspección solo cuando el
-    // registro de verdad tiene más de un tanque (con uno solo, la fecha
-    // sigue viviendo en la ficha compartida, igual que siempre).
+    // válvulas de estación e instrumentos de planta siempre (juego propio de
+    // cada tanque, ver lib/station-valves.ts y lib/planta-tank-instruments.ts),
+    // y los 5 tipos de inspección solo cuando el registro de verdad tiene más
+    // de un tanque (con uno solo, la fecha sigue viviendo en la ficha
+    // compartida, igual que siempre).
     const useTankFields =
-      ambito === "ESTACIONES" && INSPECTION_TYPES_WITH_TANK.includes(type) && isMultiTanqueRecord;
-    const usesTankLoop = ambito === "ESTACIONES" && (type === "valvulas" || useTankFields);
+      (ambito === "ESTACIONES" || ambito === "PLANTA") &&
+      INSPECTION_TYPES_WITH_TANK.includes(type) &&
+      isMultiTanqueRecord;
+    const usesTankLoop =
+      (ambito === "ESTACIONES" && (type === "valvulas" || useTankFields)) ||
+      (ambito === "PLANTA" && (type === "instrumentos" || useTankFields));
 
     const tanques: (StationTankTechnicalSheet | null)[] = usesTankLoop
       ? v.stationTankTechnicalSheets.length > 0
@@ -474,4 +525,69 @@ export async function getYearlySummaryAllMissing(
     label: yearlySummaryLabels[type],
     items: results[i].missing,
   })).filter((group) => group.items.length > 0);
+}
+
+export interface YearlySummaryMissingUnit {
+  id: string;
+  numeroEconomico: string;
+  sectionSlug: string;
+  citySlug: string;
+  cityName: string;
+  missingTypes: YearlySummaryTypeId[];
+}
+
+export interface YearlySummaryMissingCityGroup {
+  citySlug: string;
+  cityName: string;
+  units: YearlySummaryMissingUnit[];
+}
+
+// Mismos datos que getYearlySummaryAllMissing, pero reacomodados por ciudad
+// y por unidad en vez de por tipo: cada unidad aparece una sola vez, con la
+// lista completa de qué le falta (para poder anotarlo junto al número
+// económico en vez de repetir la unidad una vez por cada tipo faltante).
+export async function getYearlySummaryMissingByCity(
+  cityIds: string[],
+  year: number,
+  ambito: ResumenAmbito = "UNIDADES"
+): Promise<YearlySummaryMissingCityGroup[]> {
+  const groups = await getYearlySummaryAllMissing(cityIds, year, ambito);
+
+  const byUnit = new Map<string, YearlySummaryMissingUnit>();
+  for (const group of groups) {
+    for (const item of group.items) {
+      // Un tanque en particular sin fecha (ver sufijo " (Tanque N)" en
+      // getYearlySummary) cuenta como que le falta a la unidad completa; no
+      // hace falta distinguir el tanque en este listado por unidad.
+      const nombreBase = item.numeroEconomico.replace(/ \(Tanque \d+\)$/, "");
+      const existente = byUnit.get(item.id);
+      if (existente) {
+        if (!existente.missingTypes.includes(group.type)) existente.missingTypes.push(group.type);
+      } else {
+        byUnit.set(item.id, {
+          id: item.id,
+          numeroEconomico: nombreBase,
+          sectionSlug: item.sectionSlug,
+          citySlug: item.citySlug,
+          cityName: item.cityName,
+          missingTypes: [group.type],
+        });
+      }
+    }
+  }
+
+  const porCiudad = new Map<string, YearlySummaryMissingUnit[]>();
+  for (const unit of byUnit.values()) {
+    const lista = porCiudad.get(unit.citySlug) ?? [];
+    lista.push(unit);
+    porCiudad.set(unit.citySlug, lista);
+  }
+
+  return [...porCiudad.values()]
+    .map((units) => ({
+      citySlug: units[0].citySlug,
+      cityName: units[0].cityName,
+      units: units.sort((a, b) => a.numeroEconomico.localeCompare(b.numeroEconomico, "es", { numeric: true })),
+    }))
+    .sort((a, b) => a.cityName.localeCompare(b.cityName, "es"));
 }

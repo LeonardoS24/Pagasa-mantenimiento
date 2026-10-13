@@ -53,6 +53,22 @@ slugs y de ahí salen banderas como `isVehicleSection`, `isEquiposSection`,
 `ESTACION_LIKE_SECTION_SLUGS` (`lib/estacion-sections.ts`) = estaciones + planta:
 comparten el modelo de ficha técnica del tanque.
 
+**"Transportadora Kino"** (slug `transportadora-kino`) es otra "ciudad", pero su
+"Unidad de distribución" no trae los 4 sub-apartados de siempre sino
+**`tractocamiones`** y **`semirremolques`** (`lib/kino-sections.ts`). Un
+semirremolque lleva el mismo tanque de carga que un Auto-Tanque
+(`esTanqueDeCarga()`: placa, válvulas, 5 pruebas); el tractocamión lleva motor,
+transmisión, ejes, etc. Los campos propios de cada uno y las válvulas con su
+código grabado están listados una sola vez en `lib/ficha-campos.ts`.
+
+Los **conjuntos** (tablas `ConjuntoTransporte` + `ConjuntoSemirremolque`) agrupan
+un tractocamión con hasta 2 semirremolques **tal como vienen en los dictámenes**
+("Dictamen 05"). Un tractocamión puede estar en varios; un semirremolque en uno
+solo. Los apartados de Kino se ven "separados" (tabla de siempre) o
+`?vista=conjuntos`. La fuente de verdad de con quién viaja cada unidad son los
+conjuntos, no el campo `unidadAsignada` (dato viejo de la relación de tanques,
+ya no se muestra).
+
 **"Administración"** es una ciudad agregada (`lib/aggregate-city.ts`): no tiene
 flota propia, combina los datos de todas las ciudades reales.
 
@@ -60,7 +76,15 @@ flota propia, combina los datos de todas las ciudades reales.
 
 Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
 
-1. **Unidades** (`VehicleTechnicalSheet`, `lib/valve-alerts.ts`) — 9 válvulas.
+1. **Unidades** (`VehicleTechnicalSheet`, `lib/valve-alerts.ts`) — 11 válvulas
+   en la alerta (se agregaron exceso de flujo y check lock); la **válvula
+   interna** se guarda pero NO entra a la alerta. Cada válvula tiene además su
+   `codigoValvula*` (texto grabado, de referencia). Para armar las fechas usa
+   siempre `valveDatesFromSheet(sheet)`, no un objeto a mano. **Los nombres son
+   los del Excel de flotilla** (`lib/ficha-campos.ts`); el otro nombre va entre
+   paréntesis solo cuando es seguro que es la misma válvula. Pendiente de
+   confirmar con el usuario: servicio de vapor = retorno de vapores?, descarga
+   de emergencia = interna?, máximo llenado = purgador?, servicio = reguladora?
 2. **Estaciones de carburación** (`StationTankTechnicalSheet`,
    `lib/station-valves.ts`) — 7 válvulas, solo fecha de fabricación de cada una,
    y **una sola alerta combinada**: vence 5 años después de la más antigua.
@@ -138,6 +162,31 @@ porque el sistema se sirve por HTTP en la red local; se activa con
   patrón es lista fija en el código + tabla de "extras" que el ADMIN agrega,
   unidas por una función `*-runtime.ts`. Nunca leer la constante directo.
 - **Commits**: mensaje en español, en presente, explicando el *porqué*.
+
+## Excel que descarga el sistema
+
+`lib/excel-formato.ts` (con `xlsx-js-style`, porque `xlsx` no escribe colores)
+copia el formato del Excel del equipo: encabezado con un color por grupo de
+columnas, filas alternadas, bordes gris claro y **el nombre de una unidad dada
+de baja en naranja (FAC090)**. Toda hoja nueva debe pasar por `hojaConFormato`.
+
+## Documentos de pruebas
+
+`/ciudades/[citySlug]/documentos-de-pruebas` junta todos los documentos subidos
+en los registros de las unidades (`lib/test-documents.ts`) y los baja en un ZIP
+(`app/api/ciudades/[citySlug]/documentos-zip`, ZIP propio sin dependencias en
+`lib/zip.ts`). El endpoint vuelve a filtrar los ids por ciudad: llegan del
+navegador.
+
+## Importaciones que se corren en el SERVIDOR
+
+Esta laptop es desarrollo (ver `DESPLIEGUE.md`). Las importaciones son scripts
+repetibles en `scripts/` (sin `_`), con simulación por defecto y `--apply` para
+guardar; solo llenan campos vacíos, y lo que no existe en la base lo **dan de
+alta** en vez de ignorarlo:
+
+- `importar-valvulas-flotilla.mts "<Flotilla Pagasa - Unidades_1.xlsx>"`
+- `crear-transportadora-kino.mts "<carpeta TRANSPORTADORA KINO>"`
 
 ## Estado y pendientes
 

@@ -20,6 +20,9 @@ const ICONS: Record<string, IconDef> = {
   "vehiculo-con-tanque-de-carburacion": { badge: "bg-primary/10 text-primary", path: null },
   "unidades-utilitarias": { badge: "bg-primary/10 text-primary", path: null },
   "parque-vehicular": { badge: "bg-primary/10 text-primary", path: null },
+  // Transportadora Kino (ver lib/kino-sections.ts).
+  tractocamiones: { badge: "bg-primary/10 text-primary", path: null },
+  semirremolques: { badge: "bg-primary/10 text-primary", path: null },
   // Aunque ahora vive como apartado de nivel superior (no dentro de "Unidad
   // de distribución", ver scripts/move-estaciones-de-carburacion-top-level.mjs),
   // sigue siendo el mismo tipo de apartado (tabla + alta de registros): mismo
@@ -130,6 +133,8 @@ for (const slug of [
   "vehiculo-con-tanque-de-carburacion",
   "unidades-utilitarias",
   "parque-vehicular",
+  "tractocamiones",
+  "semirremolques",
   "estaciones-de-carburacion",
   "planta-ficha-tecnica",
 ]) {

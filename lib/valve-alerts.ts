@@ -17,19 +17,39 @@ export type ValveDates = {
   fechaFabricacionValvulaMaximoLlenado85: Date | null | undefined;
   fechaFabricacionValvulaAlivio: Date | null | undefined;
   fechaFabricacionValvulaDescargaEmergencia: Date | null | undefined;
+  // Solo tanque de carga (Auto-Tanques y Semirremolques). Opcionales en el
+  // tipo para no obligar a cada llamador que arma estas fechas a mano.
+  fechaFabricacionValvulaExcesoFlujo?: Date | null | undefined;
+  fechaFabricacionValvulaCheckLock?: Date | null | undefined;
 };
 
 export const valveLabels: Record<keyof ValveDates, string> = {
   fechaFabricacionValvulaLlenado: "Válvula de llenado",
   fechaFabricacionValvulaNoRetroceso: "Válvula de no retroceso (check)",
-  fechaFabricacionValvulaBypass: "Válvula de retroceso (bypass)",
+  fechaFabricacionValvulaBypass: "Válvula de bypass",
   fechaFabricacionValvulaRetornoVapores: "Válvula de retorno de vapores",
   fechaFabricacionValvulaServicio: "Válvula de servicio de vapor",
   fechaFabricacionValvulaMaximoLlenado: "Válvula de máximo llenado 90%",
   fechaFabricacionValvulaMaximoLlenado85: "Válvula de máximo llenado 85% (opcional)",
-  fechaFabricacionValvulaAlivio: "Válvula de seguridad",
+  fechaFabricacionValvulaAlivio: "Válvula de alivio (seguridad)",
   fechaFabricacionValvulaDescargaEmergencia: "Válvula de descarga de emergencia",
+  fechaFabricacionValvulaExcesoFlujo: "Válvula de exceso de flujo (litrómetro)",
+  fechaFabricacionValvulaCheckLock: "Válvula check lock",
 };
+
+// Saca de una ficha técnica (o de cualquier objeto con estos campos) todas
+// las fechas que entran a la alerta. Antes cada pantalla armaba el objeto a
+// mano campo por campo; con una válvula nueva había que acordarse de
+// agregarla en todos lados o la alerta quedaba distinta según dónde se viera.
+export function valveDatesFromSheet(
+  sheet: { [K in keyof ValveDates]?: Date | null } | null | undefined
+): ValveDates {
+  const dates = {} as ValveDates;
+  for (const key of Object.keys(valveLabels) as (keyof ValveDates)[]) {
+    dates[key] = sheet?.[key] ?? null;
+  }
+  return dates;
+}
 
 function addYears(date: Date, years: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
@@ -105,18 +125,22 @@ export type ValvulaCorrectiva =
   | "MAXIMO_LLENADO_85"
   | "ALIVIO"
   | "DESCARGA_EMERGENCIA"
+  | "EXCESO_FLUJO"
+  | "CHECK_LOCK"
   | "GENERAL";
 
 export const valvulaCorrectivaLabels: Record<ValvulaCorrectiva, string> = {
   LLENADO: "Válvula de llenado",
   NO_RETROCESO: "Válvula de no retroceso (check)",
-  BYPASS: "Válvula de retroceso (bypass)",
+  BYPASS: "Válvula de bypass",
   RETORNO_VAPORES: "Válvula de retorno de vapores",
   SERVICIO: "Válvula de servicio de vapor",
   MAXIMO_LLENADO: "Válvula de máximo llenado 90%",
   MAXIMO_LLENADO_85: "Válvula de máximo llenado 85% (opcional)",
-  ALIVIO: "Válvula de seguridad",
+  ALIVIO: "Válvula de alivio (seguridad)",
   DESCARGA_EMERGENCIA: "Válvula de descarga de emergencia",
+  EXCESO_FLUJO: "Válvula de exceso de flujo (litrómetro)",
+  CHECK_LOCK: "Válvula check lock",
   GENERAL: "General",
 };
 
@@ -126,10 +150,10 @@ export const valvulaCorrectivaLabels: Record<ValvulaCorrectiva, string> = {
 // y cualquier otro tipo de unidad siguen viendo el juego completo de 10
 // (valvulaCorrectivaLabels de arriba, sin cambios).
 const CARBURACION_VALVULAS_CORRECTIVAS: Partial<Record<ValvulaCorrectiva, string>> = {
-  LLENADO: "Válvula de llenado (Doble check)",
-  MAXIMO_LLENADO: "Válvula de máximo llenado (purgador)",
-  SERVICIO: "Válvula de servicio (reguladora)",
-  ALIVIO: "Válvula de seguridad",
+  LLENADO: "Válvula de llenado (doble check)",
+  MAXIMO_LLENADO: "Válvula de máximo llenado 90%",
+  SERVICIO: "Válvula de servicio",
+  ALIVIO: "Válvula de alivio (seguridad)",
   GENERAL: "General",
 };
 

@@ -21,6 +21,8 @@ import {
   type CalidadMantenimiento,
 } from "@/lib/vehicle-enums";
 import { valvulaCorrectivaLabels, type ValvulaCorrectiva } from "@/lib/valve-alerts";
+import { esTanqueDeCarga, esTractocamion, esSemirremolque, esApartadoKino } from "@/lib/kino-sections";
+import { getConjuntosDeUnidad } from "@/lib/conjuntos";
 import { parseChecklistPreventivo } from "@/lib/preventive-checklist";
 import { formatCantidad } from "@/lib/inventory-enums";
 import type { Document, MaintenanceLog, InventoryItem } from "@prisma/client";
@@ -363,6 +365,13 @@ export default async function PrintVehiclePage({
   // visita/impresión, así que la hora del render es la hora de impresión.
   const generatedAt = new Date();
 
+  // Transportadora Kino: con qué unidades forma conjunto según los dictámenes.
+  const conjuntosTexto = esApartadoKino(vehicle.section.slug)
+    ? (await getConjuntosDeUnidad(vehicle.id))
+        .map((c) => `${c.nombre}: ${[...(c.tractocamion ? [c.tractocamion] : []), ...c.semirremolques].map((u) => u.numeroEconomico).join(" + ")}`)
+        .join(" · ") || null
+    : null;
+
   return (
     <div className="mx-auto max-w-4xl print:max-w-none">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -401,6 +410,7 @@ export default async function PrintVehiclePage({
               <Field label="Año" value={vehicle.anio != null ? String(vehicle.anio) : null} />
               <Field label="Placas" value={vehicle.placas} />
               <Field label="Observaciones" value={vehicle.observaciones} />
+              {conjuntosTexto && <Field label="Conjunto (dictamen)" value={conjuntosTexto} />}
             </>
           )}
         </dl>
@@ -415,6 +425,11 @@ export default async function PrintVehiclePage({
       {printRecords.map((record, index) => {
         const isTanqueCarburacion = record.section.slug === "vehiculo-con-tanque-de-carburacion";
         const isAutoTanques = record.section.slug === "auto-tanques";
+        // Semirremolque (Transportadora Kino) lleva el mismo tanque de carga
+        // que un Auto-Tanque (ver lib/kino-sections.ts).
+        const isTanqueDeCarga = esTanqueDeCarga(record.section.slug);
+        const isTractocamion = esTractocamion(record.section.slug);
+        const isSemirremolque = esSemirremolque(record.section.slug);
         const isPlantaRecord = record.section.slug === "planta-ficha-tecnica";
         const isEstacionLike = record.section.slug === "estaciones-de-carburacion" || isPlantaRecord;
         const useDeliveryFormat =
@@ -429,8 +444,8 @@ export default async function PrintVehiclePage({
         // de carburación SÍ tiene tanque aunque todavía no lo hayan llenado, y
         // esconderle el bloque taparía que falta capturarlo. Se imprime con
         // sus huecos a la vista, igual que el resto del formato.
-        const showTankSection = isAutoTanques || isTanqueCarburacion;
-        const showInspeccionesSection = isAutoTanques || isTanqueCarburacion || isEstacionLike;
+        const showTankSection = isTanqueDeCarga || isTanqueCarburacion;
+        const showInspeccionesSection = isTanqueDeCarga || isTanqueCarburacion || isEstacionLike;
 
         const sectionLabel = isAutoTanques
           ? "Auto-Tanques (tanque de carga)"
@@ -480,10 +495,13 @@ export default async function PrintVehiclePage({
                 sheet={record.technicalSheet}
                 sectionSlug={record.section.slug}
                 useDeliveryFormat={useDeliveryFormat}
-                showValveSection={isTanqueCarburacion || isAutoTanques}
+                showValveSection={isTanqueCarburacion || isTanqueDeCarga}
                 showHoseSection={isTanqueCarburacion}
                 showTankSection={showTankSection}
-                showTankNameplateSection={isAutoTanques}
+                showTankNameplateSection={isTanqueDeCarga}
+                showGobernadorSection={isAutoTanques || isTractocamion}
+                showTractocamionSection={isTractocamion}
+                showSemirremolqueSection={isSemirremolque}
                 showInspeccionesSection={showInspeccionesSection}
                 showMaintenancePreventiveSection={!isTanqueCarburacion || !isMerged}
                 showAutomovilSection={index === 0 && !isEstacionLike}
@@ -540,7 +558,7 @@ export default async function PrintVehiclePage({
               </Section>
             )}
 
-            {(isTanqueCarburacion || isAutoTanques) && (
+            {(isTanqueCarburacion || isTanqueDeCarga) && (
               <Section title="Cambio de válvulas">
                 <LogList
                   emptyLabel="Sin cambios de válvulas registrados."
@@ -551,7 +569,7 @@ export default async function PrintVehiclePage({
                       { label: "Fecha de instalación", value: formatDate(log.fechaInstalacion) },
                       { label: "Válvula de llenado", value: formatDate(log.fechaFabricacionValvulaLlenado) },
                       { label: "Válvula de servicio", value: formatDate(log.fechaFabricacionValvulaServicio) },
-                      { label: "Válvula de máximo llenado", value: formatDate(log.fechaFabricacionValvulaMaximoLlenado) },
+                      { label: "Válvula de máximo llenado 90%", value: formatDate(log.fechaFabricacionValvulaMaximoLlenado) },
                       { label: "Válvula de alivio (seguridad)", value: formatDate(log.fechaFabricacionValvulaAlivio) },
                       { label: "Responsable de cambio/instalación", value: log.responsableCambio },
                       { label: "Responsable de supervisión y control", value: log.responsableSupervision },
@@ -561,7 +579,7 @@ export default async function PrintVehiclePage({
               </Section>
             )}
 
-            {(isTanqueCarburacion || isAutoTanques) && (
+            {(isTanqueCarburacion || isTanqueDeCarga) && (
               <Section title="Mantenimiento correctivo de válvulas">
                 <LogList
                   emptyLabel="Sin mantenimientos correctivos registrados."
