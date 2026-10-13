@@ -71,6 +71,21 @@ npm run dev
 Levanta el sistema en `http://localhost:3000` con los datos de la copia, y
 los cambios de código se ven al instante sin tener que compilar.
 
+## Llevar datos nuevos (Excel, carpetas de documentos)
+
+Lo que no es código (un Excel de levantamiento, la carpeta de una ciudad nueva
+con sus PDF) no viaja por git. Se lleva en USB y se importa en el servidor:
+
+1. Copiar a la USB el Excel y/o la carpeta.
+2. En el servidor: `scripts\servidor-actualizar.bat` (trae el código nuevo).
+3. En el servidor: doble clic en `scripts\servidor-importar-datos.bat`. Busca
+   la USB sola, respalda la base, **simula y muestra el resumen**, guarda solo si
+   se escribe SI, verifica y vuelve a levantar el servidor. Cada paso queda
+   registrado en `backups\antes-de-importar\`.
+
+Los scripts de importación (`scripts/importar-*.mts`, `scripts/crear-*.mts`)
+solo llenan lo que falta y nunca pisan lo capturado, así que se pueden repetir.
+
 ## Traer datos frescos a la laptop
 
 Para revisar algo contra la información real (o antes de un cambio
