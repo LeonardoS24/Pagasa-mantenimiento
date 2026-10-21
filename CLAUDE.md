@@ -183,6 +183,9 @@ días en adelante).
   cuadra con los paneles de Inicio. **Si agregas un tipo de alerta con fecha,
   agrégalo también aquí** (es el quinto lugar de la lista de arriba).
 - El extintor no entra: su alerta es por estado (calidad mala), no por fecha.
+- Navegación: botones de mes, selector de mes y año (`SelectorMes`, cambia de
+  página al elegir y conserva los filtros) y panorama del año con los
+  vencimientos de cada mes (clic para saltar a él).
 - Las fechas se guardan a medianoche UTC: el día de calendario se lee con
   `getUTC*` (`diaISO`).
 
@@ -256,6 +259,23 @@ SVG generados en el servidor con `qrcode`.
   componente con pdfjs, importa también el compat. Se probó con Chromium 141
   (sin ese método): la hoja de la unidad impresa a PDF trae todas las páginas
   de cada adjunto.
+
+## Tablero de cumplimiento
+
+`/ciudades/[citySlug]/tablero` (botón en la portada de la ciudad; en
+Administración agrega "por ciudad"): porcentaje de unidades al corriente,
+estado por ciudad y por apartado (barras apiladas), vencidos y próximos por
+tipo, lo que vence en 6 meses y las unidades que requieren atención.
+
+- Sale de `getVencimientos` (`lib/tablero.ts`, `armarTablero` es pura y se
+  prueba con datos inventados). **Estado de una unidad = el peor de sus
+  vencimientos**: vencido / ≤7 días / 8–30 días / al corriente / sin fechas.
+  **% al corriente = al corriente ÷ unidades con alguna fecha**: las que no
+  tienen ninguna fecha capturada se cuentan aparte (no se puede saber), para
+  que un dato faltante no se disfrace de cumplimiento.
+- Es distinto del panel de checklist de normatividad
+  (`ComplianceOverviewPanel`, promedio por ámbito): ese mide el checklist, este
+  mide vencimientos.
 
 ## Sistema de alertas
 
