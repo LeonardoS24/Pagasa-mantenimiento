@@ -175,6 +175,38 @@ días en adelante).
 - Las fechas se guardan a medianoche UTC: el día de calendario se lee con
   `getUTC*` (`diaISO`).
 
+## Reporte semanal de vencimientos por correo
+
+`/admin/reportes` (pestaña "Reportes por correo", solo ADMIN): destinatarios,
+día y hora, cuántos días hacia adelante incluir (los vencidos siempre), cuenta
+SMTP y "Dirección del sistema". Tablas `ConfiguracionReportes` (una fila, id
+`unico`) y `AjusteSistema` (clave/valor; hoy solo `urlBase`, que también usarán
+los códigos QR).
+
+- **Contenido**: `getVencimientos` (lib/vencimientos.ts) de todas las ciudades
+  reales → `armarReporte` (lib/reporte-vencimientos.ts, función pura; HTML con
+  estilos en línea + texto plano) agrupado por ciudad; cada unidad es enlace si
+  hay `urlBase`.
+- **Envío**: `nodemailer`, en `lib/reportes-programados.ts`. `scheduleReportes()`
+  se arranca en `instrumentation.ts` y revisa cada 5 min (la primera a los 60 s)
+  con `debeEnviarse`: ya pasó el día/hora de esta semana, no se mandó, y
+  **solo dentro de las 24 h siguientes** (si el servidor estuvo apagado no manda
+  un reporte viejo); si falla, reintenta a la hora. Solo el envío *automático*
+  anota `ultimoIntento`/`ultimoEnvio`; "Enviar ahora" es prueba y no mueve el de
+  la semana. Hora = la del servidor.
+- **Contraseña SMTP**: se guarda cifrada (AES-256-GCM, llave derivada de
+  `SESSION_SECRET`, `lib/secretos.ts`); nunca vuelve al navegador (vacío al
+  guardar = conservar) y no sale en la bitácora. **Si cambia `SESSION_SECRET`,
+  hay que volver a capturarla** (el panel lo avisa). Sin servidor en el panel se
+  usan `SMTP_HOST/PORT/SECURE/USER/PASS/FROM` del `.env`.
+- Con puerto 587 (sin "conexión cifrada") se exige STARTTLS cuando hay
+  usuario: no manda la contraseña en claro. Gmail: contraseña de aplicación
+  (requiere verificación en 2 pasos). El servidor del sistema necesita salida a
+  internet.
+- Para probar sin correo real: servidor SMTP falso con `smtp-server` en la
+  carpeta temporal y `NODE_TLS_REJECT_UNAUTHORIZED=0` solo en el proceso de
+  prueba.
+
 ## Sistema de alertas
 
 **`lib/vehicle-alerts-summary.ts` → `getAllVehicleAlerts(cityIds)` es la única

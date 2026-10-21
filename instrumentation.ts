@@ -8,6 +8,9 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { scheduleBackups } = await import("./lib/backup");
     scheduleBackups();
+    // Reporte semanal de vencimientos por correo (ver /admin/reportes).
+    const { scheduleReportes } = await import("./lib/reportes-programados");
+    scheduleReportes();
     // Plazos normativos (ver /admin/normas): se cargan al arrancar para que
     // las alertas nunca calculen con los valores base cuando el ADMIN ya
     // ajustó alguno.

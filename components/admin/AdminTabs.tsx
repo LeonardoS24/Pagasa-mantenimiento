@@ -8,6 +8,7 @@ const TABS = [
   { href: "/admin/ciudades", label: "Ciudades y apartados" },
   { href: "/admin/alertas", label: "Alertas" },
   { href: "/admin/normas", label: "Normas y plazos" },
+  { href: "/admin/reportes", label: "Reportes por correo" },
   { href: "/admin/piezas", label: "Piezas y refacciones" },
   { href: "/admin/campos", label: "Recuadros de fichas" },
   { href: "/admin/respaldos", label: "Respaldos" },
@@ -18,7 +19,7 @@ export function AdminTabs() {
   const pathname = usePathname();
 
   return (
-    <div className="mb-6 flex gap-2 border-b border-gray-200">
+    <div className="mb-6 flex flex-wrap gap-x-2 border-b border-gray-200">
       {TABS.map((tab) => {
         const active = pathname.startsWith(tab.href);
         return (
