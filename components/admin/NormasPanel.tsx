@@ -183,8 +183,8 @@ export function NormasPanel({ requisitos }: { requisitos: RequisitoVigente[] }) 
           </table>
         </div>
         <p className="text-xs text-gray-500">
-          Cotejadas con el texto publicado en el DOF (21-oct-2026), salvo estaciones de carburación, de la que todavía
-          no se tiene el texto.
+          Cotejadas con el texto publicado en el DOF (21-oct-2026). De las estaciones de carburación falta confirmar si
+          la NOM-012-ASEA-2021 ya sustituyó a la NOM-003-SEDG-2004.
         </p>
       </section>
 

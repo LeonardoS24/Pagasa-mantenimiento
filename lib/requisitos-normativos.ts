@@ -80,15 +80,27 @@ export const REQUISITOS_BASE: Requisito[] = [
   },
   {
     clave: "valvulas-estacion",
-    nombre: "Válvulas de la estación de carburación",
+    nombre: "Válvulas de la estación: años desde la instalación",
     aplicaA: "Estaciones de carburación",
-    norma: "Criterio interno",
-    numeral: "—",
-    cita: "Se cambian a los 5 años de la fabricación de la válvula más antigua del tanque.",
-    cuentaDesde: "fabricación de la válvula más antigua del tanque",
+    norma: "NOM-003-SEDG-2004",
+    numeral: "Transitorio Cuarto",
+    cita: "Las válvulas de alivio de presión, exceso de flujo, no retroceso, llenado y máximo llenado no deben tener más de cinco años de instaladas.",
+    cuentaDesde: "instalación del juego de válvulas",
     plazoClave: "valvulasEstacion",
-    nota: "Falta la norma que lo fija: la de estaciones de carburación (hoy se cita la NOM-003-SEDG-2004; la NOM-012-ASEA-2021 se menciona como su sustituta). No se tiene su texto.",
-    verificado: false,
+    nota: "Aplica en tanto no exista la norma que valore las estaciones ya construidas (la NOM-012-ASEA-2021 se menciona como su sustituta; no se tiene su texto). Sin fecha de instalación capturada, el sistema cuenta los 5 años desde la fabricación.",
+    verificado: true,
+  },
+  {
+    clave: "valvulas-estacion-fabricacion",
+    nombre: "Válvulas de la estación: años desde la fabricación",
+    aplicaA: "Estaciones de carburación",
+    norma: "NOM-003-SEDG-2004",
+    numeral: "Transitorio Cuarto",
+    cita: "Esas mismas válvulas no deben tener más de siete años a partir de la fecha de fabricación marcada en la válvula.",
+    cuentaDesde: "fabricación de la válvula más antigua",
+    plazoClave: "valvulasEstacionFabricacion",
+    nota: "Vence lo que ocurra primero entre los 5 años de la instalación y los 7 de la fabricación.",
+    verificado: true,
   },
   {
     clave: "instrumentos-planta",
@@ -150,6 +162,28 @@ export const REQUISITOS_BASE: Requisito[] = [
     verificado: true,
   },
   {
+    clave: "dictamen-estacion",
+    nombre: "Dictamen de la estación",
+    aplicaA: "Estaciones de carburación ya construidas",
+    norma: "NOM-003-SEDG-2004",
+    numeral: "Procedimiento de evaluación, artículo 5",
+    cita: "En tanto no exista la norma de valoración de estaciones ya construidas, se dictaminan cada doce meses.",
+    cuentaDesde: "fecha del dictamen",
+    nota: "Sin alerta todavía: falta un campo para la fecha del dictamen.",
+    verificado: true,
+  },
+  {
+    clave: "recipiente-estacion-espesores",
+    nombre: "Evaluación de espesores del recipiente",
+    aplicaA: "Estaciones de carburación",
+    norma: "NOM-003-SEDG-2004",
+    numeral: "8.3.12",
+    cita: "Si el recipiente no portátil tiene 10 años o más desde su fabricación, debe tener dictamen vigente de evaluación de espesores del cuerpo y las cabezas (NOM-013-SEDG-2002).",
+    cuentaDesde: "fabricación del tanque; después, cada ultrasonido",
+    nota: "Ya se alerta con el ultrasonido.",
+    verificado: true,
+  },
+  {
     clave: "valvula-interna",
     nombre: "Válvula interna",
     aplicaA: "Auto-Tanques",
@@ -207,8 +241,9 @@ export const REQUISITOS_BASE: Requisito[] = [
 ];
 
 // Normas que rigen cada área hoy. Las de transporte, distribución, plantas y
-// equipos de carburación se cotejaron con el texto del DOF (21-oct-2026); la
-// de estaciones de carburación todavía no se tiene.
+// equipos de carburación y estaciones se cotejaron con el texto del DOF
+// (21-oct-2026); de las estaciones falta confirmar si la NOM-012-ASEA-2021 ya
+// sustituyó a la NOM-003-SEDG-2004.
 export const NORMAS_VIGENTES: { area: string; norma: string; detalle: string }[] = [
   {
     area: "Transporte en auto-tanque y semirremolque (Kino)",
@@ -232,9 +267,9 @@ export const NORMAS_VIGENTES: { area: string; norma: string; detalle: string }[]
   },
   {
     area: "Estaciones de carburación",
-    norma: "Por confirmar",
+    norma: "NOM-003-SEDG-2004",
     detalle:
-      "Se cita la NOM-003-SEDG-2004 (DOF 28-abr-2005); la NOM-012-ASEA-2021 se menciona como su sustituta, pero solo se confirmó su proyecto. Falta tener el texto vigente.",
+      "DOF 28-abr-2005; cancela las NOM-025 y 026-SCFI-1993. La NOM-012-ASEA-2021 se menciona como su sustituta, pero solo se confirmó su proyecto: falta confirmar cuál rige hoy.",
   },
 ];
 

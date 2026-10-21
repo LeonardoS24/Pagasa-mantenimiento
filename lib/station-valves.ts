@@ -72,8 +72,9 @@ function addYears(date: Date, years: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
 }
 
-// Plazo del catálogo de requisitos normativos (base 5 años, editable en
-// /admin/normas) desde la fabricación de la válvula más antigua del juego.
+// Plazos del catálogo de requisitos normativos (base 5 años desde la
+// instalación y 7 desde la fabricación, editables en /admin/normas); la
+// válvula más antigua del juego es la que marca la fecha de fabricación.
 
 // La válvula más antigua del juego es la que vence primero y marca cuándo
 // toca cambiarlo. Las válvulas de seguridad 2/3 solo cuentan cuando la
@@ -102,9 +103,18 @@ export function oldestStationValve(dates: StationValveDates): { key: string; fec
   return oldest;
 }
 
+// NOM-003-SEDG-2004, transitorio Cuarto: las válvulas no deben tener más de 5
+// años de INSTALADAS ni más de 7 desde su FABRICACIÓN; vence lo que ocurra
+// primero. Sin fecha de instalación capturada no se puede contar desde ahí, y
+// se cuentan los 5 años desde la fabricación (lo más pronto que puede vencer
+// según la norma: nunca avisa tarde).
 export function getStationValveVencimiento(dates: StationValveDates): Date | null {
   const oldest = oldestStationValve(dates);
-  return oldest ? addYears(oldest.fecha, plazosActivos().valvulasEstacion) : null;
+  if (!oldest) return null;
+  const plazos = plazosActivos();
+  const porInstalacion = addYears(dates.fechaInstalacionValvulas ?? oldest.fecha, plazos.valvulasEstacion);
+  const porFabricacion = addYears(oldest.fecha, plazos.valvulasEstacionFabricacion);
+  return porInstalacion.getTime() <= porFabricacion.getTime() ? porInstalacion : porFabricacion;
 }
 
 // Mismos umbrales que la alerta de válvulas de una unidad (ver
