@@ -40,7 +40,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     cita: "Las válvulas de relevo de presión, exceso de flujo, no retroceso y llenado deben tener menos de 10 años desde su fabricación, o menos si lo indica el fabricante.",
     cuentaDesde: "fabricación de la válvula más antigua",
     plazoClave: "valvulasTanqueCarga",
-    nota: "La norma fija el plazo a esas 4 válvulas; la alerta lo aplica a todo el juego.",
+    nota: "La norma fija el plazo a esas 4 válvulas; la alerta lo aplica a todo el juego. Los 10 años coinciden con las emergencias anteriores (NOM-EM-006 y 007); no se pudo abrir la NOM-EM-008 para confirmar tabla y numeral.",
     verificado: false,
   },
   {
@@ -74,7 +74,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     cita: "Las mangueras de presión no regulada se cambian cada 2 años desde el inicio de operación del sistema a gas (en vehículos de fábrica, lo que indique el fabricante).",
     cuentaDesde: "fabricación de la manguera",
     plazoClave: "mangueraCarburacion",
-    nota: "La norma cuenta desde el inicio de operación; el sistema, desde la fecha de fabricación capturada.",
+    nota: "La norma cuenta desde el inicio de operación; el sistema, desde la fecha de fabricación capturada. El texto de 9.6.6 y 9.6.7 coincide con la cita del DOF (21-oct-2026); falta leer el original.",
     verificado: false,
   },
   {
@@ -98,7 +98,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     cita: "Cada instrumento se cambia a los 5 años de su último cambio o, si nunca se cambió, de su fabricación.",
     cuentaDesde: "último cambio o, si no hay, fabricación",
     plazoClave: "instrumentosPlanta",
-    nota: "Falta confirmar el numeral y el plazo. La norma que rige las plantas de distribución es la NOM-018-ASEA-2023: revisar su texto en el DOF.",
+    nota: "Falta confirmar el numeral y el plazo. Un resumen de la NOM-018-ASEA-2023 dice que estos instrumentos se reemplazan según la vida útil del fabricante, sin plazo fijo: confirmarlo en el DOF.",
     verificado: false,
   },
 
@@ -123,7 +123,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "9.6.5",
     cita: "Si el recipiente tiene 10 años o más, debe tener dictamen vigente de espesores.",
     cuentaDesde: "fabricación del tanque; después, cada ultrasonido",
-    nota: "Ya se alerta con el ultrasonido (10 años la primera vez, luego 5).",
+    nota: "Ya se alerta con el ultrasonido (10 años la primera vez, luego 5). El texto del proyecto de la norma coincide; falta leer el definitivo.",
     verificado: false,
   },
   {
@@ -156,7 +156,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "Tablas 3 y 4",
     cita: "Se sustituyen a los 5 años desde su fabricación; longitud máxima de 1 m.",
     cuentaDesde: "fabricación del conector",
-    nota: "Sin alerta todavía: falta un campo para su fecha.",
+    nota: "Sin alerta todavía: falta un campo para su fecha. Los 5 años y 1 m coinciden con la NOM-EM-006; falta confirmarlos en la NOM-EM-008.",
     verificado: false,
   },
   {
@@ -189,7 +189,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "13",
     cita: "El dictamen de la instalación tiene vigencia máxima de 1 año.",
     cuentaDesde: "fecha del dictamen",
-    nota: "Sin alerta todavía: falta un campo para su fecha.",
+    nota: "Sin alerta todavía: falta un campo para su fecha. No se pudo confirmar el numeral ni el plazo de 1 año.",
     verificado: false,
   },
 ];
