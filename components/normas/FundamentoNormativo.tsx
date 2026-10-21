@@ -35,13 +35,13 @@ export async function FundamentoNormativo({
               <>
                 {" "}
                 · <span className="font-semibold not-italic">Plazo: {r.plazoAnios} años</span>
-                {r.cuentaDesde !== "—" ? ` desde ${r.cuentaDesde.charAt(0).toLowerCase()}${r.cuentaDesde.slice(1)}` : ""}
+                {r.cuentaDesde !== "—" ? ` desde la ${r.cuentaDesde}` : ""}
               </>
             ) : null}
           </p>
           {!r.verificado && (
             <p className="mt-0.5 font-sans text-[10px] text-amber-700">
-              Pendiente de cotejar con el texto oficial.
+              Por cotejar con el DOF.
             </p>
           )}
         </div>

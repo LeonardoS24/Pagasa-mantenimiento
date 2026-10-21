@@ -13,6 +13,7 @@ import {
 } from "@/lib/vencimientos";
 import { formatDate } from "@/lib/dates";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
+import { SelectorMes } from "@/components/city/SelectorMes";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -102,6 +103,13 @@ export default async function CalendarioPage({
     const f = v.fecha;
     return f.getUTCFullYear() === anio && f.getUTCMonth() === mes;
   });
+  // Panorama del año: cuántos vencimientos y de qué gravedad cae en cada mes,
+  // para saltar directo al mes que interesa.
+  const porMesDelAnio = Array.from({ length: 12 }, (_, m) =>
+    vencimientos.filter((v) => v.fecha.getUTCFullYear() === anio && v.fecha.getUTCMonth() === m)
+  );
+  const hoyFecha = new Date();
+  const baseSinMes = consulta({}).replace(/[?&]mes=[^&]*/, "").replace(/\?$/, "");
   const porDia = new Map<string, Vencimiento[]>();
   for (const v of delMes) {
     const k = diaISO(v.fecha);
@@ -198,21 +206,62 @@ export default async function CalendarioPage({
 
       <section className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <Link href={consulta({ mes: claveMes(anio, mes - 1) })} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-primary hover:bg-primary/5">
-            ← Mes anterior
-          </Link>
-          <h2 className="text-lg font-semibold capitalize text-primary">
-            {MESES[mes]} {anio}
-          </h2>
           <div className="flex gap-2">
+            <Link href={consulta({ mes: claveMes(anio, mes - 1) })} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-primary hover:bg-primary/5">
+              ← Mes
+            </Link>
+            <Link href={consulta({ mes: claveMes(anio, mes + 1) })} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-primary hover:bg-primary/5">
+              Mes →
+            </Link>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <SelectorMes anio={anio} mes={mes} anioMin={hoyFecha.getFullYear() - 3} anioMax={hoyFecha.getFullYear() + 12} base={baseSinMes} />
             <Link href={consulta({})} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-primary hover:bg-primary/5">
               Hoy
             </Link>
-            <Link href={consulta({ mes: claveMes(anio, mes + 1) })} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-primary hover:bg-primary/5">
-              Mes siguiente →
-            </Link>
           </div>
         </div>
+
+        <div className="mb-5">
+          <div className="mb-2 flex items-center justify-between">
+            <Link href={consulta({ mes: claveMes(anio - 1, mes) })} className="text-sm text-primary hover:underline">
+              ← {anio - 1}
+            </Link>
+            <h2 className="text-lg font-semibold text-primary">{anio}</h2>
+            <Link href={consulta({ mes: claveMes(anio + 1, mes) })} className="text-sm text-primary hover:underline">
+              {anio + 1} →
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 lg:grid-cols-12">
+            {porMesDelAnio.map((lista, m) => {
+              const nivel = lista.length ? peor(lista.map((e) => e.nivel)) : null;
+              const activo = m === mes;
+              return (
+                <Link
+                  key={m}
+                  href={consulta({ mes: claveMes(anio, m) })}
+                  aria-current={activo ? "date" : undefined}
+                  className={`rounded-md border px-2 py-1.5 text-center text-xs ${
+                    activo ? "border-primary bg-primary text-white" : "border-gray-200 text-ink hover:bg-gray-50"
+                  }`}
+                >
+                  <span className="block capitalize">{MESES[m].slice(0, 3)}</span>
+                  {nivel ? (
+                    <span className={`mt-0.5 block rounded border px-1 text-[11px] font-semibold ${activo ? "border-white/40 bg-white/20 text-white" : ESTILO_NIVEL[nivel]}`}>
+                      {lista.length}
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 block text-[11px] opacity-40">—</span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        <h2 className="mb-3 text-center text-lg font-semibold capitalize text-primary">
+          {MESES[mes]} {anio}
+        </h2>
 
         <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500">
           {DIAS_SEMANA.map((d) => (

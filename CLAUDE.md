@@ -144,6 +144,17 @@ y cita de cada requisito.
   cálculo de alertas nuevo en el servidor, llama `await asegurarPlazos()`.** Los
   formularios de navegador que calculan su aviso reciben `plazos` por props y
   llaman `fijarPlazos(plazos)`.
+- **Cada requisito cita UNA sola norma, la vigente, con texto corto** (el
+  usuario lo pidió así: nada de "antes decía... en la norma anterior").
+  `NORMAS_VIGENTES` (mismo archivo) lista qué norma rige cada área y se ve
+  arriba en `/admin/normas`. Búsqueda del 21-oct-2026 (solo snippets, el texto
+  oficial no se pudo abrir desde el entorno): transporte **NOM-EM-008-ASEA-2026**;
+  distribución **NOM-EM-009-ASEA-2026**; plantas **NOM-018-ASEA-2023** (sustituye
+  a la NOM-001-SESH-2014); carburación de vehículos **NOM-005-SESH-2010**;
+  estaciones de carburación **NOM-003-SEDG-2004 por confirmar** (la
+  NOM-012-ASEA-2021 se cita como su sustituta pero solo se confirmó el
+  proyecto). **Válvulas de estación e instrumentos de planta siguen como
+  "Criterio interno"** (5 años): falta el numeral/plazo en la norma vigente.
 - **Requisitos "solo referencia"** (conectores flexibles, acoplamiento seco,
   calibración, dictamen de instalación...) están en el catálogo sin plazo
   editable porque todavía no tienen campo ni alerta.
@@ -172,6 +183,9 @@ días en adelante).
   cuadra con los paneles de Inicio. **Si agregas un tipo de alerta con fecha,
   agrégalo también aquí** (es el quinto lugar de la lista de arriba).
 - El extintor no entra: su alerta es por estado (calidad mala), no por fecha.
+- Navegación: botones de mes, selector de mes y año (`SelectorMes`, cambia de
+  página al elegir y conserva los filtros) y panorama del año con los
+  vencimientos de cada mes (clic para saltar a él).
 - Las fechas se guardan a medianoche UTC: el día de calendario se lee con
   `getUTC*` (`diaISO`).
 
@@ -245,6 +259,23 @@ SVG generados en el servidor con `qrcode`.
   componente con pdfjs, importa también el compat. Se probó con Chromium 141
   (sin ese método): la hoja de la unidad impresa a PDF trae todas las páginas
   de cada adjunto.
+
+## Tablero de cumplimiento
+
+`/ciudades/[citySlug]/tablero` (botón en la portada de la ciudad; en
+Administración agrega "por ciudad"): porcentaje de unidades al corriente,
+estado por ciudad y por apartado (barras apiladas), vencidos y próximos por
+tipo, lo que vence en 6 meses y las unidades que requieren atención.
+
+- Sale de `getVencimientos` (`lib/tablero.ts`, `armarTablero` es pura y se
+  prueba con datos inventados). **Estado de una unidad = el peor de sus
+  vencimientos**: vencido / ≤7 días / 8–30 días / al corriente / sin fechas.
+  **% al corriente = al corriente ÷ unidades con alguna fecha**: las que no
+  tienen ninguna fecha capturada se cuentan aparte (no se puede saber), para
+  que un dato faltante no se disfrace de cumplimiento.
+- Es distinto del panel de checklist de normatividad
+  (`ComplianceOverviewPanel`, promedio por ámbito): ese mide el checklist, este
+  mide vencimientos.
 
 ## Sistema de alertas
 
