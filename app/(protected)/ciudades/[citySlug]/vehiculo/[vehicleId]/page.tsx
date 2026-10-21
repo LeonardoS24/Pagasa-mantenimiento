@@ -98,6 +98,7 @@ import {
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
 import {
+  aniosVigenciaValvulas,
   getValveAlertLevel,
   getValveVencimiento,
   valveAlertBadgeStyles,
@@ -346,9 +347,9 @@ export default async function VehicleDetailPage({
   const valveDates = valveDatesFromSheet(vehicle.technicalSheet);
   const valveAlertLevel =
     vehicle.activo && isAlertVisibleForSection("valvulas", vehicle.section.slug)
-      ? getValveAlertLevel(valveDates)
+      ? getValveAlertLevel(valveDates, aniosVigenciaValvulas(vehicle.section.slug))
       : "none";
-  const valveVencimiento = getValveVencimiento(valveDates);
+  const valveVencimiento = getValveVencimiento(valveDates, aniosVigenciaValvulas(vehicle.section.slug));
   // Si el cambio de válvulas está vencido, la unidad se considera en mal
   // estado sin importar lo que diga el último mantenimiento registrado — se
   // recalcula en cada carga de la página, así que en cuanto se registre el

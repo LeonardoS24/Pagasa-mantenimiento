@@ -416,7 +416,7 @@ export function CreateValveChangeLogForm({
         <p className="text-xs text-ink">
           Al aceptar, la ficha técnica actualizará automáticamente todo el juego de fechas de
           fabricación y la fecha de instalación. El aviso de cambio se calcula sobre la válvula
-          con la fecha de fabricación más antigua: vence a los 5 años.
+          con la fecha de fabricación más antigua: vence a los 5 años (10 en Auto-Tanques).
         </p>
 
         <FormMessage state={state} />

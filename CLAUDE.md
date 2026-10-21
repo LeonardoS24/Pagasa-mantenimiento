@@ -85,6 +85,11 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    paréntesis solo cuando es seguro que es la misma válvula. Pendiente de
    confirmar con el usuario: servicio de vapor = retorno de vapores?, descarga
    de emergencia = interna?, máximo llenado = purgador?, servicio = reguladora?
+   **Vida de las válvulas: 5 años desde la fabricación de la más antigua, salvo
+   Auto-Tanques que es de 10** (`aniosVigenciaValvulas(slug)` en
+   `lib/valve-alerts.ts`, un solo lugar). Todo cálculo de vencimiento de
+   válvulas de unidad debe pasar los años: sin el argumento asume 5.
+   Semirremolques lleva el mismo tanque de carga pero se quedó en 5 por ahora.
 2. **Estaciones de carburación** (`StationTankTechnicalSheet`,
    `lib/station-valves.ts`) — 7 válvulas, solo fecha de fabricación de cada una,
    y **una sola alerta combinada**: vence 5 años después de la más antigua.

@@ -1,7 +1,7 @@
 import type { StationTankTechnicalSheet } from "@prisma/client";
 import { prisma } from "./prisma";
 import { isAlertVisibleForSection, type AlertType } from "./alert-visibility";
-import { getValveVencimiento, valveDatesFromSheet } from "./valve-alerts";
+import { aniosVigenciaValvulas, getValveVencimiento, valveDatesFromSheet } from "./valve-alerts";
 import { getHoseVencimiento } from "./hose-alerts";
 import { getStationValveVencimiento } from "./station-valves";
 import { PLANTA_INSTRUMENT_FIELDS, getPlantaInstrumentVencimiento } from "./planta-tank-instruments";
@@ -211,7 +211,8 @@ function getDueDate(
   sheet: TechnicalSheetLike,
   ambito: ResumenAmbito,
   stationSheet?: StationTankTechnicalSheet | null,
-  useTankFields?: boolean
+  useTankFields?: boolean,
+  sectionSlug?: string
 ): Date | null {
   if (type === "valvulas" && ambito === "ESTACIONES") {
     return stationSheet ? getStationValveVencimiento(stationSheet) : null;
@@ -254,7 +255,7 @@ function getDueDate(
     case "hidrostatica":
       return sheet.fechaProximaPruebaHidrostatica;
     case "valvulas": {
-      return getValveVencimiento(valveDatesFromSheet(sheet));
+      return getValveVencimiento(valveDatesFromSheet(sheet), aniosVigenciaValvulas(sectionSlug));
     }
     case "mangueras":
       return getHoseVencimiento(sheet.fechaFabricacionManguera);
@@ -461,7 +462,7 @@ export async function getYearlySummary(
         citySlug: v.section.city.slug,
         cityName: v.section.city.name,
       };
-      const dueDate = getDueDate(type, v.technicalSheet, ambito, tanque, useTankFields);
+      const dueDate = getDueDate(type, v.technicalSheet, ambito, tanque, useTankFields, v.section.slug);
       const fechaRegistro = logDates.get(useTankFields && tanque ? tankLogKey(v.id, tanque.id) : v.id);
 
       if (fechaRegistro) {

@@ -1,6 +1,6 @@
 import { daysUntil } from "@/lib/ultrasound-alerts";
 import { getExtinguisherAlertLevel } from "@/lib/extinguisher-alerts";
-import { getValveVencimiento, type ValveDates } from "@/lib/valve-alerts";
+import { aniosVigenciaValvulas, getValveVencimiento, type ValveDates } from "@/lib/valve-alerts";
 import { getStationValveVencimiento, type StationValveDates } from "@/lib/station-valves";
 import { getHoseVencimiento } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection, type AlertType } from "@/lib/alert-visibility";
@@ -92,7 +92,7 @@ export function getVehicleSemaforoLevel(
     ["visualInterna", sheet.fechaProximaInspeccionVisualInterna],
     ["hidrostatica", sheet.fechaProximaPruebaHidrostatica],
     ["mantenimiento", sheet.fechaProximoMantenimiento],
-    ["valvulas", getValveVencimiento(sheet)],
+    ["valvulas", getValveVencimiento(sheet, aniosVigenciaValvulas(sectionSlug))],
     ["mangueras", getHoseVencimiento(sheet.fechaFabricacionManguera)],
   ];
   for (const [key, fecha] of dateChecks) {

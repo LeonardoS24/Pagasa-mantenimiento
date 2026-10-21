@@ -38,6 +38,7 @@ import {
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
 import {
+  aniosVigenciaValvulas,
   getValveAlertLevel,
   getValveVencimiento,
   valveAlertBadgeStyles,
@@ -149,9 +150,9 @@ export function VehicleTable({
             const valveDates = valveDatesFromSheet(record.technicalSheet);
             const valveAlertLevel =
               record.activo && isAlertVisibleForSection("valvulas", sectionSlug)
-                ? getValveAlertLevel(valveDates)
+                ? getValveAlertLevel(valveDates, aniosVigenciaValvulas(sectionSlug))
                 : "none";
-            const valveVencimiento = getValveVencimiento(valveDates);
+            const valveVencimiento = getValveVencimiento(valveDates, aniosVigenciaValvulas(sectionSlug));
             const hoseAlertLevel = record.activo && isAlertVisibleForSection("mangueras", sectionSlug)
               ? getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera)
               : "none";

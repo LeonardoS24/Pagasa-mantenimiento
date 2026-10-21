@@ -14,6 +14,7 @@ import {
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
 import {
+  aniosVigenciaValvulas,
   getValveAlertLevel,
   getValveVencimiento,
   valveAlertBadgeStyles,
@@ -490,8 +491,8 @@ export function TechnicalSheetForm({
   );
   const maintenanceAlertLevel = getMaintenanceAlertLevel(sheet?.fechaProximoMantenimiento);
   const valveDatesForAlert = valveDatesFromSheet(sheet);
-  const valveAlertLevel = getValveAlertLevel(valveDatesForAlert);
-  const valveVencimiento = getValveVencimiento(valveDatesForAlert);
+  const valveAlertLevel = getValveAlertLevel(valveDatesForAlert, aniosVigenciaValvulas(sectionSlug));
+  const valveVencimiento = getValveVencimiento(valveDatesForAlert, aniosVigenciaValvulas(sectionSlug));
   const hoseAlertLevel = getHoseAlertLevel(sheet?.fechaFabricacionManguera);
   const hoseVencimiento = getHoseVencimiento(sheet?.fechaFabricacionManguera);
 
@@ -1049,7 +1050,7 @@ export function TechnicalSheetForm({
             </>
           )}
           <p className="mt-2 text-xs text-ink">
-            El cambio de válvulas debe hacerse cada 5 años. El aviso se calcula sobre la fecha de
+            El cambio de válvulas debe hacerse cada {aniosVigenciaValvulas(sectionSlug)} años. El aviso se calcula sobre la fecha de
             fabricación más antigua de todo el juego.
           </p>
         </div>

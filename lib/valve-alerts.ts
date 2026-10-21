@@ -1,7 +1,8 @@
 import { daysUntil } from "./ultrasound-alerts";
 
 // Alerta de cambio de válvulas: vence a los 5 años de fabricación de la más
-// antigua de todo el juego. Mismo esquema amarillo/rojo que el ultrasonido.
+// antigua de todo el juego (10 años en Auto-Tanques, ver
+// aniosVigenciaValvulas). Mismo esquema amarillo/rojo que el ultrasonido.
 // fechaFabricacionValvulaMaximoLlenado85 solo aplica si tieneValvulaMaximoLlenado85
 // es true (no todas las unidades tienen esa válvula); si es null simplemente
 // no participa en el cálculo, igual que cualquier otra fecha vacía.
@@ -51,6 +52,22 @@ export function valveDatesFromSheet(
   return dates;
 }
 
+export const ANIOS_VIGENCIA_VALVULAS = 5;
+
+// Vida máxima de las válvulas desde su fabricación, según el tipo de unidad.
+// Las de los Auto-Tanques (tanque de carga grande) duran 10 años; el resto
+// de las unidades se quedan en 5. Semirremolques lleva el mismo tanque de
+// carga pero por ahora se quedó en 5: si también deben ser 10, agregar su
+// slug aquí. Estaciones y Planta tienen su propia regla (ver
+// lib/station-valves.ts y lib/planta-tank-instruments.ts).
+const ANIOS_VIGENCIA_VALVULAS_POR_APARTADO: Record<string, number> = {
+  "auto-tanques": 10,
+};
+
+export function aniosVigenciaValvulas(sectionSlug: string | null | undefined): number {
+  return (sectionSlug && ANIOS_VIGENCIA_VALVULAS_POR_APARTADO[sectionSlug]) || ANIOS_VIGENCIA_VALVULAS;
+}
+
 function addYears(date: Date, years: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
 }
@@ -70,13 +87,13 @@ export function oldestValve(
   return oldest;
 }
 
-export function getValveVencimiento(dates: ValveDates): Date | null {
+export function getValveVencimiento(dates: ValveDates, anios: number = ANIOS_VIGENCIA_VALVULAS): Date | null {
   const oldest = oldestValve(dates);
-  return oldest ? addYears(oldest.fecha, 5) : null;
+  return oldest ? addYears(oldest.fecha, anios) : null;
 }
 
-export function getValveAlertLevel(dates: ValveDates): ValveAlertLevel {
-  const vencimiento = getValveVencimiento(dates);
+export function getValveAlertLevel(dates: ValveDates, anios: number = ANIOS_VIGENCIA_VALVULAS): ValveAlertLevel {
+  const vencimiento = getValveVencimiento(dates, anios);
   if (!vencimiento) return "none";
   const daysLeft = daysUntil(vencimiento);
   if (daysLeft <= 7) return "red";
