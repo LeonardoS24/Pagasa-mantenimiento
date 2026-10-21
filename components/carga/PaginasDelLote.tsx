@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/pdfjs-compat";
 import { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 

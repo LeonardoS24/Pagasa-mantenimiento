@@ -227,6 +227,25 @@ SVG generados en el servidor con `qrcode`.
   ignoran `//dominio`, `https://`, `/api` y `/login`). Antes `from` se ignoraba
   y siempre caía en Inicio.
 
+## Espacio en disco y visor de PDF
+
+- **`/admin/respaldos` muestra cuánto pesa el sistema en vivo**
+  (`lib/almacenamiento.ts`): base (la de `DATABASE_URL`), `uploads/`, `backups/`
+  y espacio libre del disco (`fs.statfs`), con aviso si queda poco. Recuerda
+  que los respaldos viven **en el mismo equipo**: la tarjeta recomienda copiar
+  `uploads/` y `prisma\dev.db` a un disco externo (los respaldos locales no
+  hace falta copiarlos).
+- **pdfjs-dist 6 necesita `Map.prototype.getOrInsertComputed`**, que los
+  navegadores traen desde Chrome/Edge 145. En uno más viejo el visor de PDF, la
+  impresión de adjuntos de la hoja de la unidad y la carga de escaneos
+  fallaban ("No se pudieron preparar estos archivos"). `lib/pdfjs-compat.js`
+  lo polifillea: lo importan los tres componentes que usan pdfjs
+  (`import "@/lib/pdfjs-compat"`) y `scripts/copy-pdf-worker.mjs` lo antepone a
+  `public/pdf.worker.min.mjs` (el worker es otro contexto). Si agregas otro
+  componente con pdfjs, importa también el compat. Se probó con Chromium 141
+  (sin ese método): la hoja de la unidad impresa a PDF trae todas las páginas
+  de cada adjunto.
+
 ## Sistema de alertas
 
 **`lib/vehicle-alerts-summary.ts` → `getAllVehicleAlerts(cityIds)` es la única
