@@ -340,12 +340,12 @@ Al agregar un tipo de alerta hay que tocar **cuatro** lugares (cinco si tiene fe
 lo pintan, y `countValveRedAlerts` (`lib/login-alerts.ts`) si cuenta para el
 aviso rojo al iniciar sesión.
 
-Cada panel separa sus alertas **por ciudad** (encabezado con el conteo, en el
-orden de las ciudades del menú lateral = `City.order`) en `/admin/alertas`, en
-Inicio (si el usuario tiene más de una ciudad) y en la portada de
-"Administración": `ListaPorCiudad` en `components/dashboard/`, activada con el
-prop `ciudades` de cada panel (la portada de una ciudad sola no lo pasa: lista
-plana). Un panel nuevo debe usar `ListaPorCiudad` y aceptar `ciudades`.
+`getAllVehicleAlerts` devuelve cada lista **junta por ciudad** (orden de las
+ciudades del menú lateral = `City.order`, y dentro de cada una por fecha de
+vencimiento), sin separadores: así se lee igual en Inicio, en la portada de la
+ciudad y en `/admin/alertas`. El usuario pidió explícitamente NO separarlas con
+encabezados. Una lista de alertas nueva debe pasar por `porCiudad` al final de
+esa función.
 
 Umbrales: **rojo** ≤ 7 días, **amarillo** ≤ 30 días.
 

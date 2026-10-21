@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ListaPorCiudad } from "./ListaPorCiudad";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
   tightnessTestAlertBadgeStyles,
@@ -19,7 +18,7 @@ type AlertVehicle = {
   level: TightnessTestAlertLevel;
 };
 
-export function TightnessTestAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVehicle[]; ciudades?: string[] }) {
+export function TightnessTestAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -27,8 +26,8 @@ export function TightnessTestAlertsPanel({ vehicles, ciudades }: { vehicles: Ale
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
         Alertas de prueba de hermeticidad de tanque
       </h2>
-      <ListaPorCiudad items={vehicles} ciudades={ciudades}>
-        {(vehicle, i) => (
+      <ul className="space-y-2">
+        {vehicles.map((vehicle, i) => (
           <li
             key={`${vehicle.id}-${i}`}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${
@@ -59,8 +58,8 @@ export function TightnessTestAlertsPanel({ vehicles, ciudades }: { vehicles: Ale
               </Link>
             </span>
           </li>
-        )}
-      </ListaPorCiudad>
+        ))}
+      </ul>
     </div>
   );
 }

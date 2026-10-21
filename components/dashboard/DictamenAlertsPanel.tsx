@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ListaPorCiudad } from "./ListaPorCiudad";
 import { verRecordLabel } from "@/lib/section-labels";
 import { dictamenAlertLabel, dictamenAlertMessage } from "@/lib/dictamen-alerts";
 import type { ValveAlertLevel } from "@/lib/valve-alerts";
@@ -23,7 +22,7 @@ const badge: Record<ValveAlertLevel, string> = {
 
 // Dictámenes de vigencia anual (operación y mantenimiento, NOM-068, instalación
 // de carburación, estación): ver lib/dictamen-alerts.ts.
-export function DictamenAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVehicle[]; ciudades?: string[] }) {
+export function DictamenAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -31,8 +30,8 @@ export function DictamenAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVeh
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
         Alertas de vencimiento de dictámenes
       </h2>
-      <ListaPorCiudad items={vehicles} ciudades={ciudades}>
-        {(vehicle) => (
+      <ul className="space-y-2">
+        {vehicles.map((vehicle) => (
           <li
             key={`${vehicle.id}-${vehicle.dictamen}`}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${
@@ -55,8 +54,8 @@ export function DictamenAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVeh
               </Link>
             </span>
           </li>
-        )}
-      </ListaPorCiudad>
+        ))}
+      </ul>
     </div>
   );
 }

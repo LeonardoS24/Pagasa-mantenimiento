@@ -1,6 +1,5 @@
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
-import { ListaPorCiudad } from "./ListaPorCiudad";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
   hoseAlertBadgeStyles,
@@ -21,7 +20,7 @@ type AlertVehicle = {
   elemento?: string;
 };
 
-export function HoseAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVehicle[]; ciudades?: string[] }) {
+export function HoseAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -29,8 +28,8 @@ export function HoseAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVehicle
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
         Alertas de cambio de mangueras y conectores flexibles
       </h2>
-      <ListaPorCiudad items={vehicles} ciudades={ciudades}>
-        {(vehicle) => (
+      <ul className="space-y-2">
+        {vehicles.map((vehicle) => (
           <li
             key={`${vehicle.id}-${vehicle.elemento ?? ""}`}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${
@@ -56,8 +55,8 @@ export function HoseAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVehicle
               </Link>
             </span>
           </li>
-        )}
-      </ListaPorCiudad>
+        ))}
+      </ul>
       <FundamentoNormativo
         claves={[
           ...(vehicles.some((v) => v.sectionSlug === "auto-tanques" && v.elemento !== "Conector flexible")
