@@ -183,8 +183,8 @@ export function NormasPanel({ requisitos }: { requisitos: RequisitoVigente[] }) 
           </table>
         </div>
         <p className="text-xs text-gray-500">
-          Según una búsqueda en fuentes públicas (oct-2026). No se pudo abrir el texto oficial: cotéjalas en el DOF
-          antes de citarlas hacia fuera.
+          Cotejadas con el texto publicado en el DOF (21-oct-2026), salvo estaciones de carburación, de la que todavía
+          no se tiene el texto.
         </p>
       </section>
 
