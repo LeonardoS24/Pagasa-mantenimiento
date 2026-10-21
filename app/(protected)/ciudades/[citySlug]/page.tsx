@@ -20,6 +20,7 @@ import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstru
 import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPanel";
 import { ComplianceOverviewPanel } from "@/components/city/ComplianceOverviewPanel";
 import { getComplianceOverview } from "@/lib/compliance-stats";
+import { canEdit } from "@/lib/roles";
 
 export default async function CityPage({
   params,
@@ -70,6 +71,18 @@ export default async function CityPage({
           <h1 className="text-2xl font-semibold text-primary">{city.name}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+        {canEdit(user.role) && (
+          <Link
+            href={`/ciudades/${city.slug}/carga-de-documentos`}
+            className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 3h7l5 5v13H7z" />
+              <path d="M14 3v5h5M12 18v-6m0 0-2.5 2.5M12 12l2.5 2.5" />
+            </svg>
+            Cargar documentos escaneados
+          </Link>
+        )}
         <Link
           href={`/ciudades/${city.slug}/documentos-de-pruebas`}
           className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"

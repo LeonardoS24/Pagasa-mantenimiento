@@ -178,6 +178,26 @@ en los registros de las unidades (`lib/test-documents.ts`) y los baja en un ZIP
 `lib/zip.ts`). El endpoint vuelve a filtrar los ids por ciudad: llegan del
 navegador.
 
+## Carga de documentos escaneados
+
+`/ciudades/[citySlug]/carga-de-documentos`: se sube un PDF con varios
+documentos escaneados juntos (pruebas, inspecciones, mantenimientos, pólizas)
+y cada uno termina en la bitácora de su unidad con **solo sus páginas**
+(`pdf-lib`). El escaneo original se conserva en
+`uploads/lotes-documentos/{loteId}/` (tabla `LoteDocumentos`; la lista de
+documentos del lote es un JSON validado con `itemLoteSchema`).
+
+- **Guardar reutiliza las acciones de siempre** (`createUltrasoundLog`,
+  `createMaintenanceLog`, `uploadVehicleDocument`...) armándoles el mismo
+  FormData que su formulario: validación, acceso a la ciudad, fechas próximas
+  y ficha técnica salen de ahí. No duplicar esa lógica en
+  `actions/lote-documentos-actions.ts`. Válvulas no entra (flujo propio).
+- **Nada se guarda sin revisión humana**: lo detectado es una propuesta.
+- **La lectura con IA es opcional y de paga** (`lib/lector-documentos-ia.ts`,
+  API de Claude). Solo se activa con `ANTHROPIC_API_KEY` en el `.env` del
+  servidor; **sin clave el lote se divide a mano** (sin costo), que es como
+  se usa hoy: el usuario no quiere pagar la API.
+
 ## Importaciones que se corren en el SERVIDOR
 
 Esta laptop es desarrollo (ver `DESPLIEGUE.md`). Las importaciones son scripts
