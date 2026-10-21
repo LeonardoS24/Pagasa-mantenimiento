@@ -75,6 +75,18 @@ export function aniosVigenciaValvulas(sectionSlug: string | null | undefined): n
   return (sectionSlug && ANIOS_VIGENCIA_VALVULAS_POR_APARTADO[sectionSlug]) || ANIOS_VIGENCIA_VALVULAS;
 }
 
+// Cómo se agrupan las alertas de válvulas de unidad en pantalla: el tanque de
+// carga (Auto-Tanques y Semirremolques) va aparte del tanque de carburación
+// del vehículo, porque son sistemas distintos con plazo distinto. Cualquier
+// otra unidad que llegara a tener válvulas capturadas va en "otras".
+export type GrupoValvulas = "tanque-de-carga" | "carburacion" | "otras";
+
+export function grupoValvulasDeApartado(sectionSlug: string): GrupoValvulas {
+  if (sectionSlug === "auto-tanques" || sectionSlug === "semirremolques") return "tanque-de-carga";
+  if (sectionSlug === "vehiculo-con-tanque-de-carburacion") return "carburacion";
+  return "otras";
+}
+
 function addYears(date: Date, years: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
 }
