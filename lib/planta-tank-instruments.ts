@@ -48,16 +48,23 @@ function addYears(date: Date, years: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
 }
 
-// Plazo del catálogo de requisitos normativos (base 5 años, editable en
-// /admin/normas), contado desde la fecha de cambio más reciente o, si nunca
-// se ha cambiado, desde la fecha de fabricación.
+// NOM-018-ASEA-2023: las válvulas de exceso de flujo, no retroceso y relevo
+// de presión se reemplazan a los 10 años de su fabricación (o antes, si la
+// garantía del fabricante es menor); el resto de los instrumentos, según la
+// vida útil que marque el fabricante (sin número en la norma: el sistema usa
+// 10 años como tope). Ambos plazos son del catálogo de requisitos normativos
+// (editables en /admin/normas), contados desde la fecha de cambio más
+// reciente o, si nunca se ha cambiado, desde la fecha de fabricación.
+const VALVULAS_DE_SEGURIDAD: PlantaInstrumentField[] = ["excesoFlujoNoRetroceso", "relevoPresion"];
 
 export function getPlantaInstrumentVencimiento(
   dates: PlantaInstrumentDates,
   campo: PlantaInstrumentField
 ): Date | null {
   const base = dates[instrumentCambioField(campo)] ?? dates[instrumentFabricacionField(campo)];
-  return base ? addYears(base, plazosActivos().instrumentosPlanta) : null;
+  if (!base) return null;
+  const plazos = plazosActivos();
+  return addYears(base, VALVULAS_DE_SEGURIDAD.includes(campo) ? plazos.instrumentosPlantaValvulas : plazos.instrumentosPlanta);
 }
 
 export function getPlantaInstrumentAlertLevel(vencimiento: Date | null): ValveAlertLevel {

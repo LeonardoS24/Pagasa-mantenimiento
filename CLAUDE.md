@@ -114,11 +114,17 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    separados** por tipo de tanque (Auto-Tanques y Semirremolques / Vehículo con
    tanque de carburación / otras; `grupoValvulasDeApartado`), cada uno con su
    plazo en el título. Se parte dentro de `ValveAlertsPanel`, no en las páginas.
-   **Pendiente de la tabla, sin alerta todavía** (necesitan campos nuevos o
-   confirmar la regla): conectores flexibles (5 años, máx. 1 m), acoplamiento
-   de desconexión seca (10 años), certificado de calibración de indicador de
-   nivel/manómetro/termómetro, dictamen de la instalación (1 año). Válvula
-   interna: sin plazo fijo (se guarda, no entra a la alerta).
+   **Manómetro de presión** (menos de 10 años, EM-009 Tabla 4 h / EM-008
+   Tabla 3): va como un elemento más de `VALVULAS_TANQUE_CARGA` y entra a la
+   misma alerta que las válvulas (mismo plazo). **Conector flexible** (5 años,
+   máx. 1 m): campo `fechaFabricacionConectorFlexible`, alerta junto con las
+   mangueras (`conectorParaAlerta`, cada elemento con su propia fila y
+   `elemento` para distinguirlos). **Dictámenes anuales**: ver su sección.
+   **Pendiente, sin alerta todavía**: acoplamiento de desconexión seca (10 años,
+   solo Auto-Tanques que cargan en zonas metropolitanas). Válvula interna: sin
+   plazo fijo (se guarda, no entra a la alerta).
+   **Manguera de trasiego: solo Auto-Tanques** (la EM-008 no la fija para
+   Semirremolques, que ya no alertan por ella).
 2. **Estaciones de carburación** (`StationTankTechnicalSheet`,
    `lib/station-valves.ts`) — 7 válvulas, solo fecha de fabricación de cada una,
    y **una sola alerta combinada**: NOM-003-SEDG-2004, transitorio Cuarto
@@ -132,7 +138,12 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    `lib/planta-tank-instruments.ts`) — 5 instrumentos (máximo llenado, manómetro,
    termómetro, exceso de flujo/no retroceso, relevo de presión), cada uno con
    **3 fechas** (fabricación / cambio / instalación) y **alerta propia por
-   separado**, a 5 años del cambio o, si nunca se cambió, de la fabricación.
+   separado**, contada desde el cambio o, si nunca se cambió, desde la
+   fabricación. NOM-018-ASEA-2023: exceso de flujo/no retroceso y relevo de
+   presión a **10 años** (7.2.17.1 XII; `instrumentosPlantaValvulas`); máximo
+   llenado, manómetro y termómetro según la vida útil del fabricante (7.2.17.4
+   VII), sin número en la norma: el sistema usa **10 años como tope**
+   (`instrumentosPlanta`, editable).
 
 Una estación puede tener 2 tanques físicos: `stationTankTechnicalSheets` es 1:N
 con `etiqueta` ("Tanque 1", "Tanque 2") y único por `[vehicleRecordId, etiqueta]`.
@@ -300,13 +311,29 @@ tipo, lo que vence en 6 meses y las unidades que requieren atención.
   (`ComplianceOverviewPanel`, promedio por ámbito): ese mide el checklist, este
   mide vencimientos.
 
+## Dictámenes anuales
+
+Cuatro fechas de **emisión** en `VehicleTechnicalSheet`; el vencimiento es
+emisión + 1 año (`lib/dictamen-alerts.ts`, que también dice a qué apartado
+aplica cada una): `fechaDictamenOperacion` (Auto-Tanques EM-009 7.4.1;
+Semirremolques y Tractocamiones EM-008 7.7.5), `fechaDictamenNom068`
+(Semirremolques y Tractocamiones, EM-008 7.5.3), `fechaDictamenInstalacion`
+(Vehículo con tanque de carburación, NOM-005-SESH-2010 numeral 13),
+`fechaDictamenEstacion` (estaciones, NOM-003-SEDG-2004 art. 5). Se capturan en la
+sección "Dictámenes" de la ficha (solo salen los que le tocan al apartado), el PDF
+va como documento de la unidad. Alerta propia (`dictamenAlertVehicles`,
+`DictamenAlertsPanel`), también en calendario (tipo `dictamen`), tablero,
+reporte por correo, semáforo y Excel. No hay historial de dictámenes: es la
+fecha del último (los anteriores quedan como documentos).
+
 ## Sistema de alertas
 
 **`lib/vehicle-alerts-summary.ts` → `getAllVehicleAlerts(cityIds)` es la única
 fuente.** Alimenta las tres pantallas: Inicio (`/dashboard`), la portada de cada
-ciudad y `/admin/alertas`. Devuelve 11 arreglos (ultrasonido, visual externa,
-hermeticidad, visual interna, hidrostática, extintor, mantenimiento, válvulas de
-unidad, mangueras, válvulas de estación, instrumentos de planta).
+ciudad y `/admin/alertas`. Devuelve un arreglo por tipo (ultrasonido, visual
+externa, hermeticidad, visual interna, hidrostática, extintor, mantenimiento,
+válvulas de unidad, mangueras y conectores, dictámenes, válvulas de estación,
+instrumentos de planta, póliza).
 
 Al agregar un tipo de alerta hay que tocar **cuatro** lugares (cinco si tiene fecha, ver `getVencimientos`) o queda a medias:
 `getAllVehicleAlerts`, su panel en `components/dashboard/`, las tres páginas que
@@ -318,8 +345,10 @@ Umbrales: **rojo** ≤ 7 días, **amarillo** ≤ 30 días.
 **Ciclo de revisión de tanques:** la primera vence a los **10 años** de la fecha
 de fabricación (se calcula al dar de alta el tanque); de ahí en adelante, cada
 revisión registrada agenda la siguiente **5 años** después (`addFiveYears` en
-`internal-visual-inspection-actions.ts` e `hydrostatic-test-actions.ts`). Aplica
-a Planta y a Estaciones.
+`internal-visual-inspection-actions.ts`). Aplica a Planta y a Estaciones. **La
+prueba hidrostática del tanque de carga (Auto-Tanques y Semirremolques) se
+repite cada 10 años** (EM-009 Tabla 3 / EM-008 Tabla 2): `aniosCicloHidrostatica`
+en `hydrostatic-test-actions.ts`; Planta, Estaciones y carburación siguen en 5.
 
 ## Seguridad — dos capas, ambas obligatorias
 

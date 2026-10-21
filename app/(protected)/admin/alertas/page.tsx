@@ -9,6 +9,7 @@ import { ExtinguisherAlertsPanel } from "@/components/dashboard/ExtinguisherAler
 import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlertsPanel";
 import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
 import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
+import { DictamenAlertsPanel } from "@/components/dashboard/DictamenAlertsPanel";
 import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAlertsPanel";
 import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstrumentAlertsPanel";
 import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPanel";
@@ -30,6 +31,7 @@ export default async function AdminAlertasPage() {
     maintenanceAlertVehicles,
     valveAlertVehicles,
     hoseAlertVehicles,
+    dictamenAlertVehicles,
     stationValveAlertVehicles,
     plantaInstrumentAlertVehicles,
     insuranceAlertVehicles,
@@ -45,6 +47,7 @@ export default async function AdminAlertasPage() {
     maintenanceAlertVehicles.length +
     valveAlertVehicles.length +
     hoseAlertVehicles.length +
+    dictamenAlertVehicles.length +
     stationValveAlertVehicles.length +
     plantaInstrumentAlertVehicles.length +
     insuranceAlertVehicles.length;
@@ -67,6 +70,7 @@ export default async function AdminAlertasPage() {
       <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
       <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} />
       <HoseAlertsPanel vehicles={hoseAlertVehicles} />
+      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} />
       <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} />
     </div>
   );

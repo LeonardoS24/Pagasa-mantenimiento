@@ -424,6 +424,29 @@ model VehicleTechnicalSheet {
   fechaFabricacionMangueraSurtir DateTime?
   medidaMangueraSurtir           String?
 
+  // Manómetro de presión del tanque de carga: menos de 10 años desde su
+  // fabricación (NOM-EM-009 Tabla 4 h; NOM-EM-008 Tabla 3). Entra a la alerta
+  // de válvulas del tanque de carga (ver VALVULAS_TANQUE_CARGA).
+  fechaFabricacionManometro DateTime?
+  codigoManometro           String?
+
+  // Conector flexible (el más antiguo, si hay varios): se sustituye a los 5
+  // años de su fabricación. Su alerta sale junto con la de mangueras.
+  fechaFabricacionConectorFlexible DateTime?
+
+  // Dictámenes con vigencia de 1 año: aquí va la fecha de emisión del último
+  // (el vencimiento se calcula sumando un año, ver lib/dictamen-alerts.ts); el
+  // PDF se sube como documento de la unidad.
+  // - Operación y mantenimiento: Auto-Tanques (NOM-EM-009 7.4.1) y
+  //   Semirremolques (NOM-EM-008 7.7.5).
+  // - NOM-068-SCT-2-2014: Semirremolques y Tractocamiones (NOM-EM-008 7.5.3).
+  // - Instalación: Vehículo con tanque de carburación (NOM-005-SESH-2010, 13).
+  // - Estación de carburación: dictamen cada 12 meses (NOM-003-SEDG-2004).
+  fechaDictamenOperacion   DateTime?
+  fechaDictamenNom068      DateTime?
+  fechaDictamenInstalacion DateTime?
+  fechaDictamenEstacion    DateTime?
+
   // Gobernador (limitador) de velocidad.
   tieneGobernador    Boolean @default(false)
   numeroGobernador   String?

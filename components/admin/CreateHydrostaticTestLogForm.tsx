@@ -28,10 +28,13 @@ export function CreateHydrostaticTestLogForm({
   vehicleId,
   stationTankTechnicalSheetId,
   ultimaPruebaHidrostatica,
+  cicloAnios = 5,
 }: {
   vehicleId: string;
   stationTankTechnicalSheetId?: string | null;
   ultimaPruebaHidrostatica: string;
+  // Años que se recorre la fecha próxima (ver aniosCicloHidrostatica).
+  cicloAnios?: number;
 }) {
   const action = createHydrostaticTestLog.bind(null, vehicleId, stationTankTechnicalSheetId ?? null);
   const [state, formAction] = useFormState(action, initialState);
@@ -112,8 +115,8 @@ export function CreateHydrostaticTestLogForm({
 
         <p className="text-xs text-ink">
           Al aceptar, la ficha técnica actualizará automáticamente su “última prueba hidrostática”
-          y la fecha próxima se recorrerá 5 años a partir de esta fecha (la primera prueba, desde
-          la fabricación del tanque, vence a los 10 años; de ahí en adelante cada 5).
+          y la fecha próxima se recorrerá {cicloAnios} años a partir de esta fecha (la primera prueba, desde
+          la fabricación del tanque, vence a los 10 años{cicloAnios === 10 ? "; la norma pide repetirla cada 10" : "; de ahí en adelante cada 5"}).
         </p>
 
         <FormMessage state={state} />

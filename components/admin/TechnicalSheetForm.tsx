@@ -38,6 +38,7 @@ import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { VEHICLE_BRAND_CATALOG, findBrandOption } from "@/lib/vehicle-brand-catalog";
 import type { CustomFieldDef } from "@/lib/custom-fields";
 import { CustomFieldInputs } from "./CustomFieldInputs";
+import { dictamenesDeApartado, getDictamenVencimiento, getDictamenAlertLevel, dictamenAlertLabel } from "@/lib/dictamen-alerts";
 
 const initialState: ActionState = {};
 
@@ -1061,12 +1062,54 @@ export function TechnicalSheetForm({
                   <Field id="medidaMangueraSurtir" label="Medida" defaultValue={sheet?.medidaMangueraSurtir} />
                 </div>
               </div>
+              <div className="mt-3 rounded-md border border-gray-200 bg-white/60 p-3">
+                <p className="mb-2 text-sm font-medium text-ink">Conector flexible</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Field
+                    id="fechaFabricacionConectorFlexible"
+                    label="Fecha de fabricación (el más antiguo, si hay varios)"
+                    type="date"
+                    defaultValue={toDateInputValue(sheet?.fechaFabricacionConectorFlexible)}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-ink">
+                  Se sustituye a los {plazos.conectorFlexible} años de su fabricación; longitud máxima de 1 m.
+                </p>
+              </div>
             </>
           )}
           <p className="mt-2 text-xs text-ink">
             El cambio de válvulas debe hacerse cada {aniosVigenciaValvulas(sectionSlug)} años. El aviso se calcula sobre la fecha de
             fabricación más antigua de todo el juego.
           </p>
+        </div>
+      )}
+
+      {dictamenesDeApartado(sectionSlug).length > 0 && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+          <h3 className="mb-1 text-sm font-semibold uppercase text-primary-bright">Dictámenes (vigencia de 1 año)</h3>
+          <p className="mb-3 text-xs text-ink">
+            Captura la fecha de emisión del último dictamen; el sistema avisa cuando se cumple el año. El PDF se sube como
+            documento de la unidad.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {dictamenesDeApartado(sectionSlug).map((d) => {
+              const emision = sheet?.[d.campo] ?? null;
+              const vence = getDictamenVencimiento(emision);
+              const nivel = getDictamenAlertLevel(vence);
+              return (
+                <div key={d.campo}>
+                  <Field id={d.campo} label={`${d.nombre}: fecha de emisión`} type="date" defaultValue={toDateInputValue(emision)} />
+                  <p className="mt-1 text-xs text-gray-500">{d.fundamento}</p>
+                  {vence && (
+                    <p className={`mt-1 text-xs font-medium ${nivel === "red" ? "text-red-700" : nivel === "yellow" ? "text-yellow-700" : "text-gray-600"}`}>
+                      {nivel === "none" ? `Vigente hasta ${toDateInputValue(vence)}` : dictamenAlertLabel(nivel, vence)}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

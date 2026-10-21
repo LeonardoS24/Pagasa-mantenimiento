@@ -1,8 +1,9 @@
+import { dictamenesDeFicha, type FechasDictamen } from "@/lib/dictamen-alerts";
 import { daysUntil } from "@/lib/ultrasound-alerts";
 import { getExtinguisherAlertLevel } from "@/lib/extinguisher-alerts";
 import { aniosVigenciaValvulas, getValveVencimiento, type ValveDates } from "@/lib/valve-alerts";
 import { getStationValveVencimiento, type StationValveDates } from "@/lib/station-valves";
-import { getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
+import { conectorParaAlerta, getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection, type AlertType } from "@/lib/alert-visibility";
 
 // Semáforo por unidad para los listados (VehicleTable/AggregateVehicleTable):
@@ -60,7 +61,14 @@ type SemaforoTechnicalSheet = {
   fechaCalidadMalaExtintor: Date | null;
   fechaFabricacionManguera: Date | null;
   fechaFabricacionMangueraSurtir?: Date | null;
-} & ValveDates;
+  fechaFabricacionConectorFlexible?: Date | null;
+} & ValveDates &
+  FechasDictamen;
+
+function conectorVencimientoDe(sectionSlug: string, sheet: SemaforoTechnicalSheet): Date | null {
+  const conector = conectorParaAlerta(sectionSlug, sheet);
+  return getHoseVencimiento(conector.fecha, conector.anios);
+}
 
 function hoseVencimientoDe(sectionSlug: string, sheet: SemaforoTechnicalSheet): Date | null {
   const manguera = mangueraParaAlerta(sectionSlug, sheet);
@@ -100,10 +108,16 @@ export function getVehicleSemaforoLevel(
     ["mantenimiento", sheet.fechaProximoMantenimiento],
     ["valvulas", getValveVencimiento(sheet, aniosVigenciaValvulas(sectionSlug))],
     ["mangueras", hoseVencimientoDe(sectionSlug, sheet)],
+    ["mangueras", conectorVencimientoDe(sectionSlug, sheet)],
   ];
   for (const [key, fecha] of dateChecks) {
     if (!fecha || !isAlertVisibleForSection(key, sectionSlug)) continue;
     level = mostUrgent(level, semaforoFromDays(daysUntil(fecha)));
+  }
+
+  // Dictámenes de vigencia anual (ver lib/dictamen-alerts.ts).
+  for (const dictamen of dictamenesDeFicha(sheet, sectionSlug)) {
+    level = mostUrgent(level, semaforoFromDays(daysUntil(dictamen.vencimiento)));
   }
 
   if (isAlertVisibleForSection("extintor", sectionSlug)) {

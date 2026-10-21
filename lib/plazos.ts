@@ -20,9 +20,11 @@ export type Plazos = {
   valvulasCarburacion: number; // Vehículo con tanque de carburación
   valvulasEstacion: number; // Estaciones de carburación: años desde la INSTALACIÓN del juego
   valvulasEstacionFabricacion: number; // Estaciones de carburación: tope en años desde la FABRICACIÓN
-  instrumentosPlanta: number; // Instrumentos del tanque de la Planta
+  instrumentosPlanta: number; // Máximo llenado, manómetro y termómetro del tanque de la Planta
+  instrumentosPlantaValvulas: number; // Exceso de flujo, no retroceso y relevo de presión del tanque de la Planta
   mangueraTrasiego: number; // manguera de surtir del tanque de carga
   mangueraCarburacion: number; // manguera de alta presión de carburación
+  conectorFlexible: number; // conectores flexibles del tanque de carga
 };
 
 export const PLAZOS_BASE: Plazos = {
@@ -30,9 +32,11 @@ export const PLAZOS_BASE: Plazos = {
   valvulasCarburacion: 5,
   valvulasEstacion: 5,
   valvulasEstacionFabricacion: 7,
-  instrumentosPlanta: 5,
+  instrumentosPlanta: 10,
+  instrumentosPlantaValvulas: 10,
   mangueraTrasiego: 5,
   mangueraCarburacion: 2,
+  conectorFlexible: 5,
 };
 
 // Plazo de las válvulas de una unidad que no es de ningún grupo de arriba

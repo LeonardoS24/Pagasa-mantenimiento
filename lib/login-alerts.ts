@@ -48,6 +48,7 @@ export async function countValveRedAlerts(cityIds: string[]): Promise<number> {
           fechaFabricacionValvulaDescargaEmergencia: true,
           fechaFabricacionValvulaExcesoFlujo: true,
           fechaFabricacionValvulaCheckLock: true,
+          fechaFabricacionManometro: true,
         },
       },
     },

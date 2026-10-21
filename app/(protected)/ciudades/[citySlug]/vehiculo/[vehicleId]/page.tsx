@@ -646,7 +646,10 @@ export default async function VehicleDetailPage({
                           vehicle.section.slug === "vehiculo-con-tanque-de-carburacion"
                             ? ["valvulas-carburacion"]
                             : esTanqueDeCarga(vehicle.section.slug)
-                              ? ["valvulas-tanque-carga", "manguera-trasiego"]
+                              ? [
+                                  "valvulas-tanque-carga",
+                                  ...(vehicle.section.slug === "auto-tanques" ? ["manguera-trasiego"] : []),
+                                ]
                               : []
                         }
                       />
@@ -1125,6 +1128,7 @@ export default async function VehicleDetailPage({
                   ultimaPruebaHidrostatica={toDateInputValue(
                     vehicle.technicalSheet?.ultimaPruebaHidrostatica
                   )}
+                  cicloAnios={esTanqueDeCarga(vehicle.section.slug) ? 10 : 5}
                 />
               )}
               <HydrostaticTestLogTable

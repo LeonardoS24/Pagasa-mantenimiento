@@ -40,6 +40,9 @@ export const VALVULAS_TANQUE_CARGA: ValvulaDef[] = [
   { fecha: "fechaFabricacionValvulaExcesoFlujo", codigo: "codigoValvulaExcesoFlujo", etiqueta: "Válvula de exceso de flujo (litrómetro)", entraEnAlerta: true },
   { fecha: "fechaFabricacionValvulaCheckLock", codigo: "codigoValvulaCheckLock", etiqueta: "Válvula check lock", entraEnAlerta: true },
   { fecha: "fechaFabricacionValvulaInterna", codigo: "codigoValvulaInterna", etiqueta: "Válvula interna", entraEnAlerta: false },
+  // No es una válvula, pero tiene el mismo plazo que las del tanque de carga
+  // (menos de 10 años desde su fabricación) y entra a la misma alerta.
+  { fecha: "fechaFabricacionManometro", codigo: "codigoManometro", etiqueta: "Manómetro de presión", entraEnAlerta: true },
   // No vienen en el Excel de flotilla (ver arriba).
   { fecha: "fechaFabricacionValvulaServicio", codigo: "codigoValvulaServicio", etiqueta: "Válvula de servicio de vapor", entraEnAlerta: true },
   { fecha: "fechaFabricacionValvulaDescargaEmergencia", codigo: "codigoValvulaDescargaEmergencia", etiqueta: "Válvula de descarga de emergencia", entraEnAlerta: true },
@@ -153,4 +156,10 @@ export const CAMPOS_FECHA_CONSERVABLES: CampoFecha[] = [
   "fechaFabricacionValvulaCheckLock",
   "fechaFabricacionValvulaInterna",
   "fechaFabricacionMangueraSurtir",
+  "fechaFabricacionManometro",
+  "fechaFabricacionConectorFlexible",
+  "fechaDictamenOperacion",
+  "fechaDictamenNom068",
+  "fechaDictamenInstalacion",
+  "fechaDictamenEstacion",
 ];
