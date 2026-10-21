@@ -16,8 +16,8 @@ import { PIECE_CATALOG, getPieceCategories, PIECE_CATEGORY_OTRO, accionPiezaOpti
 import { unidadAbreviatura } from "@/lib/inventory-enums";
 import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
 import {
-  PREVENTIVE_CHECKLIST_ITEMS,
-  CARBURACION_CHECKLIST_ITEMS,
+  CHECKLIST_BASE,
+  checklistListaDeApartado,
   OTHER_CHECKLIST_ITEM,
   checklistEstadoOptionsFor,
   checklistRequiresCantidad,
@@ -68,8 +68,9 @@ export function CreateMaintenanceLogForm({
   leakCheckItems,
 }: {
   vehicleId: string;
-  // Determina si se ofrece la categoría "Tanque" (ver lib/piece-catalog.ts:
-  // getPieceCategories), solo aplica a unidades que de verdad tienen tanque.
+  // Determina qué categorías de pieza y qué checklist preventivo de gas le
+  // tocan (ver getPieceCategories en lib/piece-catalog.ts y
+  // checklistListaDeApartado en lib/preventive-checklist.ts).
   sectionSlug: string;
   // Piezas EN_INVENTARIO de la ciudad de esta unidad, para elegirlas directo
   // aquí en vez de escribirlas a mano (ver actions/inventory-actions.ts: es
@@ -93,17 +94,15 @@ export function CreateMaintenanceLogForm({
 }) {
   const catalogo = pieceCatalog ?? PIECE_CATALOG;
   const pieceCategories = pieceCategoriesProp ?? getPieceCategories(sectionSlug);
-  // Vehículo con tanque de carburación tiene su propio checklist preventivo,
-  // solo de lo relacionado a su sistema de gas LP (ver
-  // lib/preventive-checklist.ts) — reemplaza al genérico, no lo complementa.
-  const isCarburacion = sectionSlug === "vehiculo-con-tanque-de-carburacion";
   // Estaciones de carburación y Planta no tienen kilometraje, operador ni
   // auxiliar técnico (esos campos son de un vehículo), y su "Preventivo" usa
   // los mismos campos de pieza que un Correctivo en vez del checklist
-  // genérico de vehículo (aceite, frenos, llantas...), que no les aplica.
+  // de vehículo, que no les aplica.
   const isEstacionLike = ESTACION_LIKE_SECTION_SLUGS.includes(sectionSlug);
+  // Cada tipo de unidad tiene su propio checklist de gas (tanque de carga,
+  // reparto, carburación o general), ver lib/preventive-checklist.ts.
   const checklistItems: readonly string[] =
-    checklistItemsProp ?? (isCarburacion ? CARBURACION_CHECKLIST_ITEMS : PREVENTIVE_CHECKLIST_ITEMS);
+    checklistItemsProp ?? CHECKLIST_BASE[checklistListaDeApartado(sectionSlug)];
   const action = createMaintenanceLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -378,6 +377,15 @@ export function CreateMaintenanceLogForm({
                   ))}
                 </select>
               </div>
+              {categoriaPieza === "Válvulas del tanque de carga" && (
+                // A diferencia de carburación (lib/valve-piece-sync.ts), aquí
+                // sustituir una válvula no actualiza su fecha de fabricación en
+                // la ficha técnica: eso lo hace el registro "Cambio de válvulas".
+                <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:col-span-2 lg:col-span-3">
+                  Si se sustituyó una válvula, regístrala también en &quot;Cambio de válvulas&quot;: es el
+                  que actualiza su fecha de fabricación y su alerta de vencimiento.
+                </p>
+              )}
             </>
           )}
           {!usesChecklist && (
@@ -448,7 +456,7 @@ export function CreateMaintenanceLogForm({
               className="mb-1 block text-sm font-medium text-ink"
               htmlFor="mnt-responsableTrabajoMecanico"
             >
-              Responsable del trabajo mecánico
+              Responsable del trabajo
             </label>
             <input
               id="mnt-responsableTrabajoMecanico"
@@ -465,31 +473,18 @@ export function CreateMaintenanceLogForm({
               Checklist de mantenimiento preventivo
             </p>
             <p className="mb-3 text-xs text-gray-500">
-              {isCarburacion ? (
-                <>
-                  Marca el estado de cada pieza. Buen estado no se documenta. Las
-                  válvulas, la manguera y las uniones solo se revisan por fugas
-                  (Con fugas queda documentado); el resto de las piezas admite
-                  Reparación o Sustitución. Cualquiera de esos estados admite una
-                  descripción opcional.
-                </>
-              ) : (
-                <>
-                  Marca el estado de cada pieza. Buen estado no se documenta; Relleno,
-                  Lubricación y Cambio sí quedan documentados cada uno como su propio
-                  registro. Relleno pide la cantidad rellenada y Cambio el número de
-                  piezas; cualquiera de los tres admite una descripción opcional. Usa
-                  &quot;Otro&quot; para lo que no esté en la lista (en el gráfico se agrupa
-                  como &quot;Otro&quot;, sin importar lo que escribas).
-                </>
-              )}
+              Marca el estado de cada punto del sistema de gas. Buen estado no se
+              documenta. Las válvulas, conexiones y mangueras solo se revisan por
+              fugas (Con fugas queda documentado); el resto admite Reparación o
+              Sustitución. Cualquiera de esos estados admite una descripción
+              opcional. Usa &quot;Otro&quot; para lo que no esté en la lista.
             </p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {checklistItems.map((item) => {
                 const row = checklist[item] ?? { estado: DEFAULT_CHECKLIST_ESTADO, cantidad: "", descripcion: "" };
                 const needsCantidad = checklistRequiresCantidad(row.estado);
                 const allowsDescripcion = checklistAllowsDescripcion(row.estado);
-                const estadoOptions = checklistEstadoOptionsFor(item, isCarburacion, leakCheckItems);
+                const estadoOptions = checklistEstadoOptionsFor(item, leakCheckItems);
                 return (
                   <div key={item} className="rounded-md bg-white px-2 py-1.5">
                     <div className="flex items-center justify-between gap-2">

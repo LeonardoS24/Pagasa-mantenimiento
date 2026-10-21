@@ -3,6 +3,8 @@ import {
   PIECE_CATALOG,
   PIECE_CATEGORY_OTRO,
   STATION_PIECE_CATEGORIES,
+  CATEGORIAS_MECANICAS_RETIRADAS,
+  CATEGORIAS_RENOMBRADAS,
   getPieceCategories,
   getPieceCategoriesForGroup,
   type PieceGroup,
@@ -28,12 +30,18 @@ export function grupoDeCategoria(categoria: string, grupoGuardado?: string | nul
 
 type ExtraPiece = { categoria: string; nombre: string; grupo: string | null };
 
+// Para los formularios: las piezas de categorías mecánicas retiradas ya no
+// se ofrecen (el mantenimiento es de gas, ver lib/piece-catalog.ts), y las de
+// una categoría que cambió de nombre se ofrecen con el nombre nuevo. El
+// panel (getPiezasAgregadas) las sigue listando tal cual, para poder
+// quitarlas.
 async function getExtraPieces(): Promise<ExtraPiece[]> {
-  return prisma.learnedPiece.findMany({
-    where: { categoria: { not: PIECE_CATEGORY_OTRO } },
+  const filas = await prisma.learnedPiece.findMany({
+    where: { categoria: { notIn: [PIECE_CATEGORY_OTRO, ...CATEGORIAS_MECANICAS_RETIRADAS] } },
     orderBy: { nombre: "asc" },
     select: { categoria: true, nombre: true, grupo: true },
   });
+  return filas.map((f) => ({ ...f, categoria: CATEGORIAS_RENOMBRADAS[f.categoria] ?? f.categoria }));
 }
 
 export async function getPieceCatalog(): Promise<PieceCatalog> {

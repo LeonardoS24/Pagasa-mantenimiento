@@ -31,7 +31,7 @@ import { PieceMaintenanceChart } from "@/components/city/PieceMaintenanceChart";
 import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { getLearnedPieces } from "@/lib/learned-pieces";
 import { getPieceCatalog, getPieceCategoriesWithExtras } from "@/lib/piece-catalog-runtime";
-import { getChecklistItems, getLeakCheckItems } from "@/lib/checklist-runtime";
+import { getChecklistItems, getLeakCheckItems, checklistListaDeApartado } from "@/lib/checklist-runtime";
 import { getCustomFields, getCustomFieldValues } from "@/lib/custom-fields-runtime";
 import { CreateUltrasoundLogForm } from "@/components/admin/CreateUltrasoundLogForm";
 import { UltrasoundLogTable } from "@/components/city/UltrasoundLogTable";
@@ -223,12 +223,11 @@ export default async function VehicleDetailPage({
   const pieceCategories = isEditor
     ? await getPieceCategoriesWithExtras(vehicle.section.slug)
     : undefined;
-  // Checklist preventivo con los ítems agregados desde /admin/piezas.
-  const esCarburacion = vehicle.section.slug === "vehiculo-con-tanque-de-carburacion";
-  const checklistItems = isEditor
-    ? await getChecklistItems(esCarburacion ? "CARBURACION" : "GENERAL")
-    : undefined;
-  const leakCheckItems = isEditor && esCarburacion ? await getLeakCheckItems() : undefined;
+  // Checklist preventivo de gas que le toca a este tipo de unidad, con los
+  // ítems agregados desde /admin/piezas.
+  const checklistLista = checklistListaDeApartado(vehicle.section.slug);
+  const checklistItems = isEditor ? await getChecklistItems(checklistLista) : undefined;
+  const leakCheckItems = isEditor ? await getLeakCheckItems(checklistLista) : undefined;
   // Recuadros extra de la ficha técnica (ver /admin/campos): las
   // definiciones son iguales para todas las unidades, los valores son de
   // esta en particular.

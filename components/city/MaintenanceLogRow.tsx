@@ -299,7 +299,7 @@ function EditMaintenanceLogFullForm({ log }: { log: MaintenanceLog }) {
             className="mb-1 block text-xs font-medium text-ink"
             htmlFor={`responsableTrabajoMecanico-${log.id}`}
           >
-            Responsable del trabajo mecánico
+            Responsable del trabajo
           </label>
           <input
             id={`responsableTrabajoMecanico-${log.id}`}
@@ -416,7 +416,7 @@ export function MaintenanceLogRow({
             />
             <Field label="Nombre del operador" value={log.nombreOperador} />
             <Field label="Auxiliar técnico" value={log.auxiliarTecnico} />
-            <Field label="Responsable del trabajo mecánico" value={log.responsableTrabajoMecanico} />
+            <Field label="Responsable del trabajo" value={log.responsableTrabajoMecanico} />
           </dl>
 
           {log.piezasUtilizadas.length > 0 && (

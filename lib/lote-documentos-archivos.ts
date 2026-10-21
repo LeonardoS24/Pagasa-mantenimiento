@@ -43,3 +43,28 @@ export async function extraerPaginasPdf(datos: Buffer, desde: number, hasta: num
   for (const pagina of paginas) destino.addPage(pagina);
   return Buffer.from(await destino.save());
 }
+
+// Varios PDF subidos juntos se guardan como UN escaneo (así todo lo demás
+// del lote funciona igual), recordando qué páginas trajo cada archivo para
+// crear un documento por archivo.
+export async function unirPdfs(
+  archivos: Buffer[]
+): Promise<{ pdf: Buffer; rangos: { paginaInicio: number; paginaFin: number }[] }> {
+  const destino = await PDFDocument.create();
+  const rangos: { paginaInicio: number; paginaFin: number }[] = [];
+  for (const datos of archivos) {
+    const origen = await PDFDocument.load(datos, { ignoreEncryption: true });
+    const paginas = await destino.copyPages(origen, origen.getPageIndices());
+    const paginaInicio = destino.getPageCount() + 1;
+    for (const pagina of paginas) destino.addPage(pagina);
+    rangos.push({ paginaInicio, paginaFin: destino.getPageCount() });
+  }
+  return { pdf: Buffer.from(await destino.save()), rangos };
+}
+
+// Solo para un lote que se elimina sin haber guardado nada en las bitácoras
+// (ver eliminarLoteDocumentos): si ya se guardó algo, el escaneo es la
+// evidencia y no se borra.
+export async function borrarCarpetaLote(loteId: string): Promise<void> {
+  await fs.rm(carpetaLote(loteId), { recursive: true, force: true });
+}

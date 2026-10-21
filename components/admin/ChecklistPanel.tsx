@@ -8,7 +8,7 @@ import {
   CHECKLIST_LISTAS,
   checklistListaLabels,
   type ChecklistLista,
-} from "@/lib/checklist-runtime";
+} from "@/lib/preventive-checklist";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -118,19 +118,19 @@ export function ChecklistPanel({
                 id="cl-nombre"
                 name="nombre"
                 required
-                placeholder="Ej. Filtro secador"
+                placeholder="Ej. Válvula de exceso de flujo"
                 className={inputClass}
               />
             </div>
 
-            {lista === "CARBURACION" && (
-              <div className="flex items-end">
-                <label className="flex items-center gap-2 pb-2 text-sm text-ink">
-                  <input type="checkbox" name="soloFugas" className="h-4 w-4" />
-                  Solo se revisa por fugas
-                </label>
-              </div>
-            )}
+            {/* Todos los checklists son de gas: cualquier ítem puede ser
+                de los que solo se revisan por fugas. */}
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 pb-2 text-sm text-ink">
+                <input type="checkbox" name="soloFugas" className="h-4 w-4" />
+                Solo se revisa por fugas
+              </label>
+            </div>
           </div>
 
           <FormMessage state={state} />

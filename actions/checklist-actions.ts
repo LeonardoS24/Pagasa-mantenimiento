@@ -51,8 +51,9 @@ export async function addChecklistItem(
       data: {
         lista,
         nombre,
-        // soloFugas solo tiene sentido en el checklist de carburación.
-        soloFugas: lista === "CARBURACION" ? parsed.data.soloFugas : false,
+        // Todos los checklists son de gas (ver lib/preventive-checklist.ts):
+        // en cualquiera puede haber ítems que solo se revisan por fugas.
+        soloFugas: parsed.data.soloFugas,
         orden: (maxOrden._max.orden ?? -1) + 1,
       },
     });

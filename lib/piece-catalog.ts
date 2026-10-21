@@ -1,203 +1,80 @@
 import { z } from "zod";
 import { ESTACION_LIKE_SECTION_SLUGS } from "./estacion-sections";
+import { VALVULAS_TANQUE_CARGA, VALVULA_MAXIMO_LLENADO_85 } from "./ficha-campos";
 
 // Catálogo de piezas para la Bitácora de mantenimiento de unidades: se
 // selecciona primero la categoría y después la pieza (ver
 // components/admin/CreateMaintenanceLogForm.tsx). "Otro" no tiene lista fija:
 // se escribe la pieza a mano. El usuario pidió dejarlo así para poder seguir
 // agregando piezas a futuro sin tocar el formulario.
+//
+// El mantenimiento de las unidades es de INGENIERÍA DE GAS, no de mecánica
+// automotriz: a petición del usuario se quitaron por completo las categorías
+// de motor, transmisión, frenos, suspensión, etc. (ver
+// CATEGORIAS_MECANICAS_RETIRADAS abajo). Los registros viejos que las usan se
+// siguen viendo igual en el historial y en las gráficas: la categoría se
+// guarda como texto en cada registro.
 export const PIECE_CATALOG: Record<string, string[]> = {
-  Motor: [
-    "Aceite del motor",
-    "Filtro de aceite",
-    "Filtro de aire",
-    "Filtro de combustible",
-    "Bujías",
-    "Bobinas de encendido",
-    "Inyectores",
-    "Banda de accesorios",
-    "Banda o cadena de distribución",
-    "Tensor de banda",
-    "Poleas",
-    "Bomba de agua",
-    "Termostato",
-    "Radiador",
-    "Mangueras del sistema de enfriamiento",
-    "Ventilador del radiador",
-    "Junta de cabeza",
-    "Pistones",
-    "Bielas",
-    "Cigüeñal",
-    "Árbol de levas",
-    "Válvulas",
-    "Retenes",
-    "Empaques",
+  // --- Tanque de carga: Auto-Tanques y Semirremolques (ver
+  // getPieceCategories). Antes todo esto era una sola categoría "Tanque";
+  // se separó por sistema, conservando los mismos nombres de pieza.
+  "Recipiente (tanque de carga)": [
+    "Registro pasa hombre",
+    "Empaque del registro pasa hombre",
+    "Conchas",
+    "Placa de datos del recipiente",
+    "Soportes y anclaje del recipiente",
+    "Amortiguador de madera",
+    "Pintura del recipiente",
   ],
-  Transmisión: [
-    "Embrague",
-    "Disco de embrague",
-    "Plato de presión",
-    "Collarín",
-    "Caja de cambios",
-    "Convertidor de par",
-    "Aceite de transmisión",
-    "Filtro de transmisión",
-    "Flechas",
-    "Juntas homocinéticas",
-    "Diferencial",
-  ],
-  "Sistema de Frenos": [
-    "Balatas",
-    "Zapatas",
-    "Discos",
-    "Tambores",
-    "Mordazas (calipers)",
-    "Cilindros de rueda",
-    "Cilindro maestro",
-    "Booster",
-    "Líquido de frenos",
-    "Mangueras de freno",
-    "Tuberías",
-    "Sensores ABS",
-    "Módulo ABS",
-  ],
-  Suspensión: [
-    "Amortiguadores",
-    "Resortes",
-    "Horquillas",
-    "Bujes",
-    "Rótulas",
-    "Terminales",
-    "Barra estabilizadora",
-    "Bieletas",
-    "Soportes",
-  ],
-  Dirección: [
-    "Cremallera",
-    "Caja de dirección",
-    "Terminales de dirección",
-    "Bomba hidráulica",
-    "Depósito de dirección",
-    "Mangueras hidráulicas",
-    "Columna de dirección",
-  ],
-  "Sistema Eléctrico": [
-    "Batería",
-    "Alternador",
-    "Motor de arranque",
-    "Fusibles",
-    "Relevadores",
-    "Arnés eléctrico",
-    "Interruptores",
-    "Sensores",
-    "ECU",
-    "Módulos electrónicos",
-  ],
-  "Sistema de Iluminación": [
-    "Faros",
-    "Cuartos",
-    "Luces de freno",
-    "Direccionales",
-    "Luz de reversa",
-    "Luz interior",
-    "Luz de placa",
-  ],
-  "Sistema de Combustible": [
-    "Bomba de combustible",
-    "Filtro de combustible",
-    "Tanque",
-    "Mangueras",
-    "Regulador de presión",
-    "Riel de inyectores",
-    "Inyectores",
-  ],
-  "Sistema de Enfriamiento": [
-    "Radiador",
-    "Bomba de agua",
-    "Termostato",
-    "Depósito de anticongelante",
-    "Mangueras",
-    "Electroventilador",
-    "Sensor de temperatura",
-  ],
-  "Sistema de Escape": [
-    "Múltiple de escape",
-    "Catalizador",
-    "Resonador",
-    "Silenciador",
-    "Tuberías",
-    "Sensores de oxígeno",
-  ],
-  "Aire Acondicionado": [
-    "Compresor",
-    "Condensador",
-    "Evaporador",
-    "Ventilador",
-    "Filtro de cabina",
-    "Válvula de expansión",
-    "Mangueras",
-    "Refrigerante",
-  ],
-  "Llantas y Rines": ["Llantas", "Rines", "Válvulas", "Birlos", "Tuercas", "Refacción"],
-  Carrocería: [
-    "Cofre",
-    "Puertas",
-    "Defensa delantera",
-    "Defensa trasera",
-    "Salpicaderas",
-    "Cajuela",
-    "Espejos",
-    "Cristales",
-    "Limpiaparabrisas",
-  ],
-  Interior: [
-    "Asientos",
-    "Cinturones",
-    "Tablero",
-    "Instrumentos",
-    "Botones",
-    "Elevadores eléctricos",
-    "Seguros eléctricos",
-    "Sistema de audio",
-  ],
-  // Solo Auto-Tanques (ver getPieceCategories): son las piezas del tanque de
-  // carga que transporta, distintas del sistema de carburación propio del
-  // motor de Vehículo con tanque de carburación (ver categorías "Válvulas" y
-  // "Sistema de carburación" más abajo).
-  Tanque: [
-    "Motor de carrete",
+  // Las mismas válvulas (y nombres) de la ficha técnica del tanque de carga
+  // (lib/ficha-campos.ts). Ojo: el nombre de la categoría NO puede ser
+  // "Válvulas" a secas, que es la de carburación y dispara la actualización
+  // sola de la ficha (lib/valve-piece-sync.ts). Para el tanque de carga, el
+  // cambio de una válvula se registra en "Cambio de válvulas", que es el que
+  // mueve la alerta (ver el aviso en CreateMaintenanceLogForm).
+  "Válvulas del tanque de carga": [...VALVULAS_TANQUE_CARGA, VALVULA_MAXIMO_LLENADO_85].map((v) => v.etiqueta),
+  "Instrumentos de medición": [
+    "Medidor",
+    "Medidor Neptuno",
+    "Registro electrónico inteligente (Display)",
+    "Magnatel (flotador de gas)",
     "Manómetro",
+    "Manómetro bomba",
     "Termómetro",
-    "Trampa de vapor",
+  ],
+  "Sistema de trasiego": [
+    "Bomba",
+    "Toma de fuerza",
+    "Motor de carrete",
+    "Carrete",
+    "Manguera de descarga",
+    "Acoplador de líquido",
+    "Codos giratorios (coplee rotatorio)",
     "Válvula de diferencial",
     "Válvula solenoide",
-    "Codos giratorios (coplee rotatorio)",
-    "Manómetro bomba",
-    "Bomba",
-    "Manguera de descarga",
-    "Registro electrónico inteligente (Display)",
-    "Bridas",
-    "Empaques",
-    "Carrete",
-    "Magnatel (flotador de gas)",
-    "Medidor Neptuno",
-    "Actuador",
     "Válvula de control",
+    "Actuador",
+    "Trampa de vapor",
     "Filtro de gas",
-    "Toma de fuerza",
-    "Codo",
-    "Tubería \"T\"",
-    "Tubería flexible",
-    "Medidor",
-    "Conchas",
-    "Acoplador de líquido",
+  ],
+  "Tubería y conexiones de gas": ["Bridas", "Empaques", "Codo", "Tubería \"T\"", "Tubería flexible"],
+
+  // --- Vehículo de reparto: transporta cilindros.
+  "Plataforma y sujeción de cilindros": [
+    "Jaula o redilas",
+    "Cadenas o bandas de sujeción de cilindros",
+    "Piso de la plataforma",
+    "Topes y protecciones de cilindros",
+  ],
+
+  // --- Todas las unidades (incluidas utilitarias y tractocamiones, que no
+  // llevan sistema de gas propio).
+  "Seguridad e identificación": [
+    "Extintor",
+    "Letreros y rombos de identificación",
     "Cinta estática (Tierra)",
-    "Amortiguador de madera",
-    // Solo una pieza más de mantenimiento del tanque de carga — no tiene
-    // relación con el registro "Cambio de válvulas" (lib/valve-alerts.ts)
-    // ni con su fecha de fabricación.
-    "Válvula interna",
-    "Registro pasa hombre",
+    "Conos y señalamientos de seguridad",
   ],
   // Solo Vehículo con tanque de carburación (ver getPieceCategories): las
   // únicas 4 válvulas de su sistema de gas LP para el motor (no las 9 del
@@ -341,8 +218,16 @@ export const PIECE_CATALOG: Record<string, string[]> = {
 // escribiendo libre lo que todavía no se haya aprendido.
 export const PIECE_CATEGORY_OTRO = "Otro";
 
-const TANQUE_CATEGORY = "Tanque";
+const TANQUE_CARGA_CATEGORIES = [
+  "Recipiente (tanque de carga)",
+  "Válvulas del tanque de carga",
+  "Instrumentos de medición",
+  "Sistema de trasiego",
+  "Tubería y conexiones de gas",
+];
+const REPARTO_CATEGORIES = ["Plataforma y sujeción de cilindros"];
 const CARBURACION_CATEGORIES = ["Válvulas", "Sistema de carburación"];
+const SEGURIDAD_CATEGORY = "Seguridad e identificación";
 
 // Categorías propias de una Estación de carburación / Planta: nunca se
 // ofrecen al capturar el mantenimiento de un vehículo, ni al revés.
@@ -355,33 +240,54 @@ export const STATION_PIECE_CATEGORIES = [
   "Obra e instalaciones",
 ];
 
-const SECTION_ONLY_CATEGORIES = [
-  TANQUE_CATEGORY,
-  ...CARBURACION_CATEGORIES,
-  ...STATION_PIECE_CATEGORIES,
+// Categorías mecánicas que ya no se ofrecen (el mantenimiento es de gas).
+// Siguen listadas para que las piezas que un ADMIN les haya agregado desde
+// /admin/piezas no reaparezcan como "categoría nueva" (ver
+// lib/piece-catalog-runtime.ts).
+export const CATEGORIAS_MECANICAS_RETIRADAS = [
+  "Motor",
+  "Transmisión",
+  "Sistema de Frenos",
+  "Suspensión",
+  "Dirección",
+  "Sistema Eléctrico",
+  "Sistema de Iluminación",
+  "Sistema de Combustible",
+  "Sistema de Enfriamiento",
+  "Sistema de Escape",
+  "Aire Acondicionado",
+  "Llantas y Rines",
+  "Carrocería",
+  "Interior",
 ];
 
-// "Tanque" (tanque de carga) solo en Auto-Tanques, además de las categorías
-// genéricas de cualquier vehículo. Vehículo con tanque de carburación es
-// distinto a propósito: solo ve "Válvulas" y "Sistema de carburación" — nada
-// de las categorías genéricas (Motor, Transmisión, Frenos...), porque en el
-// mantenimiento de esa unidad solo se registra lo relacionado a su sistema
-// de gas LP, no el vehículo completo. Una Estación/Planta ve únicamente sus
-// propias categorías: es una instalación fija, no un vehículo.
+// Categorías que cambiaron de nombre: las piezas agregadas desde el panel
+// con el nombre viejo se ofrecen en la nueva.
+export const CATEGORIAS_RENOMBRADAS: Record<string, string> = {
+  Tanque: "Recipiente (tanque de carga)",
+};
+
+// Qué categorías ve cada tipo de unidad. Todo es del sistema de gas: el
+// tanque de carga en Auto-Tanques y Semirremolques, la plataforma de
+// cilindros en Reparto, el kit de carburación en Vehículo con tanque de
+// carburación, y seguridad e identificación en todas (es lo único que
+// aplica a utilitarias y tractocamiones). Una Estación/Planta ve únicamente
+// sus propias categorías: es una instalación fija, no un vehículo.
 export function getPieceCategories(sectionSlug?: string): string[] {
   if (sectionSlug && ESTACION_LIKE_SECTION_SLUGS.includes(sectionSlug)) {
     return [...STATION_PIECE_CATEGORIES, PIECE_CATEGORY_OTRO];
   }
   if (sectionSlug === "vehiculo-con-tanque-de-carburacion") {
-    return [...CARBURACION_CATEGORIES, PIECE_CATEGORY_OTRO];
+    return [...CARBURACION_CATEGORIES, SEGURIDAD_CATEGORY, PIECE_CATEGORY_OTRO];
   }
-  const base = Object.keys(PIECE_CATALOG).filter(
-    (categoria) => !SECTION_ONLY_CATEGORIES.includes(categoria)
-  );
-  const categorias = [...base];
   // Semirremolque (Transportadora Kino) lleva el mismo tanque de carga.
-  if (sectionSlug === "auto-tanques" || sectionSlug === "semirremolques") categorias.push(TANQUE_CATEGORY);
-  return [...categorias, PIECE_CATEGORY_OTRO];
+  if (sectionSlug === "auto-tanques" || sectionSlug === "semirremolques") {
+    return [...TANQUE_CARGA_CATEGORIES, SEGURIDAD_CATEGORY, PIECE_CATEGORY_OTRO];
+  }
+  if (sectionSlug === "vehiculo-de-reparto") {
+    return [...REPARTO_CATEGORIES, SEGURIDAD_CATEGORY, PIECE_CATEGORY_OTRO];
+  }
+  return [SEGURIDAD_CATEGORY, PIECE_CATEGORY_OTRO];
 }
 
 // Para el catálogo del formulario de órdenes (ver

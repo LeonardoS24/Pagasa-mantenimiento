@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { guardarDocumentoDeLote, cambiarDescarteDocumentoDeLote } from "@/actions/lote-documentos-actions";
+import {
+  guardarDocumentoDeLote,
+  cambiarDescarteDocumentoDeLote,
+  eliminarDocumentoDeLote,
+} from "@/actions/lote-documentos-actions";
 import type { ActionState } from "@/actions/user-actions";
 import { FormMessage } from "@/components/admin/FormMessage";
 import {
@@ -11,20 +15,15 @@ import {
   tipoLoteLabel,
   tipoAplicaEnApartado,
   esPruebaDeTanque,
+  anclaDeTipo,
   type ItemLote,
   type TipoLote,
   type DefCampo,
 } from "@/lib/lote-documentos";
 import { PaginasDelLote } from "./PaginasDelLote";
+import { OpcionesDeUnidades, type UnidadParaLote } from "./OpcionesDeUnidades";
 
-export type UnidadParaLote = {
-  id: string;
-  etiqueta: string; // número económico / nombre, con la ciudad si el lote es de Administración
-  apartado: string;
-  sectionSlug: string;
-  activo: boolean;
-  tanques: { id: string; etiqueta: string }[];
-};
+export type { UnidadParaLote };
 
 const initialState: ActionState = {};
 
@@ -121,6 +120,24 @@ function DescarteForm({ loteId, itemId, descartar }: { loteId: string; itemId: s
   );
 }
 
+// Quita el documento de la lista (no toca ninguna bitácora: solo se ofrece
+// para los que todavía no se guardan).
+function QuitarDelLoteForm({ loteId, itemId }: { loteId: string; itemId: string }) {
+  const [state, formAction] = useFormState(eliminarDocumentoDeLote.bind(null, loteId, itemId), initialState);
+  return (
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        if (!window.confirm("¿Quitar este documento de la lista? Sus páginas siguen en el escaneo.")) e.preventDefault();
+      }}
+      className="flex flex-wrap items-center gap-2"
+    >
+      <BotonSecundario texto="Quitar del lote" />
+      {state.error && <FormMessage state={state} />}
+    </form>
+  );
+}
+
 export function DocumentoDeLoteForm({
   loteId,
   item,
@@ -159,7 +176,9 @@ export function DocumentoDeLoteForm({
 
   if (item.estado !== "PENDIENTE") {
     const guardado = item.estado === "GUARDADO";
-    const nombreUnidad = unidades.find((u) => u.id === item.vehicleId)?.etiqueta;
+    const unidadGuardada = unidades.find((u) => u.id === item.vehicleId);
+    const nombreUnidad = unidadGuardada?.etiqueta;
+    const ancla = anclaDeTipo[item.tipo];
     return (
       <div className={`rounded-lg border p-4 ${guardado ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"}`}>
         {encabezado}
@@ -173,9 +192,18 @@ export function DocumentoDeLoteForm({
             </span>
           )}
         </p>
+        {guardado && unidadGuardada && (
+          <a
+            href={`${unidadGuardada.href}${ancla ? `#${ancla}` : ""}`}
+            className="mt-2 inline-block text-sm font-medium text-primary hover:underline"
+          >
+            Ver en la unidad (ahí se corrige o se borra si se guardó mal) →
+          </a>
+        )}
         {!guardado && !bloqueado && (
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-2">
             <DescarteForm loteId={loteId} itemId={item.id} descartar={false} />
+            <QuitarDelLoteForm loteId={loteId} itemId={item.id} />
           </div>
         )}
       </div>
@@ -238,21 +266,7 @@ export function DocumentoDeLoteForm({
                   className={vehicleId ? inputClass : inputFaltanteClass}
                 >
                   <option value="">— Elegir unidad —</option>
-                  {Object.entries(
-                    unidades.reduce<Record<string, UnidadParaLote[]>>((grupos, u) => {
-                      (grupos[u.apartado] ??= []).push(u);
-                      return grupos;
-                    }, {})
-                  ).map(([apartado, lista]) => (
-                    <optgroup key={apartado} label={apartado}>
-                      {lista.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.etiqueta}
-                          {u.activo ? "" : " (dada de baja)"}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
+                  <OpcionesDeUnidades unidades={unidades} />
                 </select>
               </div>
               {pideTanque && unidad && (
@@ -329,7 +343,12 @@ export function DocumentoDeLoteForm({
               </div>
             )}
           </form>
-          {!bloqueado && <DescarteForm loteId={loteId} itemId={item.id} descartar={true} />}
+          {!bloqueado && (
+            <div className="flex flex-wrap gap-2">
+              <DescarteForm loteId={loteId} itemId={item.id} descartar={true} />
+              <QuitarDelLoteForm loteId={loteId} itemId={item.id} />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -721,13 +721,13 @@ model CustomFieldValue {
 // vive en el código (lib/preventive-checklist.ts); estos se suman a ella.
 model ChecklistItemExtra {
   id        String   @id @default(cuid())
-  // "GENERAL" (cualquier unidad) | "CARBURACION" (Vehículo con tanque de
-  // carburación, que tiene su propio checklist).
+  // A qué checklist de gas pertenece: "TANQUE_CARGA" | "REPARTO" |
+  // "GENERAL" (utilitarias y tractocamiones) | "CARBURACION" (ver
+  // CHECKLIST_LISTAS en lib/preventive-checklist.ts).
   lista     String
   nombre    String
-  // Para "CARBURACION": si el ítem solo se revisa por fugas o admite
-  // reparación/sustitución (ver checklistEstadoOptionsFor). Ignorado en
-  // "GENERAL", donde todos los ítems usan el mismo juego de estados.
+  // Si el ítem solo se revisa por fugas o admite reparación/sustitución (ver
+  // checklistEstadoOptionsFor).
   soloFugas Boolean  @default(false)
   orden     Int      @default(0)
   createdAt DateTime @default(now())
