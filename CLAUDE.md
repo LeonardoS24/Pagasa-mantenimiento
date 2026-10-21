@@ -99,6 +99,10 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    "manguera de surtir" de la ficha del tanque de carga): alerta a 5 años
    desde fabricación en Auto-Tanques y Semirremolques (`mangueraParaAlerta`
    en `lib/hose-alerts.ts`); la de carburación sigue en 2 años.
+   **En pantalla, el panel de alertas de válvulas de unidad va en cuadros
+   separados** por tipo de tanque (Auto-Tanques y Semirremolques / Vehículo con
+   tanque de carburación / otras; `grupoValvulasDeApartado`), cada uno con su
+   plazo en el título. Se parte dentro de `ValveAlertsPanel`, no en las páginas.
    **Pendiente de la tabla, sin alerta todavía** (necesitan campos nuevos o
    confirmar la regla): conectores flexibles (5 años, máx. 1 m), acoplamiento
    de desconexión seca (10 años), certificado de calibración de indicador de
