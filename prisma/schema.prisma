@@ -1677,3 +1677,51 @@ model RequisitoNormativoAjuste {
 
   @@map("requisitos_normativos_ajustes")
 }
+
+// Reporte semanal de vencimientos por correo (ver lib/reportes-programados.ts).
+// Una sola fila (id fijo "unico"). La contraseña del correo se guarda
+// CIFRADA (lib/secretos.ts), nunca en claro; si falta, el envío usa las
+// variables SMTP_* del .env del servidor.
+model ConfiguracionReportes {
+  id String @id @default("unico")
+
+  activo        Boolean @default(false)
+  // Correos separados por coma, punto y coma o salto de línea.
+  destinatarios String  @default("")
+  // 0 = domingo ... 6 = sábado (igual que Date.getDay()); hora local del servidor.
+  diaSemana        Int @default(1)
+  hora             Int @default(7)
+  // Además de los vencidos, lo que vence dentro de estos días.
+  diasAnticipacion Int @default(30)
+
+  smtpHost         String?
+  smtpPuerto       Int     @default(465)
+  smtpSeguro       Boolean @default(true)
+  smtpUsuario      String?
+  smtpClaveCifrada String?
+  // "Nombre <correo@dominio>"; si va vacío se usa el usuario SMTP.
+  remitente        String?
+
+  // Último intento (sirve para no reintentar en bucle si el correo falla),
+  // último envío exitoso y el mensaje de error del último intento.
+  ultimoIntento DateTime?
+  ultimoEnvio   DateTime?
+  ultimoError   String?
+  ultimoResumen String?
+
+  actualizadoPor String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("configuracion_reportes")
+}
+
+// Ajustes sueltos del sistema (clave/valor). Hoy: "urlBase", la dirección con
+// la que se abre el sistema en la red (para los enlaces de los correos y los
+// códigos QR de las unidades).
+model AjusteSistema {
+  clave     String   @id
+  valor     String
+  updatedAt DateTime @updatedAt
+
+  @@map("ajustes_sistema")
+}
