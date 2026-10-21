@@ -155,6 +155,26 @@ y cita de cada requisito.
 - Guardar y restablecer son **dos formularios hermanos**: HTML no permite
   `<form>` anidados y el botón de restablecer no hacía nada.
 
+## Calendario de vencimientos
+
+`/ciudades/[citySlug]/calendario` (botón en la portada de cada ciudad; en
+Administración junta todas las ciudades, con filtro por ciudad): resumen
+(vencidos / 7 / 30 / 90 días), lista de vencidos, cuadrícula del mes y lista
+del mes, filtro por tipo, y descarga `.ics` (`/api/ciudades/[citySlug]/calendario`,
+eventos de día completo con aviso 7 días antes, solo los de hace menos de 90
+días en adelante).
+
+- **`lib/vencimientos.ts` → `getVencimientos(cityIds)`** devuelve TODOS los
+  vencimientos con fecha en una lista plana, sin el recorte de 30 días de las
+  alertas. Es la base del calendario y de los reportes por correo. Usa las
+  mismas fechas, plazos del catálogo y `isAlertVisibleForSection` que
+  `getAllVehicleAlerts`; se comprobó que el conteo rojo/amarillo de cada tipo
+  cuadra con los paneles de Inicio. **Si agregas un tipo de alerta con fecha,
+  agrégalo también aquí** (es el quinto lugar de la lista de arriba).
+- El extintor no entra: su alerta es por estado (calidad mala), no por fecha.
+- Las fechas se guardan a medianoche UTC: el día de calendario se lee con
+  `getUTC*` (`diaISO`).
+
 ## Sistema de alertas
 
 **`lib/vehicle-alerts-summary.ts` → `getAllVehicleAlerts(cityIds)` es la única
@@ -163,7 +183,7 @@ ciudad y `/admin/alertas`. Devuelve 11 arreglos (ultrasonido, visual externa,
 hermeticidad, visual interna, hidrostática, extintor, mantenimiento, válvulas de
 unidad, mangueras, válvulas de estación, instrumentos de planta).
 
-Al agregar un tipo de alerta hay que tocar **cuatro** lugares o queda a medias:
+Al agregar un tipo de alerta hay que tocar **cuatro** lugares (cinco si tiene fecha, ver `getVencimientos`) o queda a medias:
 `getAllVehicleAlerts`, su panel en `components/dashboard/`, las tres páginas que
 lo pintan, y `countValveRedAlerts` (`lib/login-alerts.ts`) si cuenta para el
 aviso rojo al iniciar sesión.
