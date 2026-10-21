@@ -8,6 +8,8 @@
 // al final, el directorio central y su cierre. Los nombres van en UTF-8
 // (bit 11 de las banderas) para que acentos y ñ se vean bien al abrirlo.
 
+import { inflateRawSync } from "node:zlib";
+
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -116,3 +118,44 @@ export function buildZip(entries: ZipEntry[]): Buffer {
 // Límites del formato ZIP clásico (sin ZIP64): 65,535 archivos y 4 GB.
 export const ZIP_MAX_ENTRIES = 65535;
 export const ZIP_MAX_BYTES = 0xffffffff;
+
+// Lee un ZIP (métodos "store" y "deflate") y devuelve sus archivos en el
+// mismo orden. Sirve para abrir un .xlsx recién escrito, retocar el XML de
+// una hoja y volver a empaquetarlo con buildZip (ver escribirLibro en
+// lib/excel-formato.ts). Sigue el directorio central, no los encabezados
+// locales, porque ahí siempre vienen los tamaños reales.
+export function readZip(zip: Buffer): ZipEntry[] {
+  // El cierre (22 bytes + comentario opcional) está al final del archivo.
+  let fin = -1;
+  for (let i = zip.length - 22; i >= Math.max(0, zip.length - 22 - 0xffff); i--) {
+    if (zip.readUInt32LE(i) === 0x06054b50) {
+      fin = i;
+      break;
+    }
+  }
+  if (fin < 0) throw new Error("ZIP no válido: no se encontró el directorio central");
+
+  const total = zip.readUInt16LE(fin + 10);
+  let pos = zip.readUInt32LE(fin + 16);
+  const entries: ZipEntry[] = [];
+  for (let n = 0; n < total; n++) {
+    if (zip.readUInt32LE(pos) !== 0x02014b50) throw new Error("ZIP no válido: directorio central dañado");
+    const metodo = zip.readUInt16LE(pos + 10);
+    const tamanoComprimido = zip.readUInt32LE(pos + 20);
+    const largoNombre = zip.readUInt16LE(pos + 28);
+    const largoExtra = zip.readUInt16LE(pos + 30);
+    const largoComentario = zip.readUInt16LE(pos + 32);
+    const offsetLocal = zip.readUInt32LE(pos + 42);
+    const name = zip.toString("utf8", pos + 46, pos + 46 + largoNombre);
+
+    // Los datos empiezan después del encabezado local, cuyo "extra" puede
+    // medir distinto al del directorio central.
+    const inicio = offsetLocal + 30 + zip.readUInt16LE(offsetLocal + 26) + zip.readUInt16LE(offsetLocal + 28);
+    const crudos = zip.subarray(inicio, inicio + tamanoComprimido);
+    if (metodo !== 0 && metodo !== 8) throw new Error(`ZIP no soportado: método de compresión ${metodo} en ${name}`);
+    entries.push({ name, data: metodo === 8 ? inflateRawSync(crudos) : Buffer.from(crudos) });
+
+    pos += 46 + largoNombre + largoExtra + largoComentario;
+  }
+  return entries;
+}

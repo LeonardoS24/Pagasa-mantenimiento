@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx-js-style";
+import { buildZip, readZip } from "./zip";
 
 // Formato de las hojas de Excel que descarga el sistema, copiado del Excel
 // de flotilla que el equipo armó a mano ("Flotilla Pagasa - Unidades_1.xlsx"):
@@ -10,6 +11,11 @@ import * as XLSX from "xlsx-js-style";
 //   claro, para no perder el renglón al recorrer hacia la derecha.
 // - El nombre (Ciudad + Número económico, o Nombre en estaciones) de una
 //   unidad dada de baja, en naranja: así lo marcó el equipo en su Excel.
+// - Encabezado y columnas de identificación (Ciudad, Número económico o
+//   Nombre) inmovilizados, igual que el Excel del equipo (que fija hasta la
+//   columna B): al recorrer hacia la derecha siempre se ve de qué unidad es
+//   la fila. xlsx-js-style no sabe escribir paneles inmovilizados, así que
+//   se agregan al final con escribirLibro().
 // - Filtro en el encabezado y anchos según el contenido, para navegar más
 //   fácil (el Excel del equipo no los tenía, pero no cambian lo de arriba).
 
@@ -73,6 +79,17 @@ function estiloCelda(relleno: string | null) {
 // está dada de baja.
 const COLUMNAS_NOMBRE = new Set(["Ciudad", "Número económico", "Nombre"]);
 
+// Columnas de identificación que se quedan fijas al deslizar hacia la
+// derecha ("Conjunto" es la de la hoja de conjuntos de Transportadora Kino).
+// Solo cuentan las que están pegadas al inicio, en orden.
+const COLUMNAS_FIJAS = new Set([...COLUMNAS_NOMBRE, "Conjunto"]);
+
+export function columnasFijas(encabezados: string[]): number {
+  let n = 0;
+  while (n < encabezados.length && COLUMNAS_FIJAS.has(encabezados[n])) n++;
+  return n;
+}
+
 export function hojaConFormato(filas: Record<string, string>[], encabezados: string[]): XLSX.WorkSheet {
   const datos = [encabezados, ...filas.map((f) => encabezados.map((h) => f[h] ?? ""))];
   const ws = XLSX.utils.aoa_to_sheet(datos);
@@ -106,7 +123,47 @@ export function hojaConFormato(filas: Record<string, string>[], encabezados: str
   if (encabezados.length > 0) {
     ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, datos.length - 1), c: encabezados.length - 1 } }) };
   }
+  // Lo lee escribirLibro(); el escritor de xlsx ignora las claves con "!".
+  ws["!inmovilizar"] = { columnas: columnasFijas(encabezados) };
   return ws;
+}
+
+// <sheetView> con el panel inmovilizado: la fila 1 (encabezado) siempre, y
+// las primeras `columnas` columnas si hay.
+function vistaInmovilizada(columnas: number): string {
+  if (columnas <= 0) {
+    return '<sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' +
+      '<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView>';
+  }
+  const primeraLibre = XLSX.utils.encode_col(columnas); // columna donde empieza lo que se desliza
+  return (
+    `<sheetView workbookViewId="0"><pane xSplit="${columnas}" ySplit="1" topLeftCell="${primeraLibre}2" activePane="bottomRight" state="frozen"/>` +
+    `<selection pane="topRight" activeCell="${primeraLibre}1" sqref="${primeraLibre}1"/>` +
+    '<selection pane="bottomLeft" activeCell="A2" sqref="A2"/>' +
+    `<selection pane="bottomRight" activeCell="${primeraLibre}2" sqref="${primeraLibre}2"/></sheetView>`
+  );
+}
+
+// Escribe el libro como .xlsx y le agrega a cada hoja hecha con
+// hojaConFormato el encabezado y las columnas de identificación
+// inmovilizados. Las hojas se escriben como xl/worksheets/sheet1.xml,
+// sheet2.xml... en el orden de workbook.SheetNames.
+export function escribirLibro(workbook: XLSX.WorkBook): Buffer {
+  const crudo = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const archivos = readZip(crudo);
+  workbook.SheetNames.forEach((nombre, i) => {
+    const marca = workbook.Sheets[nombre]?.["!inmovilizar"] as { columnas: number } | undefined;
+    if (!marca) return;
+    const archivo = archivos.find((a) => a.name === `xl/worksheets/sheet${i + 1}.xml`);
+    if (!archivo) return;
+    const xml = archivo.data.toString("utf8");
+    const vacia = '<sheetView workbookViewId="0"/>';
+    // Si la librería cambiara su XML no se pierde la descarga: la hoja sale
+    // igual que antes, solo que sin inmovilizar.
+    if (!xml.includes(vacia)) return;
+    archivo.data = Buffer.from(xml.replace(vacia, vistaInmovilizada(marca.columnas)), "utf8");
+  });
+  return buildZip(archivos);
 }
 
 export { XLSX };
