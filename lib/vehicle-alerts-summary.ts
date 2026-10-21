@@ -538,19 +538,36 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
 
+  // Todas las listas salen juntas por ciudad, en el orden de las ciudades del
+  // menú lateral (City.order): primero las de la primera ciudad, luego las de
+  // la siguiente, y dentro de cada una por fecha de vencimiento (el orden que
+  // ya traían; el sort es estable). Así se lee igual en Inicio, en la portada
+  // de la ciudad y en Administración, sin separadores.
+  const ciudades = await prisma.city.findMany({
+    where: { id: { in: cityIds } },
+    select: { name: true, order: true },
+  });
+  const ordenDeCiudad = new Map(ciudades.map((c) => [c.name, c.order]));
+  const porCiudad = <T extends { cityName: string }>(lista: T[]): T[] =>
+    [...lista].sort(
+      (a, b) =>
+        (ordenDeCiudad.get(a.cityName) ?? Number.MAX_SAFE_INTEGER) -
+          (ordenDeCiudad.get(b.cityName) ?? Number.MAX_SAFE_INTEGER) || a.cityName.localeCompare(b.cityName, "es")
+    );
+
   return {
-    alertVehicles,
-    visualAlertVehicles,
-    tightnessAlertVehicles,
-    internalVisualAlertVehicles,
-    hydrostaticAlertVehicles,
-    extinguisherAlertVehicles,
-    maintenanceAlertVehicles,
-    valveAlertVehicles,
-    hoseAlertVehicles,
-    dictamenAlertVehicles,
-    stationValveAlertVehicles,
-    plantaInstrumentAlertVehicles,
-    insuranceAlertVehicles,
+    alertVehicles: porCiudad(alertVehicles),
+    visualAlertVehicles: porCiudad(visualAlertVehicles),
+    tightnessAlertVehicles: porCiudad(tightnessAlertVehicles),
+    internalVisualAlertVehicles: porCiudad(internalVisualAlertVehicles),
+    hydrostaticAlertVehicles: porCiudad(hydrostaticAlertVehicles),
+    extinguisherAlertVehicles: porCiudad(extinguisherAlertVehicles),
+    maintenanceAlertVehicles: porCiudad(maintenanceAlertVehicles),
+    valveAlertVehicles: porCiudad(valveAlertVehicles),
+    hoseAlertVehicles: porCiudad(hoseAlertVehicles),
+    dictamenAlertVehicles: porCiudad(dictamenAlertVehicles),
+    stationValveAlertVehicles: porCiudad(stationValveAlertVehicles),
+    plantaInstrumentAlertVehicles: porCiudad(plantaInstrumentAlertVehicles),
+    insuranceAlertVehicles: porCiudad(insuranceAlertVehicles),
   };
 }

@@ -340,6 +340,13 @@ Al agregar un tipo de alerta hay que tocar **cuatro** lugares (cinco si tiene fe
 lo pintan, y `countValveRedAlerts` (`lib/login-alerts.ts`) si cuenta para el
 aviso rojo al iniciar sesión.
 
+`getAllVehicleAlerts` devuelve cada lista **junta por ciudad** (orden de las
+ciudades del menú lateral = `City.order`, y dentro de cada una por fecha de
+vencimiento), sin separadores: así se lee igual en Inicio, en la portada de la
+ciudad y en `/admin/alertas`. El usuario pidió explícitamente NO separarlas con
+encabezados. Una lista de alertas nueva debe pasar por `porCiudad` al final de
+esa función.
+
 Umbrales: **rojo** ≤ 7 días, **amarillo** ≤ 30 días.
 
 **Ciclo de revisión de tanques:** la primera vence a los **10 años** de la fecha
