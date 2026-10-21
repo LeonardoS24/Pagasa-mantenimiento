@@ -98,15 +98,17 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    Auto-Tanques y Semirremolques que es de 10** (`aniosVigenciaValvulas(slug)`
    en `lib/valve-alerts.ts`, un solo lugar). Todo cálculo de vencimiento de
    válvulas de unidad debe pasar los años: sin el argumento asume 5.
-   Fuente (tabla que pegó el usuario, del área de normatividad):
-   NOM-EM-008-ASEA-2026 (transporte en auto-tanque y semirremolque, vigente
-   desde el 6-oct-2026), Tabla 3 / 7.4.5.1: relevo de presión, exceso de
+   Fuente (cotejada con los PDF del DOF, 21-oct-2026): **Auto-Tanques**,
+   NOM-EM-009-ASEA-2026 (distribución), 6.3.2 y Tabla 4 (7.2.2.5.1); **Semirremolques**,
+   NOM-EM-008-ASEA-2026 (transporte), Tabla 3 (7.4.5.1), ambas vigentes
+   desde el 6-oct-2026 por 6 meses: relevo de presión, exceso de
    flujo, no retroceso y llenado, menos de 10 años desde fabricación (o menos
    si lo indica el fabricante). **La norma fija 10 años solo a esas 4 válvulas;
    el alerta lo aplica a todo el juego del tanque de carga.** Carburación: 5
    años (NOM-005-SESH-2010, 9.6.4, confirmado). **Manguera de trasiego** (la
-   "manguera de surtir" de la ficha del tanque de carga): alerta a 5 años
-   desde fabricación en Auto-Tanques y Semirremolques (`mangueraParaAlerta`
+   "manguera de surtir" de la ficha del tanque de carga): 5 años desde
+   fabricación según la NOM-EM-009 (Tabla 4, inciso t, solo Auto-Tanques; la
+   NOM-EM-008 no la fija para Semirremolques) y el sistema alerta en ambos (`mangueraParaAlerta`
    en `lib/hose-alerts.ts`); la de carburación sigue en 2 años.
    **En pantalla, el panel de alertas de válvulas de unidad va en cuadros
    separados** por tipo de tanque (Auto-Tanques y Semirremolques / Vehículo con
@@ -153,17 +155,23 @@ y cita de cada requisito.
   cálculo de alertas nuevo en el servidor, llama `await asegurarPlazos()`.** Los
   formularios de navegador que calculan su aviso reciben `plazos` por props y
   llaman `fijarPlazos(plazos)`.
-- **Cada requisito cita UNA sola norma, la vigente, con texto corto** (el
-  usuario lo pidió así: nada de "antes decía... en la norma anterior").
-  `NORMAS_VIGENTES` (mismo archivo) lista qué norma rige cada área y se ve
-  arriba en `/admin/normas`. Búsqueda del 21-oct-2026 (solo snippets, el texto
-  oficial no se pudo abrir desde el entorno): transporte **NOM-EM-008-ASEA-2026**;
-  distribución **NOM-EM-009-ASEA-2026**; plantas **NOM-018-ASEA-2023** (sustituye
-  a la NOM-001-SESH-2014); carburación de vehículos **NOM-005-SESH-2010**;
-  estaciones de carburación **NOM-003-SEDG-2004 por confirmar** (la
-  NOM-012-ASEA-2021 se cita como su sustituta pero solo se confirmó el
-  proyecto). **Válvulas de estación e instrumentos de planta siguen como
-  "Criterio interno"** (5 años): falta el numeral/plazo en la norma vigente.
+- **Cada requisito cita la norma vigente, con texto corto** (el usuario lo
+  pidió así: nada de "antes decía... en la norma anterior"). `NORMAS_VIGENTES`
+  (mismo archivo) lista qué norma rige cada área y se ve arriba en
+  `/admin/normas`. **Cotejado el 21-oct-2026 contra los PDF del DOF** que pasó el
+  usuario: transporte (Semirremolques, Kino) **NOM-EM-008-ASEA-2026**;
+  distribución (Auto-Tanques) **NOM-EM-009-ASEA-2026** — OJO: la "Tabla 4" y
+  los numerales 7.2.2.x que traía la tabla original son de la EM-009, no de la
+  EM-008 (esta solo tiene Tablas 1 a 3); plantas **NOM-018-ASEA-2023**;
+  carburación de vehículos **NOM-005-SESH-2010** (9.6.x y 13). Un requisito
+  puede citar dos normas cuando cada una rige un tipo de unidad. **Aún sin
+  texto: estaciones de carburación** (¿NOM-003-SEDG-2004 o NOM-012-ASEA-2021?),
+  por eso las válvulas de estación quedan como "Criterio interno" (5 años).
+  **Instrumentos de planta**: la NOM-018 (7.2.17.4 VII) los manda reemplazar
+  según la vida útil del fabricante y 7.2.17.1 XII fija 10 años a exceso de
+  flujo/no retroceso/relevo; los 5 años del sistema son criterio interno.
+  **Diferencia conocida**: la prueba hidrostática la norma la pide cada 10
+  años y el sistema agenda la siguiente a 5 (`addFiveYears`).
 - **Requisitos "solo referencia"** (conectores flexibles, acoplamiento seco,
   calibración, dictamen de instalación...) están en el catálogo sin plazo
   editable porque todavía no tienen campo ni alerta.
