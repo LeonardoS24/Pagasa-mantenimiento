@@ -8,5 +8,10 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { scheduleBackups } = await import("./lib/backup");
     scheduleBackups();
+    // Plazos normativos (ver /admin/normas): se cargan al arrancar para que
+    // las alertas nunca calculen con los valores base cuando el ADMIN ya
+    // ajustó alguno.
+    const { cargarPlazos } = await import("./lib/requisitos-runtime");
+    cargarPlazos().catch((error) => console.error("No se pudieron cargar los plazos normativos:", error));
   }
 }

@@ -120,6 +120,41 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
 Una estación puede tener 2 tanques físicos: `stationTankTechnicalSheets` es 1:N
 con `etiqueta` ("Tanque 1", "Tanque 2") y único por `[vehicleRecordId, etiqueta]`.
 
+## Plazos normativos editables y fundamento en las alertas
+
+Los plazos en años de las alertas (válvulas de tanque de carga y de
+carburación, válvulas de estación, instrumentos de planta, manguera de
+trasiego y de carburación) **ya no son constantes sueltas**: el ADMIN los
+cambia en `/admin/normas` ("Normas y plazos") y ahí mismo edita norma, numeral
+y cita de cada requisito.
+
+- **Catálogo**: `lib/requisitos-normativos.ts` (valor base en código, con
+  `verificado`; lo que viene de la tabla del área de normatividad y no se ha
+  cotejado con el DOF sale como "Pendiente de cotejar") + tabla
+  `RequisitoNormativoAjuste` (solo guarda **diferencias** contra el base; si
+  se vuelve igual al base, se borra la fila). Unidos por
+  `lib/requisitos-runtime.ts` (`getRequisitos`). Nunca leer
+  `REQUISITOS_BASE` directo para mostrar.
+- **Los plazos viven en `lib/plazos.ts`**, sin Prisma, en un registro en
+  `globalThis` (`plazosActivos()` / `fijarPlazos()`). Las funciones de alerta
+  son síncronas y se llaman desde servidor y navegador, por eso no reciben el
+  plazo por argumento. Se cargan al arrancar (`instrumentation.ts`), al guardar
+  en el admin (`cargarPlazos()`) y con `asegurarPlazos()` (refresca cada 60 s)
+  al inicio de todo código que calcule alertas en servidor. **Si agregas un
+  cálculo de alertas nuevo en el servidor, llama `await asegurarPlazos()`.** Los
+  formularios de navegador que calculan su aviso reciben `plazos` por props y
+  llaman `fijarPlazos(plazos)`.
+- **Requisitos "solo referencia"** (conectores flexibles, acoplamiento seco,
+  calibración, dictamen de instalación...) están en el catálogo sin plazo
+  editable porque todavía no tienen campo ni alerta.
+- **Fundamento en pantalla**: `components/normas/FundamentoNormativo.tsx`
+  (server component) pinta la cita con letra serif cursiva y borde lateral, a
+  propósito distinta del texto del sistema para que no se revuelva. Está en los
+  paneles de alertas de válvulas, mangueras, estación y planta, y en la ficha
+  de la unidad (el ADMIN ve el formulario, por eso se le pasa como slot).
+- Guardar y restablecer son **dos formularios hermanos**: HTML no permite
+  `<form>` anidados y el botón de restablecer no hacía nada.
+
 ## Sistema de alertas
 
 **`lib/vehicle-alerts-summary.ts` → `getAllVehicleAlerts(cityIds)` es la única

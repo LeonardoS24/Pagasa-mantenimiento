@@ -1,3 +1,4 @@
+import { plazosActivos } from "./plazos";
 import { daysUntil } from "./ultrasound-alerts";
 import type { ValveAlertLevel } from "./valve-alerts";
 
@@ -71,9 +72,8 @@ function addYears(date: Date, years: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
 }
 
-// Mismo plazo que las unidades (ver lib/valve-alerts.ts): 5 años desde la
-// fabricación de la válvula más antigua del juego.
-export const STATION_VALVE_YEARS = 5;
+// Plazo del catálogo de requisitos normativos (base 5 años, editable en
+// /admin/normas) desde la fabricación de la válvula más antigua del juego.
 
 // La válvula más antigua del juego es la que vence primero y marca cuándo
 // toca cambiarlo. Las válvulas de seguridad 2/3 solo cuentan cuando la
@@ -104,7 +104,7 @@ export function oldestStationValve(dates: StationValveDates): { key: string; fec
 
 export function getStationValveVencimiento(dates: StationValveDates): Date | null {
   const oldest = oldestStationValve(dates);
-  return oldest ? addYears(oldest.fecha, STATION_VALVE_YEARS) : null;
+  return oldest ? addYears(oldest.fecha, plazosActivos().valvulasEstacion) : null;
 }
 
 // Mismos umbrales que la alerta de válvulas de una unidad (ver

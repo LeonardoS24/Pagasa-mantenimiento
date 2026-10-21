@@ -1,5 +1,6 @@
 "use client";
 
+import { fijarPlazos, type Plazos } from "@/lib/plazos";
 import { useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { StationTankTechnicalSheet } from "@prisma/client";
@@ -77,6 +78,7 @@ function SubmitButton() {
 // vocabulario de un recipiente a presión fijo (ver StationTankTechnicalSheet
 // en el schema), sin mezclar los datos generales de la estación.
 export function StationTankTechnicalSheetForm({
+  plazos,
   vehicleId,
   etiqueta = "Tanque 1",
   sheet,
@@ -85,6 +87,9 @@ export function StationTankTechnicalSheetForm({
   isPlanta = false,
   showInspecciones = false,
 }: {
+  // Plazos normativos vigentes (ver lib/plazos.ts), para que los avisos de este
+  // formulario coincidan con los del servidor.
+  plazos: Plazos;
   vehicleId: string;
   // "Tanque 1" o "Tanque 2" (ver VehicleRecord.stationTankTechnicalSheets):
   // casi siempre "Tanque 1", la inmensa mayoría de estaciones solo tiene uno.
@@ -103,6 +108,7 @@ export function StationTankTechnicalSheetForm({
   // (ver showInspeccionesSection en la página de detalle).
   showInspecciones?: boolean;
 }) {
+  fijarPlazos(plazos);
   const action = upsertStationTankTechnicalSheet.bind(null, vehicleId, etiqueta);
   const [state, formAction] = useFormState(action, initialState);
   const [locked, setLocked] = useState(true);

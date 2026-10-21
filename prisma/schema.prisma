@@ -1657,3 +1657,23 @@ model LoteDocumentos {
   @@index([cityId, createdAt])
   @@map("lotes_documentos")
 }
+
+// Ajustes que el ADMIN hace al catálogo de requisitos normativos (ver
+// lib/requisitos-normativos.ts): el catálogo base vive en el código y aquí
+// solo se guarda lo que se cambió. Un campo en null significa "usar el valor
+// del catálogo base". Así, cuando una norma cambia (las de emergencia duran 6
+// meses), basta editar el plazo y la cita desde /admin/normas.
+model RequisitoNormativoAjuste {
+  clave      String   @id
+  plazoAnios Int?
+  norma      String?
+  numeral    String?
+  cita       String?
+  verificado Boolean?
+  // Quién lo editó por última vez (nombre de usuario, se conserva aunque
+  // después se elimine la cuenta).
+  actualizadoPor String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("requisitos_normativos_ajustes")
+}

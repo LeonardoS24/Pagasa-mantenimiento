@@ -1,4 +1,5 @@
 import { daysUntil } from "./ultrasound-alerts";
+import { ANIOS_VALVULAS_OTRAS_UNIDADES, plazosActivos } from "./plazos";
 
 // Alerta de cambio de válvulas: vence a los 5 años de fabricación de la más
 // antigua de todo el juego (10 años en Auto-Tanques, ver
@@ -52,27 +53,24 @@ export function valveDatesFromSheet(
   return dates;
 }
 
-export const ANIOS_VIGENCIA_VALVULAS = 5;
-
 // Vida máxima de las válvulas desde su fabricación, según el tipo de unidad.
-// Las del tanque de carga (Auto-Tanques y Semirremolques) duran 10 años:
-// NOM-EM-008-ASEA-2026, Tabla 3 (7.4.5.1), "menos de 10 años desde su fecha de
-// fabricación, o menos si lo indica el fabricante" para relevo de presión,
-// exceso de flujo, no retroceso y llenado. El resto de las unidades se queda
-// en 5 (en carburación, 9.6.4: llenado, servicio y seguridad cada 5 años).
+// Los plazos viven en el catálogo de requisitos normativos (ver
+// lib/requisitos-normativos.ts) y el ADMIN los edita desde /admin/normas; aquí
+// solo se decide a cuál de ellos corresponde cada apartado:
+// - Auto-Tanques y Semirremolques: válvulas del tanque de carga (base 10 años,
+//   NOM-EM-008-ASEA-2026, Tabla 3).
+// - Vehículo con tanque de carburación: base 5 años (NOM-005-SESH-2010, 9.6.4).
+// - Cualquier otra unidad: 5 años fijos.
 // Estaciones y Planta tienen su propia regla (ver lib/station-valves.ts y
 // lib/planta-tank-instruments.ts).
 //
-// Ojo: la norma fija 10 años solo a esas 4 válvulas; el alerta aplica el
-// mismo plazo a todo el juego del tanque de carga (así se pidió). Si alguna
-// otra válvula debe vencer antes, hay que darle su propio plazo.
-const ANIOS_VIGENCIA_VALVULAS_POR_APARTADO: Record<string, number> = {
-  "auto-tanques": 10,
-  semirremolques: 10,
-};
-
+// Ojo: la norma fija el plazo del tanque de carga a 4 válvulas; la alerta lo
+// aplica a todo el juego (así se pidió).
 export function aniosVigenciaValvulas(sectionSlug: string | null | undefined): number {
-  return (sectionSlug && ANIOS_VIGENCIA_VALVULAS_POR_APARTADO[sectionSlug]) || ANIOS_VIGENCIA_VALVULAS;
+  const plazos = plazosActivos();
+  if (sectionSlug === "auto-tanques" || sectionSlug === "semirremolques") return plazos.valvulasTanqueCarga;
+  if (sectionSlug === "vehiculo-con-tanque-de-carburacion") return plazos.valvulasCarburacion;
+  return ANIOS_VALVULAS_OTRAS_UNIDADES;
 }
 
 // Cómo se agrupan las alertas de válvulas de unidad en pantalla: el tanque de
@@ -106,12 +104,12 @@ export function oldestValve(
   return oldest;
 }
 
-export function getValveVencimiento(dates: ValveDates, anios: number = ANIOS_VIGENCIA_VALVULAS): Date | null {
+export function getValveVencimiento(dates: ValveDates, anios: number = ANIOS_VALVULAS_OTRAS_UNIDADES): Date | null {
   const oldest = oldestValve(dates);
   return oldest ? addYears(oldest.fecha, anios) : null;
 }
 
-export function getValveAlertLevel(dates: ValveDates, anios: number = ANIOS_VIGENCIA_VALVULAS): ValveAlertLevel {
+export function getValveAlertLevel(dates: ValveDates, anios: number = ANIOS_VALVULAS_OTRAS_UNIDADES): ValveAlertLevel {
   const vencimiento = getValveVencimiento(dates, anios);
   if (!vencimiento) return "none";
   const daysLeft = daysUntil(vencimiento);

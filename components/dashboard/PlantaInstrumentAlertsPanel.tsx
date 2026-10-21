@@ -1,3 +1,4 @@
+import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
 import { getPlantaInstrumentAlertMessage, type PlantaInstrumentField } from "@/lib/planta-tank-instruments";
@@ -57,6 +58,7 @@ export function PlantaInstrumentAlertsPanel({ vehicles }: { vehicles: PlantaInst
           </li>
         ))}
       </ul>
+      <FundamentoNormativo claves={["instrumentos-planta"]} className="mt-4" />
     </div>
   );
 }

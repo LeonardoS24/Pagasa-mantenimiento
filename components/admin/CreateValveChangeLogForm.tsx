@@ -1,5 +1,7 @@
 "use client";
 
+import { fijarPlazos, type Plazos } from "@/lib/plazos";
+import { aniosVigenciaValvulas } from "@/lib/valve-alerts";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
@@ -26,11 +28,13 @@ const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
 export function CreateValveChangeLogForm({
+  plazos,
   vehicleId,
   sectionSlug,
   hasPriorValveLog,
   knownTieneValvula85,
 }: {
+  plazos: Plazos;
   vehicleId: string;
   // Vehículo con tanque de carburación solo tiene 4 de las 9 válvulas (ver
   // lib/piece-catalog.ts y actions/valve-actions.ts: requireValvulasCompletas).
@@ -43,6 +47,7 @@ export function CreateValveChangeLogForm({
   hasPriorValveLog: boolean;
   knownTieneValvula85: boolean;
 }) {
+  fijarPlazos(plazos);
   const isCarburacion = sectionSlug === "vehiculo-con-tanque-de-carburacion";
   const action = createValveChangeLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
@@ -416,7 +421,7 @@ export function CreateValveChangeLogForm({
         <p className="text-xs text-ink">
           Al aceptar, la ficha técnica actualizará automáticamente todo el juego de fechas de
           fabricación y la fecha de instalación. El aviso de cambio se calcula sobre la válvula
-          con la fecha de fabricación más antigua: vence a los 5 años (10 en Auto-Tanques).
+          con la fecha de fabricación más antigua: vence a los {aniosVigenciaValvulas(sectionSlug)} años.
         </p>
 
         <FormMessage state={state} />

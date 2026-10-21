@@ -1,3 +1,4 @@
+import { asegurarPlazos } from "@/lib/requisitos-runtime";
 import { getSession } from "@/lib/auth";
 import { assertCityAccess } from "@/lib/access";
 import { resolveSectionPath } from "@/lib/section-path";
@@ -91,6 +92,7 @@ export default async function SectionPage({
   const isEditor = canEdit(user.role);
 
   await assertCityAccess(user, params.citySlug);
+  await asegurarPlazos(); // plazos normativos vigentes (ver /admin/normas)
   const { city, chain, children } = await resolveSectionPath(params.citySlug, params.sectionPath);
 
   const current = chain[chain.length - 1];
