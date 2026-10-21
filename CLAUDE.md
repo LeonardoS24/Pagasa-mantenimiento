@@ -207,6 +207,26 @@ los códigos QR).
   carpeta temporal y `NODE_TLS_REJECT_UNAUTHORIZED=0` solo en el proceso de
   prueba.
 
+## Códigos QR por unidad
+
+`/ciudades/[citySlug]/etiquetas-qr` (botón "Etiquetas QR" en la portada de la
+ciudad y "Etiqueta QR" en la ficha de cada unidad, `?unidad=<id>`; filtro
+`?apartado=<slug>`): etiquetas de 6.2 cm para imprimir (el resto de la página
+se oculta al imprimir) con el QR, el número económico/nombre y el apartado.
+Cubre todo `VehicleRecord` activo: unidades, estaciones y planta. Los QR son
+SVG generados en el servidor con `qrcode`.
+
+- El QR apunta a `{urlBase}/ciudades/{citySlug}/vehiculo/{id}`. **`urlBase` es
+  la "Dirección del sistema"** que el ADMIN captura en `/admin/reportes`
+  (tabla `AjusteSistema`); sin ella se usa la del navegador y, si es
+  `localhost`, la página avisa que un celular no la puede abrir. Como el
+  sistema corre en la red local por HTTP, **si cambia la IP del servidor hay que
+  reimprimir las etiquetas** (conviene fijarla o usar un nombre de equipo).
+- Escanear sin sesión: el middleware manda a `/login?from=<ruta>` y ahora el
+  login **sí regresa ahí** (`lib/ruta-segura.ts`: solo rutas internas; se
+  ignoran `//dominio`, `https://`, `/api` y `/login`). Antes `from` se ignoraba
+  y siempre caía en Inicio.
+
 ## Sistema de alertas
 
 **`lib/vehicle-alerts-summary.ts` → `getAllVehicleAlerts(cityIds)` es la única

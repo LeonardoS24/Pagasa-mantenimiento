@@ -489,12 +489,20 @@ export default async function VehicleDetailPage({
           </span>
         )}
         </div>
-        <Link
-          href={`/ciudades/${params.citySlug}/vehiculo/${vehicle.id}/imprimir`}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-gray-50"
-        >
-          Imprimir hoja completa
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/ciudades/${params.citySlug}/etiquetas-qr?unidad=${vehicle.id}`}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-gray-50"
+          >
+            Etiqueta QR
+          </Link>
+          <Link
+            href={`/ciudades/${params.citySlug}/vehiculo/${vehicle.id}/imprimir`}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-gray-50"
+          >
+            Imprimir hoja completa
+          </Link>
+        </div>
       </div>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">

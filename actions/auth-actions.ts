@@ -10,6 +10,7 @@ import { getAccessibleCities } from "@/lib/access";
 import { isAggregateCitySlug } from "@/lib/aggregate-city";
 import { countInProgressMaintenance } from "@/lib/in-progress-maintenance";
 import { countPendingHighPriorityOrders, countValveRedAlerts } from "@/lib/login-alerts";
+import { rutaInternaSegura } from "@/lib/ruta-segura";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Ingresa tu usuario"),
@@ -111,5 +112,7 @@ export async function loginAction(
 
   await session.save();
 
-  redirect("/dashboard");
+  // Si llegó escaneando el código QR de una unidad (o con un enlace a otra
+  // página), vuelve ahí en vez de caer en Inicio.
+  redirect(rutaInternaSegura(formData.get("from")) ?? "/dashboard");
 }

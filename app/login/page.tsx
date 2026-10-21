@@ -2,15 +2,17 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { LoginForm } from "@/components/login/LoginForm";
+import { rutaInternaSegura } from "@/lib/ruta-segura";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: { motivo?: string };
+  searchParams?: { motivo?: string; from?: string };
 }) {
   const session = await getSession();
+  const desde = rutaInternaSegura(searchParams?.from);
   if (session.userId) {
-    redirect("/dashboard");
+    redirect(desde ?? "/dashboard");
   }
 
   const cuentaEliminada = searchParams?.motivo === "cuenta-eliminada";
@@ -50,7 +52,7 @@ export default async function LoginPage({
             Pide a un administrador que la vuelva a crear.
           </p>
         )}
-        <LoginForm />
+        <LoginForm desde={desde} />
       </div>
     </div>
   );

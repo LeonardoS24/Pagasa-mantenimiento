@@ -94,6 +94,18 @@ export default async function CityPage({
           Calendario de vencimientos
         </Link>
         <Link
+          href={`/ciudades/${city.slug}/etiquetas-qr`}
+          className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+            <path d="M14 14h3v3h-3zM20 14v1M14 20h1M18 18h3v3h-3" />
+          </svg>
+          Etiquetas QR
+        </Link>
+        <Link
           href={`/ciudades/${city.slug}/documentos-de-pruebas`}
           className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
         >
