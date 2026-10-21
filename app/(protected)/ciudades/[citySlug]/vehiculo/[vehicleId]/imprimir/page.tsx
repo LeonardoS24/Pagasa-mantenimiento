@@ -5,6 +5,7 @@ import { assertCityAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { TechnicalSheetView } from "@/components/city/TechnicalSheetView";
 import { StationTankTechnicalSheetView } from "@/components/city/StationTankTechnicalSheetView";
+import { leerHistorial, soloVigentes } from "@/lib/vigencia";
 import { DocumentList } from "@/components/city/DocumentList";
 import { MaintenancePhotos } from "@/components/city/MaintenancePhotos";
 import { PrintButton } from "@/components/city/PrintButton";
@@ -298,9 +299,24 @@ function MaintenanceLogPrintList({ logs }: { logs: MaintenanceLogWithExtras[] })
 
 export default async function PrintVehiclePage({
   params,
+  searchParams,
 }: {
   params: { citySlug: string; vehicleId: string };
+  searchParams: { historial?: string };
 }) {
+  // "todo" imprime todo el historial de cada bitácora (como siempre);
+  // "actual" solo el registro más reciente de cada prueba, extintor, manguera
+  // y cambio de válvulas (ver lib/vigencia.ts). Mantenimientos y correctivos
+  // son eventos y salen siempre completos.
+  const historial = leerHistorial(searchParams.historial);
+  const vigentes = <T extends { createdAt: Date; stationTankTechnicalSheetId?: string | null }>(
+    registros: T[],
+    fecha: (registro: T) => Date
+  ): T[] =>
+    historial === "todo"
+      ? registros
+      : soloVigentes(registros, (r) => ({ fecha: fecha(r), tanqueId: r.stationTankTechnicalSheetId, creado: r.createdAt }));
+
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
 
@@ -381,7 +397,27 @@ export default async function PrintVehiclePage({
         >
           ← Volver al registro
         </Link>
-        <PrintButton label="Imprimir esta hoja" />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex overflow-hidden rounded-md border border-gray-300 text-sm">
+            {(
+              [
+                ["todo", "Todo el historial"],
+                ["actual", "Solo lo actual"],
+              ] as const
+            ).map(([valor, etiqueta]) => (
+              <Link
+                key={valor}
+                href={`/ciudades/${params.citySlug}/vehiculo/${vehicle.id}/imprimir?historial=${valor}`}
+                className={`px-3 py-1.5 text-xs font-medium ${
+                  historial === valor ? "bg-primary text-white" : "bg-white text-ink hover:bg-gray-50"
+                }`}
+              >
+                {etiqueta}
+              </Link>
+            ))}
+          </div>
+          <PrintButton label="Imprimir esta hoja" />
+        </div>
       </div>
 
       <div className="mb-6">
@@ -389,7 +425,10 @@ export default async function PrintVehiclePage({
           {vehicle.section.city.name} · {printRecords.map((record) => record.section.name).join(" + ")}
         </p>
         <h1 className="text-2xl font-semibold text-primary">{vehicle.numeroEconomico}</h1>
-        <p className="text-xs text-gray-500">Impreso/descargado el {formatDate(generatedAt)}</p>
+        <p className="text-xs text-gray-500">
+          Impreso/descargado el {formatDate(generatedAt)} ·{" "}
+          {historial === "actual" ? "Solo los registros y documentos actuales" : "Con todo el historial"}
+        </p>
         {/* "Datos generales" ya no es su propia sección con recuadro: para no
             gastar una hoja completa solo en unos datos cortos al imprimir,
             pero sí en cuadrícula de etiqueta/valor (como el resto de la
@@ -527,7 +566,7 @@ export default async function PrintVehiclePage({
               <Section title="Cambio de extintor">
                 <LogList
                   emptyLabel="Sin cambios de extintor registrados."
-                  entries={record.extinguisherChangeLogs.map((log) => ({
+                  entries={vigentes(record.extinguisherChangeLogs, (l) => l.fechaRealizacion).map((log) => ({
                     key: log.id,
                     documents: log.documents,
                     fields: [
@@ -545,7 +584,7 @@ export default async function PrintVehiclePage({
               <Section title="Cambio de mangueras">
                 <LogList
                   emptyLabel="Sin cambios de mangueras registrados."
-                  entries={record.hoseChangeLogs.map((log) => ({
+                  entries={vigentes(record.hoseChangeLogs, (l) => l.fechaInstalacion).map((log) => ({
                     key: log.id,
                     documents: log.documents,
                     fields: [
@@ -562,7 +601,7 @@ export default async function PrintVehiclePage({
               <Section title="Cambio de válvulas">
                 <LogList
                   emptyLabel="Sin cambios de válvulas registrados."
-                  entries={record.valveChangeLogs.map((log) => ({
+                  entries={vigentes(record.valveChangeLogs, (l) => l.fechaInstalacion).map((log) => ({
                     key: log.id,
                     documents: log.documents,
                     fields: [
@@ -604,7 +643,7 @@ export default async function PrintVehiclePage({
               <Section title="Inspección Visual Externa">
                 <LogList
                   emptyLabel="Sin inspecciones visuales externas registradas."
-                  entries={record.visualInspectionLogs.map((log) => ({
+                  entries={vigentes(record.visualInspectionLogs, (l) => l.fechaRealizacion).map((log) => ({
                     key: log.id,
                     documents: log.documents,
                     fields: [
@@ -623,7 +662,7 @@ export default async function PrintVehiclePage({
               <Section title="Prueba de Hermeticidad">
                 <LogList
                   emptyLabel="Sin pruebas de hermeticidad registradas."
-                  entries={record.tightnessTestLogs.map((log) => ({
+                  entries={vigentes(record.tightnessTestLogs, (l) => l.fechaRealizacion).map((log) => ({
                     key: log.id,
                     documents: log.documents,
                     fields: [
@@ -642,7 +681,7 @@ export default async function PrintVehiclePage({
               <Section title="Inspección Visual Interna">
                 <LogList
                   emptyLabel="Sin inspecciones visuales internas registradas."
-                  entries={record.internalVisualInspectionLogs.map((log) => ({
+                  entries={vigentes(record.internalVisualInspectionLogs, (l) => l.fechaRealizacion).map((log) => ({
                     key: log.id,
                     documents: log.documents,
                     fields: [
@@ -661,7 +700,7 @@ export default async function PrintVehiclePage({
               <Section title="Registro de ultrasonido">
                 <LogList
                   emptyLabel="Sin ultrasonidos registrados."
-                  entries={record.ultrasoundLogs.map((log) => ({
+                  entries={vigentes(record.ultrasoundLogs, (l) => l.fechaRealizacion).map((log) => ({
                     key: log.id,
                     documents: log.documents,
                     fields: [
@@ -680,7 +719,7 @@ export default async function PrintVehiclePage({
               <Section title="Prueba Hidrostática">
                 <LogList
                   emptyLabel="Sin pruebas hidrostáticas registradas."
-                  entries={record.hydrostaticTestLogs.map((log) => ({
+                  entries={vigentes(record.hydrostaticTestLogs, (l) => l.fechaRealizacion).map((log) => ({
                     key: log.id,
                     documents: log.documents,
                     fields: [

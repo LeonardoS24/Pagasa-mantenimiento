@@ -197,6 +197,18 @@ se siguen viendo igual (la categoría es texto en cada registro).
 - "Válvulas del tanque de carga" NO se llama "Válvulas" a propósito: ese
   nombre es el de carburación y dispara `lib/valve-piece-sync.ts`.
 
+## Actual vs. historial (documentos y hoja de la unidad)
+
+Nada se reemplaza ni se borra: una prueba, extintor, manguera, cambio de
+válvulas o póliza nuevos son un registro nuevo y el anterior queda como
+historial. **"Actual" se calcula, no se guarda** (`lib/vigencia.ts`): el
+registro más reciente de cada tipo, por unidad y por tanque. Mantenimientos,
+correctivos de válvulas y documentos sueltos de la unidad son eventos y
+siempre cuentan como actuales (`TIPOS_QUE_SE_REEMPLAZAN`).
+Se usa en tres lugares: el listado de "Documentos de pruebas" (filtro
+Actuales / Antiguos / Todos; en el ZIP los antiguos van en `Anteriores/`) y la
+hoja `/imprimir` de la unidad (`?historial=todo|actual`).
+
 ## Carga de documentos escaneados
 
 `/ciudades/[citySlug]/carga-de-documentos`: se sube un PDF con varios
