@@ -250,8 +250,12 @@ for (const hoja of HOJAS) {
     }
 
     if (hoja.slug === "auto-tanques") {
-      const manguera = fechaValvula(t(fila["Manguera de surtir — Fecha de fabricación"]), "");
-      if (manguera) llenar("fechaFabricacionMangueraSurtir", manguera.fecha, fechaTxt);
+      // Esta columna trae solo el año ("2023") o, donde ya se conoce, la fecha
+      // completa ("5 jul 2023"): la alerta de manguera cuenta 5 años desde
+      // la fabricación (ver mangueraParaAlerta en lib/hose-alerts.ts).
+      const mangueraTxt = t(fila["Manguera de surtir — Fecha de fabricación"]);
+      const mangueraFecha = parseFechaCorta(mangueraTxt) ?? fechaValvula(mangueraTxt, "")?.fecha ?? null;
+      if (mangueraFecha) llenar("fechaFabricacionMangueraSurtir", mangueraFecha, fechaTxt);
       llenar("medidaMangueraSurtir", t(fila["Manguera de surtir — Medida"]));
 
       if (t(fila["¿Tiene gobernador?"]).toLowerCase().startsWith("s")) {

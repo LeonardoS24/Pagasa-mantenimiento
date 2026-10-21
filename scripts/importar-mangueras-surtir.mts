@@ -7,13 +7,18 @@
 //
 //     npx tsx scripts/importar-mangueras-surtir.mts
 //     npx tsx scripts/importar-mangueras-surtir.mts --apply
+//     npx tsx scripts/importar-mangueras-surtir.mts --apply --sobrescribir
 //
 // Sin --apply solo simula e imprime qué haría (y cómo quedaría cada alerta).
 //
 // Reglas (las mismas de importar-valvulas-flotilla.mts):
-// - Solo llena campos VACÍOS. Si la unidad ya tiene una fecha distinta, no la
-//   pisa: la reporta para revisarla a mano (puede ser un cambio de manguera
-//   registrado después de levantar la lista).
+// - Por defecto solo llena campos VACÍOS. Si la unidad ya tiene una fecha
+//   distinta, no la pisa: la reporta para revisarla a mano (puede ser un
+//   cambio de manguera registrado después de levantar la lista).
+// - Con --sobrescribir SÍ reemplaza la fecha distinta por la de la lista, y
+//   muestra la anterior. Úsalo cuando la lista sea la fecha de fabricación
+//   correcta (el Excel de flotilla solo traía el año, que se guardó como el
+//   1 de enero de ese año).
 // - La unidad se busca por número económico, ignorando mayúsculas, espacios y
 //   guiones ("Kg 133" = "KG-133"), solo en Auto-Tanques y Semirremolques. Si
 //   no existe o coinciden varias, se reporta y se salta: aquí NO se dan de
@@ -24,6 +29,7 @@ import { getHoseVencimiento, getHoseAlertLevel } from "../lib/hose-alerts";
 import { daysUntil } from "../lib/ultrasound-alerts";
 
 const APPLY = process.argv.includes("--apply");
+const SOBRESCRIBIR = process.argv.includes("--sobrescribir");
 
 // Fechas tal como llegaron: mes/día/año con el año en dos dígitos (se sabe
 // que es mes/día porque hay 12/13/25, 05/29/24, 05/20/24 y 03/29/25).
@@ -95,7 +101,7 @@ const registros = await prisma.vehicleRecord.findMany({
 });
 
 console.log(APPLY ? "== APLICANDO ==" : "== SIMULACIÓN (no se guarda nada; agrega --apply para guardar) ==");
-const cuenta = { llena: 0, igual: 0, distinta: 0, noEncontrada: 0, ambigua: 0 };
+const cuenta = { llena: 0, igual: 0, distinta: 0, reemplazada: 0, noEncontrada: 0, ambigua: 0 };
 
 for (const { nombre, fecha } of porUnidad.values()) {
   const coincidencias = registros.filter((r) => norm(r.numeroEconomico) === norm(nombre));
@@ -118,9 +124,18 @@ for (const { nombre, fecha } of porUnidad.values()) {
   if (actual && actual.getTime() === fecha.getTime()) {
     cuenta.igual++;
     console.log(`= ${donde}: ya tiene ${iso(fecha)}.`);
+  } else if (actual && SOBRESCRIBIR) {
+    cuenta.reemplazada++;
+    console.log(`↻ ${donde}: tenía ${iso(actual)} → ahora ${iso(fecha)} · alerta ${estado(fecha)}`);
+    if (APPLY) {
+      await prisma.vehicleTechnicalSheet.update({
+        where: { vehicleRecordId: r.id },
+        data: { fechaFabricacionMangueraSurtir: fecha },
+      });
+    }
   } else if (actual) {
     cuenta.distinta++;
-    console.log(`! ${donde}: ya tiene ${iso(actual)} y la lista dice ${iso(fecha)}. NO se cambia: revísala a mano.`);
+    console.log(`! ${donde}: ya tiene ${iso(actual)} y la lista dice ${iso(fecha)}. NO se cambia (usa --sobrescribir si la lista es la correcta).`);
   } else {
     cuenta.llena++;
     console.log(`✔ ${donde}: manguera de surtir ${iso(fecha)} → alerta ${estado(fecha)}`);
@@ -137,6 +152,7 @@ for (const { nombre, fecha } of porUnidad.values()) {
 for (const c of conflictos) console.log(`✘ ${c}`);
 console.log(
   `\nResumen: ${cuenta.llena} ${APPLY ? "llenadas" : "se llenarían"} · ${cuenta.igual} ya estaban igual · ` +
+    `${cuenta.reemplazada} ${APPLY ? "reemplazadas" : "se reemplazarían"} · ` +
     `${cuenta.distinta} con otra fecha (no se tocan) · ${cuenta.noEncontrada} no encontradas · ` +
     `${cuenta.ambigua} ambiguas · ${conflictos.length} con fechas en conflicto.`
 );
