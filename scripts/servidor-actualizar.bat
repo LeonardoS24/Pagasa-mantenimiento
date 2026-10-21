@@ -31,6 +31,10 @@ copy /Y "prisma\dev.db" "backups\antes-de-actualizar\dev.db" >nul
 if errorlevel 1 goto :error
 
 echo [3/6] Trayendo los cambios nuevos...
+REM "npm install" reescribe package-lock.json en el servidor y eso hacia que
+REM "git pull" se negara a traer los cambios. Ese archivo se regenera solo,
+REM asi que aqui se descarta el cambio local (no toca la base ni uploads).
+git checkout -- package-lock.json >nul 2>&1
 git pull
 if errorlevel 1 goto :error
 
