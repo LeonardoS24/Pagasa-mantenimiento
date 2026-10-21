@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/pdfjs-compat";
 import { useEffect, useRef, useState } from "react";
 
 const RENDER_TIMEOUT_MS = 30000;

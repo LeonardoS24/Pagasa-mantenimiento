@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/pdfjs-compat";
 import { useEffect, useRef, useState } from "react";
 
 const RENDER_TIMEOUT_MS = 60000;
@@ -84,7 +85,10 @@ export function PrintPdfPages({ documents }: { documents: PrintablePdf[] }) {
           clearTimeout(timeout);
           setStatus("ready");
         }
-      } catch {
+      } catch (error) {
+        // Sin esto el aviso de abajo no dice POR QUÉ falló (archivo faltante,
+        // PDF dañado, navegador viejo...) y no hay forma de averiguarlo.
+        console.error("No se pudo dibujar un PDF adjunto para imprimir:", error);
         if (!cancelled) setStatus("error");
       }
     })();

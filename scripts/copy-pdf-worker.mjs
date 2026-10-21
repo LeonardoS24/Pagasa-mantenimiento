@@ -6,7 +6,7 @@
 // Se hace así porque dejar que el empaquetador resuelva el worker con
 // new URL(..., import.meta.url) rompe el build de producción: el minificador
 // trata ese archivo (un módulo ESM) como código suelto y falla.
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +20,9 @@ if (!existsSync(origen)) {
   process.exit(0);
 }
 
+// Al worker se le antepone lib/pdfjs-compat.js: el worker es otro contexto de
+// JavaScript y en navegadores viejos le faltan métodos que pdfjs 6 necesita.
+const compat = readFileSync(join(raiz, "lib", "pdfjs-compat.js"), "utf8");
 mkdirSync(dirname(destino), { recursive: true });
-copyFileSync(origen, destino);
-console.log("[copy-pdf-worker] worker copiado a public/pdf.worker.min.mjs");
+writeFileSync(destino, `${compat}\n${readFileSync(origen, "utf8")}`);
+console.log("[copy-pdf-worker] worker copiado a public/pdf.worker.min.mjs (con compatibilidad)");
