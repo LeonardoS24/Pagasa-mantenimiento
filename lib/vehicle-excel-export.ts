@@ -1,4 +1,4 @@
-import { XLSX, hojaConFormato } from "./excel-formato";
+import { XLSX, hojaConFormato, escribirLibro } from "./excel-formato";
 import { getConjuntosDeCiudad } from "./conjuntos";
 import { prisma } from "./prisma";
 import { formatDate } from "./dates";
@@ -716,7 +716,7 @@ async function buildFleetWorkbook(
   if (workbook.SheetNames.length === 0) {
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["Sin registros"]]), "Sin registros");
   }
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  return escribirLibro(workbook);
 }
 
 export async function buildCityFleetWorkbook(
