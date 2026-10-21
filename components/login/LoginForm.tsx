@@ -19,11 +19,12 @@ function SubmitButton() {
   );
 }
 
-export function LoginForm() {
+export function LoginForm({ desde }: { desde?: string | null }) {
   const [state, formAction] = useFormState(loginAction, initialState);
 
   return (
     <form action={formAction} className="space-y-4">
+      {desde && <input type="hidden" name="from" value={desde} />}
       <div>
         <label htmlFor="username" className="mb-1 block text-sm font-medium text-ink">
           Usuario
