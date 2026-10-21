@@ -164,10 +164,10 @@ async function recalcularFichaTecnicaMantenimiento(vehicleId: string): Promise<v
   );
   const vehicleActual = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleId },
-    select: { estatus: true },
+    select: { estatus: true, activo: true },
   });
   const nuevoEstatus =
-    vehicleActual?.estatus === "FUERA_DE_SERVICIO"
+    vehicleActual?.estatus === "FUERA_DE_SERVICIO" || vehicleActual?.activo === false
       ? "FUERA_DE_SERVICIO"
       : hayMantenimientoAbierto
       ? "EN_TALLER"

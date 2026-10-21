@@ -359,7 +359,7 @@ export function VehicleTable({
                       )}
                     </td>
                     <td className="relative z-10 whitespace-nowrap px-4 py-2">
-                      <VehicleEstatusControl vehicleId={record.id} estatus={record.estatus} />
+                      <VehicleEstatusControl vehicleId={record.id} estatus={record.estatus} activo={record.activo} />
                     </td>
                   </>
                 )}

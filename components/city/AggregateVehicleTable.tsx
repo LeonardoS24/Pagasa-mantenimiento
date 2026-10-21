@@ -47,7 +47,7 @@ function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEst
           <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
           <td className="whitespace-nowrap px-4 py-2 text-ink">{record.serie || "—"}</td>
           <td className="relative z-10 whitespace-nowrap px-4 py-2">
-            <VehicleEstatusControl vehicleId={record.id} estatus={record.estatus} />
+            <VehicleEstatusControl vehicleId={record.id} estatus={record.estatus} activo={record.activo} />
           </td>
         </>
       )}

@@ -19,9 +19,13 @@ import {
 export function VehicleEstatusControl({
   vehicleId,
   estatus,
+  activo = true,
 }: {
   vehicleId: string;
   estatus: string;
+  // Dada de baja = fuera de servicio, sin selector: para volver a operar hay
+  // que reactivarla desde su ficha (ver setVehicleActive).
+  activo?: boolean;
 }) {
   const [current, setCurrent] = useState<VehicleEstatus>(
     vehicleEstatusSchema.options.includes(estatus as VehicleEstatus) ? (estatus as VehicleEstatus) : "OPERATIVA"
@@ -45,6 +49,17 @@ export function VehicleEstatusControl({
   // Operativa no aparece "En taller", porque a taller entra sola al
   // registrarle un mantenimiento.
   const options: VehicleEstatus[] = [current, ...vehicleEstatusTransitions[current]];
+
+  if (!activo) {
+    return (
+      <span
+        className={`rounded-full px-2 py-1 text-xs font-medium ${vehicleEstatusStyles.FUERA_DE_SERVICIO}`}
+        title="Dada de baja: reactívala desde su ficha para volver a operar"
+      >
+        {vehicleEstatusLabels.FUERA_DE_SERVICIO}
+      </span>
+    );
+  }
 
   return (
     <select

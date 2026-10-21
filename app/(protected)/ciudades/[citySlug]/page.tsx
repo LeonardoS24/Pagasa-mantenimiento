@@ -21,6 +21,7 @@ import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPane
 import { ComplianceOverviewPanel } from "@/components/city/ComplianceOverviewPanel";
 import { getComplianceOverview } from "@/lib/compliance-stats";
 import { canEdit } from "@/lib/roles";
+import { KINO_CITY_SLUG } from "@/lib/city-template";
 
 export default async function CityPage({
   params,
@@ -129,16 +130,21 @@ export default async function CityPage({
           method="get"
           className="flex items-center gap-2"
         >
-          <select
-            name="ambito"
-            defaultValue="todo"
-            className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-ink focus:border-primary focus:outline-none"
-          >
-            <option value="todo">Todo</option>
-            <option value="unidades">Unidades</option>
-            <option value="estaciones">Estaciones</option>
-            <option value="planta">Planta</option>
-          </select>
+          {city.slug === KINO_CITY_SLUG ? (
+            // Transportadora Kino solo tiene unidades: no hay estaciones ni planta que elegir.
+            <input type="hidden" name="ambito" value="unidades" />
+          ) : (
+            <select
+              name="ambito"
+              defaultValue="todo"
+              className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-ink focus:border-primary focus:outline-none"
+            >
+              <option value="todo">Todo</option>
+              <option value="unidades">Unidades</option>
+              <option value="estaciones">Estaciones</option>
+              <option value="planta">Planta</option>
+            </select>
+          )}
           <button
             type="submit"
             className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"

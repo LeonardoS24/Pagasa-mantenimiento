@@ -77,6 +77,12 @@ export const vehicleEstatusTransitions: Record<VehicleEstatus, VehicleEstatus[]>
   FUERA_DE_SERVICIO: ["EN_TALLER"],
 };
 
+// Una unidad dada de baja está fuera de servicio, siempre: no depende de lo
+// que diga el campo estatus (por si algún registro viejo quedó "Operativa").
+export function estatusEfectivo(activo: boolean, estatus: string): string {
+  return activo ? estatus : "FUERA_DE_SERVICIO";
+}
+
 export function canTransitionVehicleEstatus(from: VehicleEstatus, to: VehicleEstatus): boolean {
   // Volver a elegir el estatus en el que ya está no es un cambio: se permite
   // sin más (el select del listado arranca en el actual).

@@ -40,7 +40,7 @@ import { createHash, randomUUID } from "crypto";
 import XLSX from "xlsx";
 import mammoth from "mammoth";
 import { prisma } from "../lib/prisma";
-import { PLANTILLA_APARTADOS } from "../lib/city-template";
+import { PLANTILLA_KINO } from "../lib/city-template";
 import { TRACTOCAMIONES_SLUG, SEMIRREMOLQUES_SLUG } from "../lib/kino-sections";
 import {
   UPLOADS_DIR,
@@ -395,9 +395,8 @@ async function sha1(archivo: string) {
   return createHash("sha1").update(await fs.readFile(archivo)).digest("hex");
 }
 
-// Ciudad + apartados (plantilla estándar, salvo que "Unidad de
-// distribución" lleva Tractocamiones y Semirremolques en vez de los 4 de
-// siempre).
+// Ciudad + apartados: solo "Unidad de distribución" (Tractocamiones y
+// Semirremolques) y "Bitácoras de unidades" (ver PLANTILLA_KINO).
 let ciudad = await prisma.city.findUnique({ where: { slug: CIUDAD.slug } });
 if (!ciudad) {
   console.log(`+ Ciudad "${CIUDAD.name}"`);
@@ -409,7 +408,7 @@ if (!ciudad) {
 
 const seccionPorSlug = new Map<string, string>();
 if (ciudad) {
-  for (const [indice, apartado] of PLANTILLA_APARTADOS.entries()) {
+  for (const [indice, apartado] of PLANTILLA_KINO.entries()) {
     let seccion = await prisma.section.findFirst({ where: { cityId: ciudad.id, parentId: null, slug: apartado.slug } });
     if (!seccion && APPLY) {
       seccion = await prisma.section.create({ data: { cityId: ciudad.id, parentId: null, name: apartado.name, slug: apartado.slug, order: indice } });

@@ -69,6 +69,15 @@ solo. Los apartados de Kino se ven "separados" (tabla de siempre) o
 conjuntos, no el campo `unidadAsignada` (dato viejo de la relación de tanques,
 ya no se muestra).
 
+**Transportadora Kino solo lleva dos apartados**: "Unidad de distribución"
+(Tractocamiones y Semirremolques) y "Bitácoras de unidades" (`PLANTILLA_KINO`
+en `lib/city-template.ts`; `plantillaDeCiudad(slug)` la elige, y
+`crearApartadosEstandar` y `crear-transportadora-kino.mts` la respetan). Nada
+de planta, estaciones, equipos, inventarios, órdenes ni manuales. Para limpiar
+una base que ya tenía los apartados de más: `limpiar-transportadora-kino.mts`
+(simula; `--apply` borra), que **solo borra apartados vacíos** y reporta los que
+tienen datos sin tocarlos (el historial no se borra).
+
 **"Administración"** es una ciudad agregada (`lib/aggregate-city.ts`): no tiene
 flota propia, combina los datos de todas las ciudades reales.
 
@@ -342,6 +351,20 @@ porque el sistema se sirve por HTTP en la red local; se activa con
   patrón es lista fija en el código + tabla de "extras" que el ADMIN agrega,
   unidas por una función `*-runtime.ts`. Nunca leer la constante directo.
 - **Commits**: mensaje en español, en presente, explicando el *porqué*.
+
+## Dar de baja = fuera de servicio
+
+Dar de baja una unidad (`setVehicleActive`) la deja **sola en estatus
+`FUERA_DE_SERVICIO`** (el estatus operativo, distinto de `activo`); también a
+su pareja Auto-Tanque/carburación. Reactivarla recalcula: En taller si tiene
+mantenimientos sin terminar, si no Operativa. Una unidad de baja no sale de
+fuera de servicio a mano (`setVehicleEstatus` lo rechaza, el selector del
+listado se vuelve una etiqueta), el recálculo por mantenimientos no la toca, no
+cuenta en alertas, calendario, tablero ni avisos de mantenimientos en proceso, y
+`estatusEfectivo(activo, estatus)` (lib/vehicle-enums.ts) cubre cualquier
+registro viejo. La migración `20261022000000_baja_deja_fuera_de_servicio`
+alinea las bajas ya existentes. Los mantenimientos abiertos de una unidad dada
+de baja NO se cierran: son historial.
 
 ## Excel que descarga el sistema
 

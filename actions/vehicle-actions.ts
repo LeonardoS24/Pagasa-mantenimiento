@@ -252,6 +252,18 @@ const PAIRED_VEHICLE_SECTION_SLUGS: Record<string, string> = {
   "vehiculo-con-tanque-de-carburacion": "auto-tanques",
 };
 
+// Dar de baja deja la unidad FUERA DE SERVICIO sola (estatus operativo): una
+// unidad dada de baja no opera. Al reactivarla vuelve a En taller si todavía
+// tiene mantenimientos sin terminar, o a Operativa si no. Los mantenimientos
+// abiertos no se tocan: son historial.
+async function estatusAlCambiarActivo(vehicleId: string, activo: boolean): Promise<string> {
+  if (!activo) return "FUERA_DE_SERVICIO";
+  const abiertos = await prisma.maintenanceLog.count({
+    where: { vehicleRecordId: vehicleId, estatus: { in: ["SIN_ATENCION", "EN_PROCESO"] } },
+  });
+  return abiertos > 0 ? "EN_TALLER" : "OPERATIVA";
+}
+
 // Dar de baja NO elimina la unidad: solo cambia su estatus a inactiva. Sigue
 // visible en la tabla y conserva ficha técnica, bitácora y documentos.
 // motivo (opcional, solo tiene efecto al dar de baja, no al reactivar) queda
@@ -267,7 +279,12 @@ export async function setVehicleActive(vehicleId: string, activo: boolean, formD
 
   const vehicle = await prisma.vehicleRecord.update({
     where: { id: vehicleId },
-    data: { activo, fechaBaja: activo ? null : new Date(), motivoBaja: motivo },
+    data: {
+      activo,
+      fechaBaja: activo ? null : new Date(),
+      motivoBaja: motivo,
+      estatus: await estatusAlCambiarActivo(vehicleId, activo),
+    },
     include: { section: { include: { city: true } } },
   });
 
@@ -287,7 +304,12 @@ export async function setVehicleActive(vehicleId: string, activo: boolean, formD
     if (paired) {
       await prisma.vehicleRecord.update({
         where: { id: paired.id },
-        data: { activo, fechaBaja: activo ? null : new Date(), motivoBaja: motivo },
+        data: {
+          activo,
+          fechaBaja: activo ? null : new Date(),
+          motivoBaja: motivo,
+          estatus: await estatusAlCambiarActivo(paired.id, activo),
+        },
       });
       const pairedChain = await getSectionChain(paired.sectionId);
       revalidatePath(sectionBasePath(vehicle.section.city.slug, pairedChain));
@@ -1272,6 +1294,12 @@ export async function setVehicleEstatus(
   });
   if (!vehicle) {
     return { error: "El registro no existe." };
+  }
+
+  // Una unidad dada de baja está fuera de servicio y no se saca de ahí a mano:
+  // primero se reactiva (setVehicleActive), que recalcula su estatus.
+  if (!vehicle.activo) {
+    return { error: "Esta unidad está dada de baja y fuera de servicio. Reactívala desde su ficha para volver a operar." };
   }
 
   // Solo se permiten los cambios de estatus que tienen sentido operativo (ver
