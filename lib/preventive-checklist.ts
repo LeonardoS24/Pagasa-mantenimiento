@@ -1,53 +1,100 @@
 import { z } from "zod";
 
-// Checklist fijo que se llena cuando el tipo de mantenimiento es
-// "Preventivo" (ver components/admin/CreateMaintenanceLogForm.tsx). Cada
-// ítem se revisa y se marca con uno de los 4 estados; "Relleno", "Lubricación"
-// y "Cambio" generan cada uno su propio registro de pieza documentada (ver
-// actions/maintenance-actions.ts) — "Buen estado" no genera nada, solo queda
-// en el checklist guardado.
-export const PREVENTIVE_CHECKLIST_ITEMS = [
-  "Aceite del motor",
-  "Filtro de aceite",
-  "Filtro de aire del motor",
-  "Filtro de cabina (A/C)",
-  "Filtro de combustible",
-  "Refrigerante",
-  "Líquido de frenos",
-  "Líquido de dirección hidráulica",
-  "Aceite de transmisión",
-  "Aceite diferencial",
-  "Líquido limpiaparabrisas",
-  "Batería",
-  "Sistema de carga",
-  "Motor de arranque",
-  "Bandas o correas",
-  "Mangueras",
-  "Radiador",
-  "Sistema de enfriamiento",
-  "Frenos",
-  "Llantas",
-  "Suspensión",
-  "Dirección",
-  "Sistema de escape",
-  "Luces",
-  "Limpiaparabrisas",
-  "Claxon",
-  "Aire acondicionado",
-  "Escáner OBD-II",
-  "Tornillería",
-  "Lubricación",
-  "Otro",
+// Checklists fijos que se llenan cuando el tipo de mantenimiento es
+// "Preventivo" (ver components/admin/CreateMaintenanceLogForm.tsx). Son de
+// INGENIERÍA DE GAS, no de mecánica automotriz (aceite, frenos, llantas...):
+// a petición del usuario se quitó todo lo mecánico. Hay uno por tipo de
+// unidad, porque cada una tiene un sistema de gas distinto (ver
+// checklistListaDeApartado). Un ADMIN les agrega ítems desde /admin/piezas
+// (ver lib/checklist-runtime.ts).
+//
+// En todos, cada ítem se revisa de una de dos formas: los que "solo se
+// revisan por fugas" (Buen estado / Con fugas) y el resto (Buen estado /
+// Reparación / Sustitución). Todo lo que no queda en "Buen estado" se
+// documenta como su propio registro de pieza (ver
+// actions/maintenance-actions.ts).
+export const CHECKLIST_LISTAS = ["TANQUE_CARGA", "REPARTO", "GENERAL", "CARBURACION"] as const;
+export type ChecklistLista = (typeof CHECKLIST_LISTAS)[number];
+
+export const checklistListaLabels: Record<ChecklistLista, string> = {
+  TANQUE_CARGA: "Auto-Tanques y Semirremolques",
+  REPARTO: "Vehículo de reparto",
+  GENERAL: "Unidades utilitarias y tractocamiones",
+  CARBURACION: "Vehículo con tanque de carburación",
+};
+
+export function checklistListaDeApartado(sectionSlug: string): ChecklistLista {
+  if (sectionSlug === "vehiculo-con-tanque-de-carburacion") return "CARBURACION";
+  if (sectionSlug === "auto-tanques" || sectionSlug === "semirremolques") return "TANQUE_CARGA";
+  if (sectionSlug === "vehiculo-de-reparto") return "REPARTO";
+  return "GENERAL";
+}
+
+// Ítem especial para lo que no aparece en la lista fija: la pieza/parte real
+// se anota en la descripción, pero en el gráfico siempre se agrupa como
+// "Otro" (no por el texto libre), para no diluir el top de piezas con
+// entradas de un solo uso.
+export const OTHER_CHECKLIST_ITEM = "Otro";
+
+// Tanque de carga (Auto-Tanques y Semirremolques).
+export const TANQUE_CARGA_LEAK_CHECK_ITEMS = [
+  "Válvulas del recipiente",
+  "Registro pasa hombre",
+  "Bridas y empaques",
+  "Tubería y conexiones",
+  "Manguera de descarga",
+  "Acoplador de líquido",
 ] as const;
 
-export type PreventiveChecklistItem = (typeof PREVENTIVE_CHECKLIST_ITEMS)[number];
+export const TANQUE_CARGA_ACCION_ITEMS = [
+  "Bomba",
+  "Toma de fuerza",
+  "Carrete y motor de carrete",
+  "Medidor y registro electrónico",
+  "Manómetro",
+  "Termómetro",
+  "Indicador de nivel (Magnatel)",
+  "Filtro de gas",
+  "Cinta estática (tierra)",
+  "Extintor",
+  "Letreros y rombos de identificación",
+] as const;
 
-// Checklist preventivo propio de Vehículo con tanque de carburación (ver
-// CreateMaintenanceLogForm.tsx): reemplaza al genérico de arriba solo para
-// esa sección — nada de aceite de motor ni frenos, solo lo relacionado a su
-// sistema de gas LP. Las válvulas, la manguera y las uniones solo se
-// revisan por fugas; el resto de las piezas del kit sí admite reparar o
-// sustituir (ver lib/piece-catalog.ts: mismos nombres que las categorías
+export const TANQUE_CARGA_CHECKLIST_ITEMS = [
+  ...TANQUE_CARGA_LEAK_CHECK_ITEMS,
+  ...TANQUE_CARGA_ACCION_ITEMS,
+  OTHER_CHECKLIST_ITEM,
+] as const;
+
+// Vehículo de reparto (transporta cilindros).
+export const REPARTO_LEAK_CHECK_ITEMS = ["Cilindros transportados (sin fugas ni daños)"] as const;
+
+export const REPARTO_ACCION_ITEMS = [
+  "Jaula o redilas",
+  "Sujeción de cilindros",
+  "Piso de la plataforma",
+  "Extintor",
+  "Letreros y rombos de identificación",
+] as const;
+
+export const REPARTO_CHECKLIST_ITEMS = [
+  ...REPARTO_LEAK_CHECK_ITEMS,
+  ...REPARTO_ACCION_ITEMS,
+  OTHER_CHECKLIST_ITEM,
+] as const;
+
+// Utilitarias y tractocamiones: no llevan sistema de gas propio, así que su
+// lista es corta (seguridad); el ADMIN le agrega lo que haga falta.
+export const PREVENTIVE_CHECKLIST_ITEMS = [
+  "Extintor",
+  "Letreros y rombos de identificación",
+  OTHER_CHECKLIST_ITEM,
+] as const;
+
+// Checklist preventivo propio de Vehículo con tanque de carburación: solo lo
+// relacionado a su sistema de gas LP. Las válvulas, la manguera y las uniones
+// solo se revisan por fugas; el resto de las piezas del kit sí admite reparar
+// o sustituir (ver lib/piece-catalog.ts: mismos nombres que las categorías
 // "Válvulas" y "Sistema de carburación", salvo "Uniones", que no es una
 // pieza que se compre/reemplace por separado).
 export const CARBURACION_LEAK_CHECK_ITEMS = [
@@ -74,6 +121,20 @@ export const CARBURACION_CHECKLIST_ITEMS = [
 
 export type CarburacionChecklistItem = (typeof CARBURACION_CHECKLIST_ITEMS)[number];
 
+export const CHECKLIST_BASE: Record<ChecklistLista, readonly string[]> = {
+  TANQUE_CARGA: TANQUE_CARGA_CHECKLIST_ITEMS,
+  REPARTO: REPARTO_CHECKLIST_ITEMS,
+  GENERAL: PREVENTIVE_CHECKLIST_ITEMS,
+  CARBURACION: CARBURACION_CHECKLIST_ITEMS,
+};
+
+export const LEAK_CHECK_BASE: Record<ChecklistLista, readonly string[]> = {
+  TANQUE_CARGA: TANQUE_CARGA_LEAK_CHECK_ITEMS,
+  REPARTO: REPARTO_LEAK_CHECK_ITEMS,
+  GENERAL: [],
+  CARBURACION: CARBURACION_LEAK_CHECK_ITEMS,
+};
+
 // Nombres que tenían antes las válvulas (ver lib/ficha-campos.ts): un
 // checklist guardado con ellos se sigue reconociendo como revisión de fugas.
 const NOMBRES_ANTERIORES_FUGAS = [
@@ -83,16 +144,15 @@ const NOMBRES_ANTERIORES_FUGAS = [
   "Válvula de seguridad",
 ];
 
-export function isCarburacionLeakCheckItem(item: string): boolean {
-  return (CARBURACION_LEAK_CHECK_ITEMS as readonly string[]).includes(item) || NOMBRES_ANTERIORES_FUGAS.includes(item);
+export function isLeakCheckItem(item: string): boolean {
+  return Object.values(LEAK_CHECK_BASE).some((lista) => lista.includes(item)) || NOMBRES_ANTERIORES_FUGAS.includes(item);
 }
 
-// Unión de los 3 juegos de estados posibles: el genérico (Buen estado/
-// Relleno/Lubricación/Cambio) y los dos de carburación (Buen estado/Con
-// fugas, y Buen estado/Reparación/Sustitución). Se valida junto porque los
-// tres flujos guardan su checklist en el mismo campo JSON
-// (MaintenanceLog.checklistPreventivo); cada formulario solo ofrece las
-// opciones que le corresponden (ver checklistEstadoOptionsFor abajo).
+// Todos los estados que se han usado. "Relleno", "Lubricación" y "Cambio"
+// eran del checklist mecánico anterior: ya no se ofrecen, pero siguen siendo
+// válidos para que los mantenimientos viejos guardados con ellos se lean
+// igual (todos los checklists se guardan en el mismo campo JSON,
+// MaintenanceLog.checklistPreventivo).
 export const checklistEstadoSchema = z.enum([
   "Buen estado",
   "Relleno",
@@ -104,29 +164,21 @@ export const checklistEstadoSchema = z.enum([
 ]);
 export type ChecklistEstado = z.infer<typeof checklistEstadoSchema>;
 
-// Opciones del checklist genérico (cualquier unidad menos Vehículo con
-// tanque de carburación).
-export const checklistEstadoOptions = ["Buen estado", "Relleno", "Lubricación", "Cambio"] as const;
-// Válvulas, manguera y uniones del checklist de carburación: solo se
-// revisan por fugas.
+// Ítems que solo se revisan por fugas.
 export const leakCheckEstadoOptions = ["Buen estado", "Con fugas"] as const;
-// Resto de piezas del checklist de carburación.
+// Resto de los ítems.
 export const carburacionAccionEstadoOptions = ["Buen estado", "Reparación", "Sustitución"] as const;
 
-// Qué opciones de estado le corresponden a un ítem, según de qué checklist
-// viene (ver CreateMaintenanceLogForm.tsx).
+// Qué opciones de estado le corresponden a un ítem (ver
+// CreateMaintenanceLogForm.tsx).
 export function checklistEstadoOptionsFor(
   item: string,
-  isCarburacion: boolean,
   // Ítems que solo se revisan por fugas, incluyendo los agregados desde el
   // panel y marcados así (ver lib/checklist-runtime.ts: getLeakCheckItems).
-  // Sin esto solo se conocen los de la lista fija.
+  // Sin esto solo se conocen los de las listas fijas.
   leakCheckItems?: readonly string[]
 ): readonly string[] {
-  if (!isCarburacion) return checklistEstadoOptions;
-  const esDeFugas = leakCheckItems
-    ? leakCheckItems.includes(item)
-    : isCarburacionLeakCheckItem(item);
+  const esDeFugas = leakCheckItems ? leakCheckItems.includes(item) : isLeakCheckItem(item);
   return esDeFugas ? leakCheckEstadoOptions : carburacionAccionEstadoOptions;
 }
 
@@ -144,12 +196,6 @@ export interface ChecklistEntry {
   // anota qué se hizo, ya que no viene de la lista fija.
   descripcion?: string;
 }
-
-// Ítem especial para lo que no aparece en la lista fija: la pieza/parte real
-// se anota en la descripción, pero en el gráfico siempre se agrupa como
-// "Otro" (no por el texto libre), para no diluir el top de piezas con
-// entradas de un solo uso.
-export const OTHER_CHECKLIST_ITEM = "Otro";
 
 // "Buen estado" es el único estado que NO se documenta como pieza.
 export function isChecklistDocumentable(estado: ChecklistEstado): boolean {

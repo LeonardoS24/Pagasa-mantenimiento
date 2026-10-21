@@ -8,6 +8,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { requireEditor, checkSessionUserExists } from "@/lib/auth";
 import { assertCityAccessById } from "@/lib/access";
+import { verifySessionPassword } from "@/lib/reauth";
+import { logActivity } from "@/lib/activity-log";
 import { isAggregateCitySlug, getAllRealCityIds } from "@/lib/aggregate-city";
 import {
   TIPOS_LOTE,
@@ -18,10 +20,20 @@ import {
   esPruebaDeTanque,
   nombreArchivoItem,
   tipoLoteLabel,
+  itemLoteNuevo,
+  adivinarUnidadPorNombre,
   type ItemLote,
   type CampoItem,
+  type TipoLote,
 } from "@/lib/lote-documentos";
-import { guardarOriginalLote, leerOriginalLote, contarPaginasPdf, extraerPaginasPdf } from "@/lib/lote-documentos-archivos";
+import {
+  guardarOriginalLote,
+  leerOriginalLote,
+  contarPaginasPdf,
+  extraerPaginasPdf,
+  unirPdfs,
+  borrarCarpetaLote,
+} from "@/lib/lote-documentos-archivos";
 import { lectorConfigurado, leerLoteConIA } from "@/lib/lector-documentos-ia";
 import { createUltrasoundLog } from "./ultrasound-actions";
 import { createVisualInspectionLog } from "./visual-inspection-actions";
@@ -128,6 +140,22 @@ async function analizarLote(loteId: string): Promise<void> {
   }
 }
 
+// Unidades de las ciudades del lote, para adivinar a cuál va cada archivo
+// por su nombre (ver adivinarUnidadPorNombre).
+async function unidadesParaAdivinar(cityIds: string[]) {
+  const registros = await prisma.vehicleRecord.findMany({
+    where: { section: { cityId: { in: cityIds } } },
+    select: { id: true, numeroEconomico: true, section: { select: { slug: true } } },
+  });
+  return registros.map((r) => ({ id: r.id, numeroEconomico: r.numeroEconomico, sectionSlug: r.section.slug }));
+}
+
+const tipoOpcionalSchema = z.preprocess((v) => (v ? v : undefined), z.enum(TIPOS_LOTE).optional());
+
+// Un solo PDF con todo junto (la IA lo separa, o se separa a mano) o varios
+// PDF a la vez: en ese caso cada archivo ya es un documento, así que se
+// crea uno por archivo con la unidad adivinada por su nombre y el tipo que
+// se haya elegido para todos.
 export async function crearLoteDocumentos(
   citySlug: string,
   _prevState: ActionState,
@@ -142,36 +170,73 @@ export async function crearLoteDocumentos(
   // Ver lib/access.ts: el rol dice si puede editar, no si puede editar ESTO.
   await assertCityAccessById(editor, city.id);
 
-  const archivo = formData.get("archivo");
-  if (!(archivo instanceof File) || archivo.size === 0) return { error: "Selecciona el PDF escaneado." };
-  if (archivo.type !== "application/pdf") return { error: `"${archivo.name}" no es un PDF.` };
-  if (archivo.size > MAX_LOTE_BYTES) {
-    return { error: `"${archivo.name}" supera 20 MB. Escanéalo en dos partes o con menor resolución.` };
+  const archivos = formData.getAll("archivo").filter((v): v is File => v instanceof File && v.size > 0);
+  if (archivos.length === 0) return { error: "Selecciona el PDF escaneado." };
+  for (const archivo of archivos) {
+    if (archivo.type !== "application/pdf") return { error: `"${archivo.name}" no es un PDF.` };
   }
+  const tamanoTotal = archivos.reduce((t, a) => t + a.size, 0);
+  if (tamanoTotal > MAX_LOTE_BYTES) {
+    return {
+      error:
+        archivos.length === 1
+          ? `"${archivos[0].name}" supera 20 MB. Escanéalo en dos partes o con menor resolución.`
+          : "Entre todos los archivos suman más de 20 MB. Súbelos en dos tandas.",
+    };
+  }
+  const tipoComun = tipoOpcionalSchema.safeParse(formData.get("tipo"));
+  if (!tipoComun.success) return { error: "Tipo de documento inválido." };
 
-  const datos = Buffer.from(await archivo.arrayBuffer());
+  const datos = await Promise.all(archivos.map(async (a) => Buffer.from(await a.arrayBuffer())));
+  let pdf: Buffer;
   let paginas: number;
+  let items: ItemLote[] = [];
   try {
-    paginas = await contarPaginasPdf(datos);
+    if (archivos.length === 1) {
+      pdf = datos[0];
+      paginas = await contarPaginasPdf(pdf);
+    } else {
+      const unido = await unirPdfs(datos);
+      pdf = unido.pdf;
+      paginas = unido.rangos.at(-1)?.paginaFin ?? 0;
+      const tipo: TipoLote = tipoComun.data ?? "UNIDAD";
+      const unidades = await unidadesParaAdivinar(await ciudadesDelLote(city));
+      items = archivos.map((archivo, i) => {
+        const unidad = adivinarUnidadPorNombre(archivo.name, unidades, tipo);
+        return itemLoteNuevo({
+          id: randomUUID(),
+          origen: "MANUAL",
+          ...unido.rangos[i],
+          tipo,
+          descripcionLector: `Archivo: ${archivo.name}`,
+          vehicleId: unidad?.id ?? null,
+          identificador: unidad ? `Nombre del archivo: ${archivo.name}` : null,
+          dudas: unidad ? [] : ["No se reconoció la unidad en el nombre del archivo: elígela."],
+        });
+      });
+    }
   } catch {
-    return { error: `No se pudo abrir "${archivo.name}". ¿Está dañado o protegido con contraseña?` };
+    return { error: "No se pudo abrir uno de los PDF. ¿Está dañado o protegido con contraseña?" };
   }
   if (paginas === 0) return { error: "El PDF no tiene páginas." };
 
-  const conIA = lectorConfigurado();
+  // La IA solo lee un escaneo con todo junto: con varios archivos ya se sabe
+  // dónde empieza y termina cada documento.
+  const conIA = archivos.length === 1 && lectorConfigurado();
   const lote = await prisma.loteDocumentos.create({
     data: {
       cityId: city.id,
-      fileName: archivo.name,
+      fileName: archivos.length === 1 ? archivos[0].name : `${archivos.length} archivos (${archivos[0].name}, ...)`,
       storedName: "",
-      size: archivo.size,
+      size: pdf.length,
       paginas,
       // Sin clave de la API el lote se divide a mano desde la revisión.
       estado: conIA ? "ANALIZANDO" : "POR_REVISAR",
+      documentos: JSON.stringify(items),
       createdById: editor.userId,
     },
   });
-  const storedName = await guardarOriginalLote(lote.id, datos);
+  const storedName = await guardarOriginalLote(lote.id, pdf);
   await prisma.loteDocumentos.update({ where: { id: lote.id }, data: { storedName } });
 
   if (conIA) void analizarLote(lote.id);
@@ -457,15 +522,19 @@ export async function cambiarDescarteDocumentoDeLote(
   });
 }
 
-const nuevoDocumentoSchema = z.object({
+const filaSchema = z.object({
   tipo: z.enum(TIPOS_LOTE, { errorMap: () => ({ message: "Elige el tipo de documento" }) }),
-  paginaInicio: z.coerce.number().int().min(1, "Página inicial inválida"),
-  paginaFin: z.coerce.number().int().min(1, "Página final inválida"),
+  paginaInicio: z.coerce.number({ invalid_type_error: "Página inicial inválida" }).int().min(1, "Página inicial inválida"),
+  paginaFin: z.coerce.number({ invalid_type_error: "Página final inválida" }).int().min(1, "Página final inválida"),
+  vehicleId: textoONulo,
 });
 
-// Para lo que la IA no detectó, o para dividir el lote a mano cuando la
-// lectura automática no está configurada.
-export async function agregarDocumentoALote(
+// Varios documentos de un jalón: cada fila es un rango de páginas con su
+// tipo y (opcional) su unidad, p. ej. "1 a 3, hermeticidad, PH10" y "4 a 6,
+// hermeticidad, PH9". Sirve para lo que la IA no detectó o para dividir a
+// mano el escaneo cuando la lectura automática no está configurada. Si una
+// fila está mal no se agrega ninguna, para no dejar el lote a medias.
+export async function agregarDocumentosALote(
   loteId: string,
   _prevState: ActionState,
   formData: FormData
@@ -474,55 +543,134 @@ export async function agregarDocumentoALote(
   const lote = await prisma.loteDocumentos.findUnique({ where: { id: loteId }, include: { city: true } });
   if (!lote) return { error: "El lote no existe." };
   await assertCityAccessById(editor, lote.cityId);
+  if (lote.estado === "ANALIZANDO") return { error: "Espera a que termine la lectura del lote." };
 
-  const parsed = nuevoDocumentoSchema.safeParse({
-    tipo: formData.get("tipo"),
-    paginaInicio: formData.get("paginaInicio"),
-    paginaFin: formData.get("paginaFin"),
-  });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
-  const { tipo, paginaInicio, paginaFin } = parsed.data;
-  if (paginaFin < paginaInicio) return { error: "La página final no puede ser antes que la inicial." };
-  if (paginaFin > lote.paginas) return { error: `El escaneo solo tiene ${lote.paginas} páginas.` };
+  const tipos = formData.getAll("tipo");
+  const desdes = formData.getAll("paginaInicio");
+  const hastas = formData.getAll("paginaFin");
+  const unidades = formData.getAll("vehicleId");
+  if (tipos.length === 0) return { error: "Agrega al menos un renglón." };
+  if (tipos.length > 200) return { error: "Son demasiados renglones de una vez (máximo 200)." };
+
+  const ciudades = await ciudadesDelLote(lote.city);
+  const filas: z.infer<typeof filaSchema>[] = [];
+  for (let i = 0; i < tipos.length; i++) {
+    const fila = filaSchema.safeParse({
+      tipo: tipos[i],
+      paginaInicio: desdes[i],
+      paginaFin: hastas[i],
+      vehicleId: unidades[i],
+    });
+    const renglon = `Renglón ${i + 1}: `;
+    if (!fila.success) return { error: renglon + (fila.error.issues[0]?.message ?? "datos inválidos") };
+    const { paginaInicio, paginaFin, vehicleId } = fila.data;
+    if (paginaFin < paginaInicio) return { error: renglon + "la página final no puede ser antes que la inicial." };
+    if (paginaFin > lote.paginas) return { error: renglon + `el escaneo solo tiene ${lote.paginas} páginas.` };
+    // La unidad llega del navegador: se confirma que sea de este lote.
+    if (vehicleId) {
+      const vehicle = await prisma.vehicleRecord.findUnique({
+        where: { id: vehicleId },
+        select: { section: { select: { cityId: true } } },
+      });
+      if (!vehicle || !ciudades.includes(vehicle.section.cityId)) {
+        return { error: renglon + "la unidad elegida no es de esta ciudad." };
+      }
+    }
+    filas.push(fila.data);
+  }
 
   return conCandado(loteId, async () => {
     const actual = await prisma.loteDocumentos.findUnique({ where: { id: loteId } });
     if (!actual) return { error: "El lote no existe." };
     const items = leerItemsLote(actual.documentos);
-    items.push({
-      id: randomUUID(),
-      origen: "MANUAL",
-      paginaInicio,
-      paginaFin,
-      tipo,
-      descripcionLector: null,
-      vehicleId: null,
-      tanqueId: null,
-      identificador: null,
-      compania: null,
-      numero: null,
-      responsable: null,
-      fechaRealizacion: null,
-      fechaAnterior: null,
-      fechaProxima: null,
-      fechaVencimiento: null,
-      fechaFabricacion: null,
-      calidad: null,
-      tipoMantenimiento: null,
-      tipoServicio: null,
-      kilometraje: null,
-      estatus: tipo === "MANTENIMIENTO" ? "TERMINADO" : null,
-      descripcion: null,
-      observaciones: null,
-      dudas: [],
-      estado: "PENDIENTE",
-      mensaje: null,
-      resueltoPor: null,
-      resueltoEl: null,
-    });
+    for (const fila of filas) {
+      items.push(itemLoteNuevo({ id: randomUUID(), origen: "MANUAL", ...fila }));
+    }
     items.sort((a, b) => a.paginaInicio - b.paginaInicio);
     await guardarItems(loteId, items);
     revalidatePath(rutaLote(lote.city.slug, loteId));
-    return { success: "Documento agregado: complétalo en la lista y guárdalo." };
+    return {
+      success:
+        filas.length === 1
+          ? "Documento agregado: complétalo en la lista y guárdalo."
+          : `${filas.length} documentos agregados: complétalos en la lista y guárdalos.`,
+    };
   });
+}
+
+// Quita un documento de la lista del lote (la IA o quien capturó se pudo
+// equivocar). Uno que ya se guardó no se quita desde aquí: su registro ya
+// está en la bitácora de la unidad y se borra allá, con la contraseña, como
+// cualquier otro registro.
+export async function eliminarDocumentoDeLote(
+  loteId: string,
+  itemId: string,
+  _prevState: ActionState
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const lote = await prisma.loteDocumentos.findUnique({ where: { id: loteId }, include: { city: true } });
+  if (!lote) return { error: "El lote no existe." };
+  await assertCityAccessById(editor, lote.cityId);
+
+  return conCandado(loteId, async () => {
+    const actual = await prisma.loteDocumentos.findUnique({ where: { id: loteId } });
+    if (!actual) return { error: "El lote no existe." };
+    const items = leerItemsLote(actual.documentos);
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return { error: "Ese documento ya no está en el lote." };
+    if (item.estado === "GUARDADO") {
+      return { error: "Ese documento ya se guardó: bórralo desde la página de la unidad." };
+    }
+    await guardarItems(
+      loteId,
+      items.filter((i) => i.id !== itemId)
+    );
+    revalidatePath(rutaLote(lote.city.slug, loteId));
+    return { success: "Documento quitado del lote." };
+  });
+}
+
+// Elimina un lote completo con su escaneo, solo si no se guardó nada de él
+// en las bitácoras: si ya se guardó algo, el escaneo es la evidencia de esos
+// registros y se conserva. Pide la contraseña y queda en la bitácora de
+// auditoría, como cualquier borrado (ver lib/reauth.ts).
+export async function eliminarLoteDocumentos(
+  loteId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const editor = await requireEditor();
+  const lote = await prisma.loteDocumentos.findUnique({ where: { id: loteId }, include: { city: true } });
+  if (!lote) return { error: "El lote ya no existe." };
+  await assertCityAccessById(editor, lote.cityId);
+
+  const passwordError = await verifySessionPassword(editor, formData.get("password"));
+  if (passwordError) return { error: passwordError };
+
+  const resultado = await conCandado(loteId, async (): Promise<ActionState> => {
+    const actual = await prisma.loteDocumentos.findUnique({ where: { id: loteId } });
+    if (!actual) return { error: "El lote ya no existe." };
+    const guardados = leerItemsLote(actual.documentos).filter((i) => i.estado === "GUARDADO").length;
+    if (guardados > 0) {
+      return {
+        error: `No se puede eliminar: ${guardados} documento(s) de este lote ya están en las bitácoras y el escaneo es su evidencia.`,
+      };
+    }
+    if (actual.estado === "ANALIZANDO") return { error: "Espera a que termine la lectura del lote." };
+
+    await logActivity({
+      user: editor,
+      accion: "ELIMINAR",
+      entidad: "Lote de documentos escaneados",
+      resumen: `${actual.fileName} (${actual.paginas} páginas)`,
+      citySlug: lote.city.slug,
+    });
+    await borrarCarpetaLote(loteId);
+    await prisma.loteDocumentos.delete({ where: { id: loteId } });
+    return { success: "Lote eliminado." };
+  });
+  if (resultado.error) return resultado;
+
+  revalidatePath(`/ciudades/${lote.city.slug}/carga-de-documentos`);
+  redirect(`/ciudades/${lote.city.slug}/carga-de-documentos`);
 }

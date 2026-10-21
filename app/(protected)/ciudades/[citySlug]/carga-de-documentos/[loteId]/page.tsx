@@ -8,7 +8,8 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { leerItemsLote } from "@/lib/lote-documentos";
 import { lectorConfigurado } from "@/lib/lector-documentos-ia";
 import { DocumentoDeLoteForm, type UnidadParaLote } from "@/components/carga/DocumentoDeLoteForm";
-import { AgregarDocumentoForm } from "@/components/carga/AgregarDocumentoForm";
+import { AgregarDocumentosForm } from "@/components/carga/AgregarDocumentosForm";
+import { EliminarLoteForm } from "@/components/carga/EliminarLoteForm";
 import { ActualizarMientrasAnaliza } from "@/components/carga/ActualizarMientrasAnaliza";
 import { ReintentarLecturaButton } from "@/components/carga/ReintentarLecturaButton";
 
@@ -33,7 +34,7 @@ export default async function LoteDocumentosPage({ params }: { params: { citySlu
       id: true,
       numeroEconomico: true,
       activo: true,
-      section: { select: { name: true, slug: true, city: { select: { name: true } } } },
+      section: { select: { name: true, slug: true, city: { select: { name: true, slug: true } } } },
       stationTankTechnicalSheets: { select: { id: true, etiqueta: true }, orderBy: { etiqueta: "asc" } },
     },
     orderBy: [{ section: { name: "asc" } }, { numeroEconomico: "asc" }],
@@ -45,6 +46,7 @@ export default async function LoteDocumentosPage({ params }: { params: { citySlu
     sectionSlug: r.section.slug,
     activo: r.activo,
     tanques: r.stationTankTechnicalSheets,
+    href: `/ciudades/${r.section.city.slug}/vehiculo/${r.id}`,
   }));
 
   const items = leerItemsLote(lote.documentos);
@@ -52,6 +54,10 @@ export default async function LoteDocumentosPage({ params }: { params: { citySlu
   const atorado = analizando && Date.now() - lote.updatedAt.getTime() > 10 * 60 * 1000;
   const pendientes = items.filter((i) => i.estado === "PENDIENTE").length;
   const srcEscaneo = `/api/lotes-documentos/${lote.id}`;
+  // Para que el formulario de rangos arranque en la primera página que
+  // todavía no tiene documento.
+  const siguientePagina = items.reduce((max, i) => Math.max(max, i.paginaFin), 0) + 1;
+  const puedeEliminarse = !analizando && !items.some((i) => i.estado === "GUARDADO");
 
   return (
     <div>
@@ -79,14 +85,17 @@ export default async function LoteDocumentosPage({ params }: { params: { citySlu
             )}
           </p>
         </div>
-        <a
-          href={srcEscaneo}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
-        >
-          Ver escaneo completo ↗
-        </a>
+        <div className="flex flex-wrap items-start gap-2">
+          <a
+            href={srcEscaneo}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+          >
+            Ver escaneo completo ↗
+          </a>
+          {puedeEliminarse && <EliminarLoteForm loteId={lote.id} />}
+        </div>
       </div>
 
       {analizando && !atorado && (
@@ -102,7 +111,7 @@ export default async function LoteDocumentosPage({ params }: { params: { citySlu
       {(lote.estado === "ERROR" || atorado) && (
         <div className="mb-6 space-y-3 rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-800">
           <p>{lote.error ?? "La lectura no terminó (probablemente se reinició el servidor)."}</p>
-          <p className="text-ink">Puedes volver a intentarlo o dividir el escaneo a mano con “Agregar un documento a mano”.</p>
+          <p className="text-ink">Puedes volver a intentarlo o dividir el escaneo a mano con “Agregar documentos por rango de páginas”.</p>
           {lectorConfigurado() && <ReintentarLecturaButton loteId={lote.id} />}
         </div>
       )}
@@ -133,7 +142,13 @@ export default async function LoteDocumentosPage({ params }: { params: { citySlu
           />
         ))}
         {!analizando && (
-          <AgregarDocumentoForm loteId={lote.id} paginasTotal={lote.paginas} abierto={items.length === 0} />
+          <AgregarDocumentosForm
+            loteId={lote.id}
+            paginasTotal={lote.paginas}
+            siguientePagina={siguientePagina}
+            unidades={unidades}
+            abierto={items.length === 0}
+          />
         )}
       </div>
     </div>

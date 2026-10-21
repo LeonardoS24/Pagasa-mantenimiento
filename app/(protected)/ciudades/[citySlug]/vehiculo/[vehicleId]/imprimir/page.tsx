@@ -223,7 +223,7 @@ function MaintenanceLogPrintList({ logs }: { logs: MaintenanceLogWithExtras[] })
               />
               <Field label="Nombre del operador" value={log.nombreOperador} />
               <Field label="Auxiliar técnico" value={log.auxiliarTecnico} />
-              <Field label="Responsable del trabajo mecánico" value={log.responsableTrabajoMecanico} />
+              <Field label="Responsable del trabajo" value={log.responsableTrabajoMecanico} />
             </dl>
 
             {log.piezasUtilizadas.length > 0 && (

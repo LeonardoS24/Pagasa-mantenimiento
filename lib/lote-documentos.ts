@@ -111,6 +111,76 @@ export function leerItemsLote(json: string): ItemLote[] {
   });
 }
 
+// Un documento recién agregado (a mano, por archivo o por la IA), con todo
+// vacío salvo lo que se indique.
+export function itemLoteNuevo(
+  datos: Pick<ItemLote, "id" | "origen" | "paginaInicio" | "paginaFin" | "tipo"> & Partial<ItemLote>
+): ItemLote {
+  return itemLoteSchema.parse({
+    // Un mantenimiento que llega escaneado casi siempre es de un trabajo ya
+    // hecho; quien revisa lo puede cambiar.
+    estatus: datos.tipo === "MANTENIMIENTO" ? "TERMINADO" : null,
+    ...datos,
+  });
+}
+
+// La sección de la página de la unidad donde queda cada tipo (los id de
+// app/(protected)/ciudades/[citySlug]/vehiculo/[vehicleId]/page.tsx), para
+// llevar directo al registro guardado: si hubo un error, ahí se borra con la
+// contraseña, como cualquier otro registro.
+export const anclaDeTipo: Record<TipoLote, string> = {
+  ULTRASONIDO: "ultrasonido",
+  VISUAL_EXTERNA: "visual-externa",
+  HERMETICIDAD: "hermeticidad",
+  VISUAL_INTERNA: "visual-interna",
+  HIDROSTATICA: "hidrostatica",
+  MANTENIMIENTO: "mantenimiento",
+  EXTINTOR: "extintor",
+  MANGUERAS: "mangueras",
+  POLIZA: "",
+  UNIDAD: "documentacion",
+};
+
+// Solo letras y números, en mayúsculas y sin acentos: "PH-10" y "ph 10"
+// quedan igual ("PH10").
+function claveDeNombre(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+// Al subir varios PDF, la unidad de cada uno se adivina por el nombre del
+// archivo ("Hermeticidad PH-10.pdf" → PH10). Se compara palabra por palabra
+// (y pegando hasta 4 palabras seguidas, para "PH 10" o "Estación Norte"),
+// nunca como subcadena: así "PH1" no se confunde con "PH10". Si el mismo
+// número económico existe en dos apartados, se queda con el que admite ese
+// tipo de documento; si sigue habiendo duda, no elige ninguna.
+export function adivinarUnidadPorNombre<U extends { id: string; numeroEconomico: string; sectionSlug: string }>(
+  nombreArchivo: string,
+  unidades: U[],
+  tipo: TipoLote
+): U | null {
+  const palabras = nombreArchivo
+    .replace(/\.pdf$/i, "")
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+  const candidatos = new Set<string>();
+  for (let i = 0; i < palabras.length; i++) {
+    for (let largo = 1; largo <= 4 && i + largo <= palabras.length; largo++) {
+      candidatos.add(claveDeNombre(palabras.slice(i, i + largo).join("")));
+    }
+  }
+  const coinciden = unidades.filter((u) => {
+    const clave = claveDeNombre(u.numeroEconomico);
+    return clave.length >= 2 && candidatos.has(clave);
+  });
+  if (coinciden.length <= 1) return coinciden[0] ?? null;
+  const queAplican = coinciden.filter((u) => tipoAplicaEnApartado(tipo, u.sectionSlug));
+  return queAplican.length === 1 ? queAplican[0] : null;
+}
+
 export type EstadoLote = "ANALIZANDO" | "POR_REVISAR" | "ERROR";
 
 export const estadoLoteLabel: Record<string, string> = {
@@ -212,7 +282,7 @@ export const CAMPOS_POR_TIPO: Record<TipoLote, DefCampo[]> = {
     // Obligatorio solo en vehículos (una estación no tiene odómetro); eso
     // lo revisa createMaintenanceLog.
     { campo: "kilometraje", etiqueta: "Kilometraje", control: "numero" },
-    { campo: "responsable", etiqueta: "Responsable del trabajo mecánico", control: "texto" },
+    { campo: "responsable", etiqueta: "Responsable del trabajo", control: "texto" },
     {
       campo: "estatus",
       etiqueta: "Estatus",

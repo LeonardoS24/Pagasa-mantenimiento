@@ -178,6 +178,25 @@ en los registros de las unidades (`lib/test-documents.ts`) y los baja en un ZIP
 `lib/zip.ts`). El endpoint vuelve a filtrar los ids por ciudad: llegan del
 navegador.
 
+## Mantenimiento: ingeniería de gas, no mecánica
+
+A petición del usuario, el mantenimiento de **todas** las unidades es del
+sistema de gas: se quitaron por completo las categorías mecánicas (motor,
+frenos, transmisión... ver `CATEGORIAS_MECANICAS_RETIRADAS` en
+`lib/piece-catalog.ts`) y el checklist preventivo de auto. Los registros viejos
+se siguen viendo igual (la categoría es texto en cada registro).
+
+- Categorías de pieza por tipo de unidad (`getPieceCategories`): tanque de
+  carga en Auto-Tanques y Semirremolques, plataforma de cilindros en Reparto,
+  kit de carburación, y "Seguridad e identificación" en todas.
+- Un checklist preventivo de gas por tipo (`CHECKLIST_LISTAS`,
+  `checklistListaDeApartado` en `lib/preventive-checklist.ts`). Estados: los
+  ítems "solo fugas" (Buen estado / Con fugas) y el resto (Buen estado /
+  Reparación / Sustitución). "Relleno/Lubricación/Cambio" siguen en el schema
+  solo para leer mantenimientos viejos.
+- "Válvulas del tanque de carga" NO se llama "Válvulas" a propósito: ese
+  nombre es el de carburación y dispara `lib/valve-piece-sync.ts`.
+
 ## Carga de documentos escaneados
 
 `/ciudades/[citySlug]/carga-de-documentos`: se sube un PDF con varios
@@ -193,6 +212,15 @@ documentos del lote es un JSON validado con `itemLoteSchema`).
   y ficha técnica salen de ahí. No duplicar esa lógica en
   `actions/lote-documentos-actions.ts`. Válvulas no entra (flujo propio).
 - **Nada se guarda sin revisión humana**: lo detectado es una propuesta.
+- Formas de armar la lista: varios rangos de un jalón ("1 a 3 → PH10, 4 a 6 →
+  PH9", `agregarDocumentosALote`), o **varios PDF a la vez**: se unen en un
+  solo escaneo y queda un documento por archivo, con la unidad adivinada por
+  el nombre del archivo (`adivinarUnidadPorNombre`: compara palabras, nunca
+  subcadenas, y si hay duda no elige).
+- **Borrar**: un documento pendiente se quita de la lista; uno ya guardado se
+  borra desde la página de la unidad (con contraseña, como siempre). El lote
+  completo solo se elimina, con contraseña y auditoría, si nada de él se
+  guardó: si no, el escaneo es la evidencia.
 - **La lectura con IA es opcional y de paga** (`lib/lector-documentos-ia.ts`,
   API de Claude). Solo se activa con `ANTHROPIC_API_KEY` en el `.env` del
   servidor; **sin clave el lote se divide a mano** (sin costo), que es como
