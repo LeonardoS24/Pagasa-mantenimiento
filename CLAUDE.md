@@ -266,6 +266,10 @@ alta** en vez de ignorarlo:
 
 - `importar-valvulas-flotilla.mts "<Flotilla Pagasa - Unidades_1.xlsx>"`
 - `crear-transportadora-kino.mts "<carpeta TRANSPORTADORA KINO>"`
+- `importar-mangueras-surtir.mts` — fecha de fabricación de la manguera de
+  surtir de 15 unidades "Kg" (lista del área de normatividad, oct-2026, en
+  mes/día/año). No da de alta unidades: reporta las que no encuentra, las
+  ambiguas y las que ya tienen otra fecha.
 
 ## Estado y pendientes
 
