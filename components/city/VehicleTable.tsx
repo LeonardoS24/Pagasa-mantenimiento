@@ -45,7 +45,13 @@ import {
   valveAlertLabel,
   valveDatesFromSheet,
 } from "@/lib/valve-alerts";
-import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
+import {
+  getHoseAlertLevel,
+  getHoseVencimiento,
+  hoseAlertBadgeStyles,
+  hoseAlertLabel,
+  mangueraParaAlerta,
+} from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { calidadMantenimientoLabels, calidadMantenimientoStyles, type CalidadMantenimiento } from "@/lib/vehicle-enums";
 import { getVehicleSemaforoLevel, semaforoDotStyles, semaforoLabels } from "@/lib/vehicle-semaforo";
@@ -153,10 +159,11 @@ export function VehicleTable({
                 ? getValveAlertLevel(valveDates, aniosVigenciaValvulas(sectionSlug))
                 : "none";
             const valveVencimiento = getValveVencimiento(valveDates, aniosVigenciaValvulas(sectionSlug));
+            const manguera = mangueraParaAlerta(sectionSlug, record.technicalSheet);
             const hoseAlertLevel = record.activo && isAlertVisibleForSection("mangueras", sectionSlug)
-              ? getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera)
+              ? getHoseAlertLevel(manguera.fecha, manguera.anios)
               : "none";
-            const hoseVencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);
+            const hoseVencimiento = getHoseVencimiento(manguera.fecha, manguera.anios);
             // Válvulas de una Estación/Planta: viven en su propia ficha del
             // tanque, no en la del vehículo (ver lib/station-valves.ts). Con
             // dos tanques, se muestra el vencimiento más próximo de los dos.

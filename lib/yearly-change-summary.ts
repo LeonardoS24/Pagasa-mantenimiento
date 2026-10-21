@@ -2,7 +2,7 @@ import type { StationTankTechnicalSheet } from "@prisma/client";
 import { prisma } from "./prisma";
 import { isAlertVisibleForSection, type AlertType } from "./alert-visibility";
 import { aniosVigenciaValvulas, getValveVencimiento, valveDatesFromSheet } from "./valve-alerts";
-import { getHoseVencimiento } from "./hose-alerts";
+import { getHoseVencimiento, mangueraParaAlerta } from "./hose-alerts";
 import { getStationValveVencimiento } from "./station-valves";
 import { PLANTA_INSTRUMENT_FIELDS, getPlantaInstrumentVencimiento } from "./planta-tank-instruments";
 import { ESTACION_LIKE_SECTION_SLUGS } from "./estacion-sections";
@@ -204,6 +204,7 @@ type TechnicalSheetLike = {
   fechaFabricacionValvulaExcesoFlujo?: Date | null;
   fechaFabricacionValvulaCheckLock?: Date | null;
   fechaFabricacionManguera: Date | null;
+  fechaFabricacionMangueraSurtir?: Date | null;
 } | null;
 
 function getDueDate(
@@ -257,8 +258,10 @@ function getDueDate(
     case "valvulas": {
       return getValveVencimiento(valveDatesFromSheet(sheet), aniosVigenciaValvulas(sectionSlug));
     }
-    case "mangueras":
-      return getHoseVencimiento(sheet.fechaFabricacionManguera);
+    case "mangueras": {
+      const manguera = mangueraParaAlerta(sectionSlug, sheet);
+      return getHoseVencimiento(manguera.fecha, manguera.anios);
+    }
     case "instrumentos":
       // Inalcanzable en la práctica (siempre entra por la rama de arriba,
       // ambito === "PLANTA"); solo para que el switch quede exhaustivo.

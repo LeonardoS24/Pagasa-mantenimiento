@@ -86,10 +86,24 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    confirmar con el usuario: servicio de vapor = retorno de vapores?, descarga
    de emergencia = interna?, máximo llenado = purgador?, servicio = reguladora?
    **Vida de las válvulas: 5 años desde la fabricación de la más antigua, salvo
-   Auto-Tanques que es de 10** (`aniosVigenciaValvulas(slug)` en
-   `lib/valve-alerts.ts`, un solo lugar). Todo cálculo de vencimiento de
+   Auto-Tanques y Semirremolques que es de 10** (`aniosVigenciaValvulas(slug)`
+   en `lib/valve-alerts.ts`, un solo lugar). Todo cálculo de vencimiento de
    válvulas de unidad debe pasar los años: sin el argumento asume 5.
-   Semirremolques lleva el mismo tanque de carga pero se quedó en 5 por ahora.
+   Fuente (tabla que pegó el usuario, del área de normatividad):
+   NOM-EM-008-ASEA-2026 (transporte en auto-tanque y semirremolque, vigente
+   desde el 6-oct-2026), Tabla 3 / 7.4.5.1: relevo de presión, exceso de
+   flujo, no retroceso y llenado, menos de 10 años desde fabricación (o menos
+   si lo indica el fabricante). **La norma fija 10 años solo a esas 4 válvulas;
+   el alerta lo aplica a todo el juego del tanque de carga.** Carburación: 5
+   años (NOM-005-SESH-2010, 9.6.4, confirmado). **Manguera de trasiego** (la
+   "manguera de surtir" de la ficha del tanque de carga): alerta a 5 años
+   desde fabricación en Auto-Tanques y Semirremolques (`mangueraParaAlerta`
+   en `lib/hose-alerts.ts`); la de carburación sigue en 2 años.
+   **Pendiente de la tabla, sin alerta todavía** (necesitan campos nuevos o
+   confirmar la regla): conectores flexibles (5 años, máx. 1 m), acoplamiento
+   de desconexión seca (10 años), certificado de calibración de indicador de
+   nivel/manómetro/termómetro, dictamen de la instalación (1 año). Válvula
+   interna: sin plazo fijo (se guarda, no entra a la alerta).
 2. **Estaciones de carburación** (`StationTankTechnicalSheet`,
    `lib/station-valves.ts`) — 7 válvulas, solo fecha de fabricación de cada una,
    y **una sola alerta combinada**: vence 5 años después de la más antigua.

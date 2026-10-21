@@ -2,7 +2,7 @@ import { daysUntil } from "@/lib/ultrasound-alerts";
 import { getExtinguisherAlertLevel } from "@/lib/extinguisher-alerts";
 import { aniosVigenciaValvulas, getValveVencimiento, type ValveDates } from "@/lib/valve-alerts";
 import { getStationValveVencimiento, type StationValveDates } from "@/lib/station-valves";
-import { getHoseVencimiento } from "@/lib/hose-alerts";
+import { getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection, type AlertType } from "@/lib/alert-visibility";
 
 // Semáforo por unidad para los listados (VehicleTable/AggregateVehicleTable):
@@ -59,7 +59,13 @@ type SemaforoTechnicalSheet = {
   calidadExtintor: string | null;
   fechaCalidadMalaExtintor: Date | null;
   fechaFabricacionManguera: Date | null;
+  fechaFabricacionMangueraSurtir?: Date | null;
 } & ValveDates;
+
+function hoseVencimientoDe(sectionSlug: string, sheet: SemaforoTechnicalSheet): Date | null {
+  const manguera = mangueraParaAlerta(sectionSlug, sheet);
+  return getHoseVencimiento(manguera.fecha, manguera.anios);
+}
 
 // activo se revisa aparte por quien llama (mismo patrón que el resto de las
 // alertas: una unidad dada de baja no tiene pendientes que mostrar).
@@ -93,7 +99,7 @@ export function getVehicleSemaforoLevel(
     ["hidrostatica", sheet.fechaProximaPruebaHidrostatica],
     ["mantenimiento", sheet.fechaProximoMantenimiento],
     ["valvulas", getValveVencimiento(sheet, aniosVigenciaValvulas(sectionSlug))],
-    ["mangueras", getHoseVencimiento(sheet.fechaFabricacionManguera)],
+    ["mangueras", hoseVencimientoDe(sectionSlug, sheet)],
   ];
   for (const [key, fecha] of dateChecks) {
     if (!fecha || !isAlertVisibleForSection(key, sectionSlug)) continue;
