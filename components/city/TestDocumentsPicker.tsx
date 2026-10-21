@@ -46,6 +46,10 @@ export function TestDocumentsPicker({
   const [ciudad, setCiudad] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [incluirBajas, setIncluirBajas] = useState(false);
+  // "Actuales": el documento más reciente de cada tipo; "antiguos": los que
+  // otro posterior reemplazó y quedaron como historial (ver lib/vigencia.ts).
+  const [vigencia, setVigencia] = useState<"todos" | "actuales" | "antiguos">("actuales");
+  const hayAntiguos = useMemo(() => documentos.some((d) => !d.vigente), [documentos]);
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
 
   const visibles = useMemo(() => {
@@ -56,9 +60,10 @@ export function TestDocumentsPicker({
         (!apartado || d.apartado === apartado) &&
         (!ciudad || d.cityName === ciudad) &&
         (incluirBajas || d.activo) &&
+        (vigencia === "todos" || (vigencia === "actuales" ? d.vigente : !d.vigente)) &&
         (!q || d.numeroEconomico.toLowerCase().includes(q) || d.fileName.toLowerCase().includes(q))
     );
-  }, [documentos, tipos, apartado, ciudad, busqueda, incluirBajas]);
+  }, [documentos, tipos, apartado, ciudad, busqueda, incluirBajas, vigencia]);
 
   const seleccionados = useMemo(() => documentos.filter((d) => seleccion.has(d.id)), [documentos, seleccion]);
   const tamanoSeleccion = seleccionados.reduce((total, d) => total + d.size, 0);
@@ -133,6 +138,37 @@ export function TestDocumentsPicker({
             {tipos.size === tiposPresentes.length ? "Ninguno" : "Todos"}
           </button>
         </div>
+
+        {hayAntiguos && (
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Versión</p>
+            <div className="inline-flex overflow-hidden rounded-md border border-gray-300 text-sm">
+              {(
+                [
+                  ["actuales", "Actuales"],
+                  ["antiguos", "Antiguos (historial)"],
+                  ["todos", "Todos"],
+                ] as const
+              ).map(([valor, etiqueta]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => setVigencia(valor)}
+                  aria-pressed={vigencia === valor}
+                  className={`px-3 py-1.5 text-xs font-medium transition ${
+                    vigencia === valor ? "bg-primary text-white" : "bg-white text-ink hover:bg-gray-50"
+                  }`}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Actual es el documento más reciente de cada tipo; cuando se sube uno nuevo, el anterior no se borra: queda
+              como antiguo.
+            </p>
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-ink">
@@ -259,7 +295,12 @@ export function TestDocumentsPicker({
                     </span>
                   </td>
                   {mostrarCiudad && <td className="whitespace-nowrap px-3 py-2 text-ink">{d.cityName}</td>}
-                  <td className="whitespace-nowrap px-3 py-2 text-ink">{tipoDocumentoPruebaLabel[d.tipo]}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-ink">
+                    {tipoDocumentoPruebaLabel[d.tipo]}
+                    {!d.vigente && (
+                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Antiguo</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <a href={href} target="_blank" rel="noopener noreferrer" className="break-all text-ink hover:text-primary hover:underline">
                       {d.fileName}
@@ -284,7 +325,7 @@ export function TestDocumentsPicker({
       </div>
       <p className="text-xs text-gray-500">
         Mostrando {visibles.length} de {documentos.length} documentos. El ZIP se arma con carpetas por unidad y tipo de
-        documento.
+        documento; los antiguos van en una subcarpeta &quot;Anteriores&quot;.
       </p>
     </div>
   );

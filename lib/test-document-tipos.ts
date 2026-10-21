@@ -23,6 +23,20 @@ export const tipoDocumentoPruebaLabel = Object.fromEntries(
   TIPOS_DOCUMENTO_PRUEBA.map((t) => [t.id, t.label])
 ) as Record<TipoDocumentoPrueba, string>;
 
+// Los tipos que un registro nuevo reemplaza como "actual" (el anterior queda
+// como historial). Ver lib/vigencia.ts.
+export const TIPOS_QUE_SE_REEMPLAZAN: TipoDocumentoPrueba[] = [
+  "ULTRASONIDO",
+  "VISUAL_EXTERNA",
+  "HERMETICIDAD",
+  "VISUAL_INTERNA",
+  "HIDROSTATICA",
+  "VALVULAS",
+  "MANGUERAS",
+  "EXTINTOR",
+  "POLIZA",
+];
+
 export type DocumentoPrueba = {
   id: string;
   fileName: string;
@@ -33,6 +47,9 @@ export type DocumentoPrueba = {
   // de subida: es la que importa para saber de qué año es el dictamen.
   fechaEvento: string | null; // ISO
   tipo: TipoDocumentoPrueba;
+  // false: ya hay un registro más reciente del mismo tipo (otra prueba, otro
+  // extintor...) y este es historial. Ver lib/vigencia.ts.
+  vigente: boolean;
   vehicleId: string;
   numeroEconomico: string;
   activo: boolean;

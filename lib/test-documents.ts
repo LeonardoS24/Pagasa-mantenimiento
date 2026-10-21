@@ -14,18 +14,19 @@ export {
   type TipoDocumentoPrueba,
   type DocumentoPrueba,
 } from "./test-document-tipos";
-import type { TipoDocumentoPrueba, DocumentoPrueba } from "./test-document-tipos";
+import { TIPOS_QUE_SE_REEMPLAZAN, type TipoDocumentoPrueba, type DocumentoPrueba } from "./test-document-tipos";
+import { soloVigentes } from "./vigencia";
 
 const documentInclude = {
   section: { select: { name: true, city: { select: { slug: true, name: true } } } },
   vehicleRecord: {
     select: { id: true, numeroEconomico: true, activo: true, section: { select: { name: true, city: { select: { slug: true, name: true } } } } },
   },
-  ultrasoundLog: { select: { fechaRealizacion: true, vehicleRecord: { select: { id: true } } } },
-  visualInspectionLog: { select: { fechaRealizacion: true, vehicleRecord: { select: { id: true } } } },
-  tightnessTestLog: { select: { fechaRealizacion: true, vehicleRecord: { select: { id: true } } } },
-  internalVisualInspectionLog: { select: { fechaRealizacion: true, vehicleRecord: { select: { id: true } } } },
-  hydrostaticTestLog: { select: { fechaRealizacion: true, vehicleRecord: { select: { id: true } } } },
+  ultrasoundLog: { select: { fechaRealizacion: true, stationTankTechnicalSheetId: true, vehicleRecord: { select: { id: true } } } },
+  visualInspectionLog: { select: { fechaRealizacion: true, stationTankTechnicalSheetId: true, vehicleRecord: { select: { id: true } } } },
+  tightnessTestLog: { select: { fechaRealizacion: true, stationTankTechnicalSheetId: true, vehicleRecord: { select: { id: true } } } },
+  internalVisualInspectionLog: { select: { fechaRealizacion: true, stationTankTechnicalSheetId: true, vehicleRecord: { select: { id: true } } } },
+  hydrostaticTestLog: { select: { fechaRealizacion: true, stationTankTechnicalSheetId: true, vehicleRecord: { select: { id: true } } } },
   valveChangeLog: { select: { fechaInstalacion: true, vehicleRecord: { select: { id: true } } } },
   valveCorrectiveMaintenanceLog: { select: { fecha: true, vehicleRecord: { select: { id: true } } } },
   hoseChangeLog: { select: { fechaInstalacion: true, vehicleRecord: { select: { id: true } } } },
@@ -37,7 +38,19 @@ const documentInclude = {
 type DocumentoConRelaciones = Prisma.DocumentGetPayload<{ include: typeof documentInclude }>;
 
 // Mismo orden de prioridad que ownerKeyForDocument.
-function clasificar(doc: DocumentoConRelaciones): { tipo: TipoDocumentoPrueba; fecha: Date | null; vehicleId: string | null } {
+function clasificar(doc: DocumentoConRelaciones): { tipo: TipoDocumentoPrueba; fecha: Date | null; vehicleId: string | null; tanqueId: string | null } {
+  const base = clasificarSinTanque(doc);
+  const tanqueId =
+    doc.ultrasoundLog?.stationTankTechnicalSheetId ??
+    doc.visualInspectionLog?.stationTankTechnicalSheetId ??
+    doc.tightnessTestLog?.stationTankTechnicalSheetId ??
+    doc.internalVisualInspectionLog?.stationTankTechnicalSheetId ??
+    doc.hydrostaticTestLog?.stationTankTechnicalSheetId ??
+    null;
+  return { ...base, tanqueId };
+}
+
+function clasificarSinTanque(doc: DocumentoConRelaciones): { tipo: TipoDocumentoPrueba; fecha: Date | null; vehicleId: string | null } {
   if (doc.maintenanceLog) return { tipo: "MANTENIMIENTO", fecha: doc.maintenanceLog.fecha, vehicleId: doc.maintenanceLog.vehicleRecord.id };
   if (doc.ultrasoundLog) return { tipo: "ULTRASONIDO", fecha: doc.ultrasoundLog.fechaRealizacion, vehicleId: doc.ultrasoundLog.vehicleRecord.id };
   if (doc.visualInspectionLog) return { tipo: "VISUAL_EXTERNA", fecha: doc.visualInspectionLog.fechaRealizacion, vehicleId: doc.visualInspectionLog.vehicleRecord.id };
@@ -94,11 +107,28 @@ export async function getDocumentosDePruebas(cityIds: string[]): Promise<Documen
   });
   const unidadPorId = new Map(unidades.map((u) => [u.id, u]));
 
+  // Lo "actual": el documento del registro más reciente de cada tipo, por
+  // unidad y por tanque (ver lib/vigencia.ts). Todos los documentos de un
+  // mismo registro comparten fecha, así que entran juntos.
+  const vigentes = new Set<string>();
+  const grupos = new Map<string, typeof clasificados>();
+  for (const c of clasificados) {
+    if (!c.vehicleId || !TIPOS_QUE_SE_REEMPLAZAN.includes(c.tipo)) continue;
+    const clave = `${c.vehicleId}|${c.tipo}`;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), c]);
+  }
+  for (const grupo of grupos.values()) {
+    for (const c of soloVigentes(grupo, (g) => ({ fecha: g.fecha, tanqueId: g.tanqueId, creado: g.doc.createdAt }))) {
+      vigentes.add(c.doc.id);
+    }
+  }
+
   const resultado: DocumentoPrueba[] = [];
   for (const { doc, tipo, fecha, vehicleId } of clasificados) {
     const unidad = vehicleId ? unidadPorId.get(vehicleId) : undefined;
     if (!unidad) continue;
     resultado.push({
+      vigente: !TIPOS_QUE_SE_REEMPLAZAN.includes(tipo) || vigentes.has(doc.id),
       id: doc.id,
       fileName: doc.fileName,
       mimeType: doc.mimeType,

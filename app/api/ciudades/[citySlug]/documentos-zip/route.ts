@@ -71,7 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: { citySlu
     );
   }
 
-  // Carpetas: [Ciudad/] Unidad / Tipo de documento / archivo.
+  // Carpetas: [Ciudad/] Unidad / Tipo de documento / [Anteriores/] archivo.
   const entries: ZipEntry[] = [];
   const faltantes: string[] = [];
   for (const doc of documentos) {
@@ -81,6 +81,9 @@ export async function POST(request: NextRequest, { params }: { params: { citySlu
         ...(esAgregada ? [limpiar(doc.cityName)] : []),
         limpiar(doc.numeroEconomico),
         limpiar(tipoDocumentoPruebaLabel[doc.tipo]),
+        // Lo que otro registro posterior reemplazó queda aparte, para no
+        // confundirlo con lo vigente (ver lib/vigencia.ts).
+        ...(doc.vigente ? [] : ["Anteriores"]),
       ];
       entries.push({ name: [...carpetas, limpiar(doc.fileName)].join("/"), data, date: doc.owner.createdAt });
     } catch {
