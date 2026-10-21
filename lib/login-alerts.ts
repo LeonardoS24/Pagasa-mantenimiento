@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { getValveAlertLevel } from "./valve-alerts";
+import { aniosVigenciaValvulas, getValveAlertLevel } from "./valve-alerts";
 import { isAlertVisibleForSection } from "./alert-visibility";
 import { PIECE_ORDER_UNRESOLVED_STATES } from "./inventory-enums";
 import { getStationValveAlertLevel, getStationValveVencimiento } from "./station-valves";
@@ -55,7 +55,7 @@ export async function countValveRedAlerts(cityIds: string[]): Promise<number> {
   for (const record of records) {
     if (!record.technicalSheet) continue;
     if (!isAlertVisibleForSection("valvulas", record.section.slug)) continue;
-    if (getValveAlertLevel(record.technicalSheet) === "red") count++;
+    if (getValveAlertLevel(record.technicalSheet, aniosVigenciaValvulas(record.section.slug)) === "red") count++;
   }
 
   // Válvulas de Estación de carburación / Planta: viven en su propia ficha

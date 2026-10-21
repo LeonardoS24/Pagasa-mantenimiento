@@ -37,6 +37,7 @@ import {
   maintenanceAlertLabel,
 } from "@/lib/maintenance-alerts";
 import {
+  aniosVigenciaValvulas,
   getValveAlertLevel,
   getValveVencimiento,
   valveAlertBadgeStyles,
@@ -156,8 +157,8 @@ export function TechnicalSheetView({
   );
   const maintenanceAlertLevel = getMaintenanceAlertLevel(sheet.fechaProximoMantenimiento);
   const valveDates = valveDatesFromSheet(sheet);
-  const valveAlertLevel = getValveAlertLevel(valveDates);
-  const valveVencimiento = getValveVencimiento(valveDates);
+  const valveAlertLevel = getValveAlertLevel(valveDates, aniosVigenciaValvulas(sectionSlug));
+  const valveVencimiento = getValveVencimiento(valveDates, aniosVigenciaValvulas(sectionSlug));
   const hoseAlertLevel = getHoseAlertLevel(sheet.fechaFabricacionManguera);
   const hoseVencimiento = getHoseVencimiento(sheet.fechaFabricacionManguera);
 

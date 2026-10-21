@@ -6,7 +6,13 @@ import { getInternalVisualInspectionAlertLevel } from "@/lib/internal-visual-ins
 import { getHydrostaticTestAlertLevel } from "@/lib/hydrostatic-test-alerts";
 import { getExtinguisherAlertLevel } from "@/lib/extinguisher-alerts";
 import { getMaintenanceAlertLevel } from "@/lib/maintenance-alerts";
-import { getValveAlertLevel, getValveVencimiento, oldestValve, valveDatesFromSheet } from "@/lib/valve-alerts";
+import {
+  aniosVigenciaValvulas,
+  getValveAlertLevel,
+  getValveVencimiento,
+  oldestValve,
+  valveDatesFromSheet,
+} from "@/lib/valve-alerts";
 import { getHoseAlertLevel, getHoseVencimiento } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { getInsuranceAlertLevel } from "@/lib/insurance-alerts";
@@ -359,9 +365,10 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     .map((record) => {
       if (!isAlertVisibleForSection("valvulas", record.section.slug)) return null;
       const dates = valveDatesFromSheet(record.technicalSheet);
-      const level = getValveAlertLevel(dates);
+      const anios = aniosVigenciaValvulas(record.section.slug);
+      const level = getValveAlertLevel(dates, anios);
       if (level === "none") return null;
-      const vencimiento = getValveVencimiento(dates);
+      const vencimiento = getValveVencimiento(dates, anios);
       if (!vencimiento) return null;
       return {
         id: record.id,
