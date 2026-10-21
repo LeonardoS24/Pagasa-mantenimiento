@@ -1,3 +1,4 @@
+import { asegurarPlazos } from "@/lib/requisitos-runtime";
 import { prisma } from "@/lib/prisma";
 import { getUltrasoundAlertLevel, daysUntil } from "@/lib/ultrasound-alerts";
 import { getVisualInspectionAlertLevel } from "@/lib/visual-inspection-alerts";
@@ -31,6 +32,7 @@ import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
 // Administración (todas las ciudades, ver app/(protected)/admin/alertas/page.tsx)
 // para no duplicar esta lógica en dos lugares.
 export async function getAllVehicleAlerts(cityIds: string[]) {
+  await asegurarPlazos();
   const soon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const upcomingRecords = await prisma.vehicleRecord.findMany({
     where: {

@@ -1,3 +1,4 @@
+import { asegurarPlazos } from "@/lib/requisitos-runtime";
 import { prisma } from "./prisma";
 import { aniosVigenciaValvulas, getValveAlertLevel } from "./valve-alerts";
 import { isAlertVisibleForSection } from "./alert-visibility";
@@ -28,6 +29,7 @@ export async function countPendingHighPriorityOrders(cityIds: string[]): Promise
 // de components/layout/ValveRedAlertToast.tsx.
 export async function countValveRedAlerts(cityIds: string[]): Promise<number> {
   if (cityIds.length === 0) return 0;
+  await asegurarPlazos();
 
   const records = await prisma.vehicleRecord.findMany({
     where: { activo: true, section: { cityId: { in: cityIds } } },

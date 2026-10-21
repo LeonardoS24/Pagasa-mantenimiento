@@ -1,3 +1,4 @@
+import { asegurarPlazos } from "@/lib/requisitos-runtime";
 import { XLSX, hojaConFormato, escribirLibro } from "./excel-formato";
 import { getConjuntosDeCiudad } from "./conjuntos";
 import { prisma } from "./prisma";
@@ -544,6 +545,7 @@ async function buildFleetWorkbook(
   ambito: ExcelAmbito,
   includeCityColumn: boolean
 ): Promise<Buffer> {
+  await asegurarPlazos();
   const workbook = XLSX.utils.book_new();
 
   if (ambito === "todo" || ambito === "unidades") {

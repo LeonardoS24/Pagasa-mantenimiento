@@ -1,3 +1,4 @@
+import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -27,10 +28,15 @@ type AlertVehicle = {
 // tanque de carga y las de carburación son sistemas distintos, con plazo
 // distinto, y no deben leerse como una sola lista. El plazo del título sale
 // de la misma función que calcula el vencimiento.
-const GRUPOS: { id: GrupoValvulas; titulo: string; slugPlazo: string }[] = [
-  { id: "tanque-de-carga", titulo: "Auto-Tanques y Semirremolques", slugPlazo: "auto-tanques" },
-  { id: "carburacion", titulo: "Vehículo con tanque de carburación", slugPlazo: "vehiculo-con-tanque-de-carburacion" },
-  { id: "otras", titulo: "Otras unidades", slugPlazo: "" },
+const GRUPOS: { id: GrupoValvulas; titulo: string; slugPlazo: string; fundamento: string[] }[] = [
+  { id: "tanque-de-carga", titulo: "Auto-Tanques y Semirremolques", slugPlazo: "auto-tanques", fundamento: ["valvulas-tanque-carga"] },
+  {
+    id: "carburacion",
+    titulo: "Vehículo con tanque de carburación",
+    slugPlazo: "vehiculo-con-tanque-de-carburacion",
+    fundamento: ["valvulas-carburacion"],
+  },
+  { id: "otras", titulo: "Otras unidades", slugPlazo: "", fundamento: [] },
 ];
 
 export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
@@ -80,6 +86,7 @@ export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
                 </li>
               ))}
             </ul>
+            <FundamentoNormativo claves={grupo.fundamento} className="mt-4" />
           </div>
         );
       })}

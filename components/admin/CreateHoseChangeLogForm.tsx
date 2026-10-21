@@ -1,5 +1,6 @@
 "use client";
 
+import { fijarPlazos, type Plazos } from "@/lib/plazos";
 import { useRef } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { createHoseChangeLog } from "@/actions/hose-actions";
@@ -24,7 +25,8 @@ function SubmitButton() {
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
-export function CreateHoseChangeLogForm({ vehicleId }: { vehicleId: string }) {
+export function CreateHoseChangeLogForm({ vehicleId, plazos }: { vehicleId: string; plazos: Plazos }) {
+  fijarPlazos(plazos);
   const action = createHoseChangeLog.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -98,7 +100,7 @@ export function CreateHoseChangeLogForm({ vehicleId }: { vehicleId: string }) {
 
         <p className="text-xs text-ink">
           Al aceptar, la ficha técnica actualizará automáticamente la fecha de fabricación y la
-          fecha de instalación. El aviso de cambio vence a los 2 años de fabricación.
+          fecha de instalación. El aviso de cambio vence a los {plazos.mangueraCarburacion} años de fabricación.
         </p>
 
         <FormMessage state={state} />

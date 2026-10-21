@@ -1,3 +1,4 @@
+import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -54,6 +55,17 @@ export function HoseAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
           </li>
         ))}
       </ul>
+      <FundamentoNormativo
+        claves={[
+          ...(vehicles.some((v) => v.sectionSlug === "auto-tanques" || v.sectionSlug === "semirremolques")
+            ? ["manguera-trasiego"]
+            : []),
+          ...(vehicles.some((v) => v.sectionSlug === "vehiculo-con-tanque-de-carburacion")
+            ? ["manguera-carburacion"]
+            : []),
+        ]}
+        className="mt-4"
+      />
     </div>
   );
 }

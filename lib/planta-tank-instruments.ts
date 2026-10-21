@@ -1,3 +1,4 @@
+import { plazosActivos } from "./plazos";
 import { daysUntil } from "./ultrasound-alerts";
 import type { ValveAlertLevel } from "./valve-alerts";
 
@@ -47,17 +48,16 @@ function addYears(date: Date, years: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
 }
 
-// Mismo plazo que las válvulas de estación (ver STATION_VALVE_YEARS): 5 años,
-// contados desde la fecha de cambio más reciente o, si nunca se ha
-// cambiado, desde la fecha de fabricación.
-export const PLANTA_INSTRUMENT_YEARS = 5;
+// Plazo del catálogo de requisitos normativos (base 5 años, editable en
+// /admin/normas), contado desde la fecha de cambio más reciente o, si nunca
+// se ha cambiado, desde la fecha de fabricación.
 
 export function getPlantaInstrumentVencimiento(
   dates: PlantaInstrumentDates,
   campo: PlantaInstrumentField
 ): Date | null {
   const base = dates[instrumentCambioField(campo)] ?? dates[instrumentFabricacionField(campo)];
-  return base ? addYears(base, PLANTA_INSTRUMENT_YEARS) : null;
+  return base ? addYears(base, plazosActivos().instrumentosPlanta) : null;
 }
 
 export function getPlantaInstrumentAlertLevel(vencimiento: Date | null): ValveAlertLevel {

@@ -1,5 +1,6 @@
 "use client";
 
+import { fijarPlazos, type Plazos } from "@/lib/plazos";
 import { useRef, useState, useTransition } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { VehicleTechnicalSheet } from "@prisma/client";
@@ -340,6 +341,9 @@ function SubmitButton() {
 }
 
 export function TechnicalSheetForm({
+  plazos,
+  fundamentoValvulas,
+  fundamentoManguera,
   vehicleId,
   sheet,
   sectionSlug,
@@ -359,6 +363,13 @@ export function TechnicalSheetForm({
   camposExtra = [],
   valoresExtra = {},
 }: {
+  // Plazos normativos vigentes (ver lib/plazos.ts): el aviso de este formulario
+  // se calcula en el navegador y debe usar los mismos que el servidor.
+  plazos: Plazos;
+  // La cita de la norma de cada sección, ya armada en el servidor (es un
+  // componente de servidor y no puede importarse aquí): ver FundamentoNormativo.
+  fundamentoValvulas?: React.ReactNode;
+  fundamentoManguera?: React.ReactNode;
   vehicleId: string;
   sheet: VehicleTechnicalSheet | null;
   // Para no repetir la alerta de extintor/mantenimiento preventivo cuando la
@@ -411,6 +422,7 @@ export function TechnicalSheetForm({
   camposExtra?: CustomFieldDef[];
   valoresExtra?: Record<string, string>;
 }) {
+  fijarPlazos(plazos);
   const action = upsertTechnicalSheet.bind(null, vehicleId);
   const [state, formAction] = useFormState(action, initialState);
   // Bloqueada por default: sin esto, cualquiera que entre a la ficha técnica
@@ -957,6 +969,7 @@ export function TechnicalSheetForm({
               </span>
             )}
           </div>
+          {fundamentoManguera && <div className="mb-3">{fundamentoManguera}</div>}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field
               id="fechaInstalacionMangueras"
@@ -973,7 +986,7 @@ export function TechnicalSheetForm({
             <CustomFieldInputs campos={camposExtra} seccion="mangueras" valores={valoresExtra} />
           </div>
           <p className="mt-2 text-xs text-ink">
-            El cambio de mangueras debe hacerse cada 2 años a partir de la fecha de fabricación.
+            El cambio de mangueras debe hacerse cada {plazos.mangueraCarburacion} años a partir de la fecha de fabricación.
           </p>
         </div>
       )}
@@ -992,6 +1005,7 @@ export function TechnicalSheetForm({
               </span>
             )}
           </div>
+          {fundamentoValvulas && <div className="mb-3">{fundamentoValvulas}</div>}
           <div className="mb-3 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
             <Field
               id="fechaInstalacionValvulas"

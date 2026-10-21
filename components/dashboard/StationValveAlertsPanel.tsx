@@ -1,3 +1,4 @@
+import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
 import { getStationValveAlertMessage } from "@/lib/station-valves";
@@ -58,6 +59,7 @@ export function StationValveAlertsPanel({ vehicles }: { vehicles: StationValveAl
           </li>
         ))}
       </ul>
+      <FundamentoNormativo claves={["valvulas-estacion"]} className="mt-4" />
     </div>
   );
 }

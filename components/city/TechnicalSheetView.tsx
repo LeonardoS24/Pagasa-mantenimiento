@@ -1,3 +1,5 @@
+import { esTanqueDeCarga } from "@/lib/kino-sections";
+import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import type { VehicleTechnicalSheet } from "@prisma/client";
 import { combustibleLabels, calidadExtintorLabels, type Combustible, type CalidadExtintor } from "@/lib/vehicle-enums";
 import { formatDate } from "@/lib/dates";
@@ -398,6 +400,7 @@ export function TechnicalSheetView({
               </span>
             )}
           </div>
+          <FundamentoNormativo claves={["manguera-carburacion"]} className="mb-4" />
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Item
               label="Fecha de instalación"
@@ -426,6 +429,16 @@ export function TechnicalSheetView({
               </span>
             )}
           </div>
+          <FundamentoNormativo
+            claves={
+              sectionSlug === "vehiculo-con-tanque-de-carburacion"
+                ? ["valvulas-carburacion"]
+                : esTanqueDeCarga(sectionSlug)
+                  ? ["valvulas-tanque-carga", "manguera-trasiego"]
+                  : []
+            }
+            className="mb-4"
+          />
           {sheet.fechaInstalacionValvulas && (
             <div className="mb-4 max-w-xs rounded-md border-2 border-primary/40 bg-primary/5 p-3">
               <dt className="text-xs font-semibold uppercase text-gray-500">

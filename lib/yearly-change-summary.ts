@@ -1,3 +1,4 @@
+import { asegurarPlazos } from "@/lib/requisitos-runtime";
 import type { StationTankTechnicalSheet } from "@prisma/client";
 import { prisma } from "./prisma";
 import { isAlertVisibleForSection, type AlertType } from "./alert-visibility";
@@ -396,6 +397,7 @@ export async function getYearlySummary(
   year: number,
   ambito: ResumenAmbito = "UNIDADES"
 ): Promise<YearlySummaryResult> {
+  await asegurarPlazos();
   if (cityIds.length === 0) return { due: [], missing: [], completed: [] };
   // extintor/mangueras no aplican a una estación fija (ver comentario en
   // STATION_SUMMARY_TYPES); nada que resumir en ese cruce.

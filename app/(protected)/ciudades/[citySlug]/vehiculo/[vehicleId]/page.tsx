@@ -1,6 +1,8 @@
+import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
+import { asegurarPlazos } from "@/lib/requisitos-runtime";
 import { assertCityAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
@@ -127,6 +129,8 @@ export default async function VehicleDetailPage({
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
 
   await assertCityAccess(user, params.citySlug);
+  // Plazos normativos vigentes (ver /admin/normas) antes de calcular alertas.
+  const plazos = await asegurarPlazos();
 
   const vehicle = await prisma.vehicleRecord.findUnique({
     where: { id: params.vehicleId },
@@ -573,6 +577,7 @@ export default async function VehicleDetailPage({
                 </h2>
                 {isAdmin ? (
                   <StationTankTechnicalSheetForm
+                    plazos={plazos}
                     vehicleId={vehicle.id}
                     etiqueta={etiqueta}
                     sheet={sheet}
@@ -605,6 +610,7 @@ export default async function VehicleDetailPage({
                     Ficha técnica del tanque — {siguienteEtiquetaTanque}
                   </h2>
                   <StationTankTechnicalSheetForm
+                    plazos={plazos}
                     vehicleId={vehicle.id}
                     etiqueta={siguienteEtiquetaTanque}
                     sheet={null}
@@ -625,6 +631,19 @@ export default async function VehicleDetailPage({
         </h2>
         {isAdmin ? (
           <TechnicalSheetForm
+                    plazos={plazos}
+                    fundamentoValvulas={
+                      <FundamentoNormativo
+                        claves={
+                          vehicle.section.slug === "vehiculo-con-tanque-de-carburacion"
+                            ? ["valvulas-carburacion"]
+                            : esTanqueDeCarga(vehicle.section.slug)
+                              ? ["valvulas-tanque-carga", "manguera-trasiego"]
+                              : []
+                        }
+                      />
+                    }
+                    fundamentoManguera={<FundamentoNormativo claves={["manguera-carburacion"]} />}
             vehicleId={vehicle.id}
             sheet={vehicle.technicalSheet}
             sectionSlug={vehicle.section.slug}
@@ -816,7 +835,7 @@ export default async function VehicleDetailPage({
             Cambio de mangueras
           </h2>
           <div className="space-y-3">
-            {isEditor && <CreateHoseChangeLogForm vehicleId={vehicle.id} />}
+            {isEditor && <CreateHoseChangeLogForm vehicleId={vehicle.id} plazos={plazos} />}
             <HoseChangeLogTable logs={vehicle.hoseChangeLogs} canEdit={isEditor} isAdmin={isAdmin} />
           </div>
         </div>
@@ -830,6 +849,7 @@ export default async function VehicleDetailPage({
           <div className="space-y-3">
             {isEditor && (
               <CreateValveChangeLogForm
+                    plazos={plazos}
                 vehicleId={vehicle.id}
                 sectionSlug={vehicle.section.slug}
                 hasPriorValveLog={vehicle.valveChangeLogs.length > 0}
