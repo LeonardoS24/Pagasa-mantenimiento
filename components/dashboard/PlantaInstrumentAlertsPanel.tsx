@@ -1,5 +1,6 @@
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
+import { ListaPorCiudad } from "./ListaPorCiudad";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
 import { getPlantaInstrumentAlertMessage, type PlantaInstrumentField } from "@/lib/planta-tank-instruments";
 
@@ -17,7 +18,7 @@ type PlantaInstrumentAlertVehicle = {
 // Igual que StationValveAlertsPanel, pero un renglón por instrumento (ver
 // lib/planta-tank-instruments.ts) en vez de un solo vencimiento combinado
 // por tanque.
-export function PlantaInstrumentAlertsPanel({ vehicles }: { vehicles: PlantaInstrumentAlertVehicle[] }) {
+export function PlantaInstrumentAlertsPanel({ vehicles, ciudades }: { vehicles: PlantaInstrumentAlertVehicle[]; ciudades?: string[] }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -25,8 +26,8 @@ export function PlantaInstrumentAlertsPanel({ vehicles }: { vehicles: PlantaInst
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
         Alertas de válvulas e instrumentos — Planta
       </h2>
-      <ul className="space-y-2">
-        {vehicles.map((vehicle, i) => (
+      <ListaPorCiudad items={vehicles} ciudades={ciudades}>
+        {(vehicle, i) => (
           <li
             key={`${vehicle.id}-${vehicle.campo}-${i}`}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${valveAlertRowStyles[vehicle.level]}`}
@@ -56,8 +57,8 @@ export function PlantaInstrumentAlertsPanel({ vehicles }: { vehicles: PlantaInst
               </Link>
             </span>
           </li>
-        ))}
-      </ul>
+        )}
+      </ListaPorCiudad>
       <FundamentoNormativo claves={["valvulas-planta", "instrumentos-planta"]} className="mt-4" />
     </div>
   );
