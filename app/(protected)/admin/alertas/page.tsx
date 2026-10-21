@@ -1,4 +1,5 @@
 import { getAllRealCityIds } from "@/lib/aggregate-city";
+import { prisma } from "@/lib/prisma";
 import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
 import { UltrasoundAlertsPanel } from "@/components/dashboard/UltrasoundAlertsPanel";
 import { VisualInspectionAlertsPanel } from "@/components/dashboard/VisualInspectionAlertsPanel";
@@ -14,12 +15,17 @@ import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAler
 import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstrumentAlertsPanel";
 import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPanel";
 
-// Mismas 9 alertas que Inicio (ver lib/vehicle-alerts-summary.ts), pero de
+// Mismas alertas que Inicio (ver lib/vehicle-alerts-summary.ts), pero de
 // TODAS las ciudades reales sin importar a cuáles tenga acceso asignado el
 // admin que esté viendo esta página: así no hace falta ir a Inicio para
 // ver el panorama completo de vencimientos.
 export default async function AdminAlertasPage() {
   const cityIds = await getAllRealCityIds();
+  // Las alertas de cada tipo se separan por ciudad, en el mismo orden que las
+  // ciudades del menú lateral (se cambia en Ciudades y apartados).
+  const ciudades = (
+    await prisma.city.findMany({ where: { id: { in: cityIds } }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true } })
+  ).map((c) => c.name);
 
   const {
     alertVehicles,
@@ -59,19 +65,19 @@ export default async function AdminAlertasPage() {
           ? `${totalAlertas} alerta(s) activa(s) en todas las ciudades.`
           : "No hay alertas activas en ninguna ciudad."}
       </p>
-      <UltrasoundAlertsPanel vehicles={alertVehicles} />
-      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
-      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} />
-      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} />
-      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} />
-      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
-      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
-      <ValveAlertsPanel vehicles={valveAlertVehicles} />
-      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
-      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} />
-      <HoseAlertsPanel vehicles={hoseAlertVehicles} />
-      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} />
-      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} />
+      <UltrasoundAlertsPanel vehicles={alertVehicles} ciudades={ciudades} />
+      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} ciudades={ciudades} />
+      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} ciudades={ciudades} />
+      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} ciudades={ciudades} />
+      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} ciudades={ciudades} />
+      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} ciudades={ciudades} />
+      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} ciudades={ciudades} />
+      <ValveAlertsPanel vehicles={valveAlertVehicles} ciudades={ciudades} />
+      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} ciudades={ciudades} />
+      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} ciudades={ciudades} />
+      <HoseAlertsPanel vehicles={hoseAlertVehicles} ciudades={ciudades} />
+      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} ciudades={ciudades} />
+      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} ciudades={ciudades} />
     </div>
   );
 }

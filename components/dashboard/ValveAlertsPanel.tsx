@@ -1,5 +1,6 @@
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
+import { ListaPorCiudad } from "./ListaPorCiudad";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
   aniosVigenciaValvulas,
@@ -39,7 +40,7 @@ const GRUPOS: { id: GrupoValvulas; titulo: string; slugPlazo: string; fundamento
   { id: "otras", titulo: "Otras unidades", slugPlazo: "", fundamento: [] },
 ];
 
-export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
+export function ValveAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVehicle[]; ciudades?: string[] }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -55,8 +56,8 @@ export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
                 (vencen a los {aniosVigenciaValvulas(grupo.slugPlazo)} años de fabricación)
               </span>
             </h2>
-            <ul className="space-y-2">
-              {delGrupo.map((vehicle) => (
+            <ListaPorCiudad items={delGrupo} ciudades={ciudades}>
+              {(vehicle) => (
                 <li
                   key={vehicle.id}
                   className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${valveAlertRowStyles[vehicle.level]}`}
@@ -84,8 +85,8 @@ export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
                     </Link>
                   </span>
                 </li>
-              ))}
-            </ul>
+              )}
+            </ListaPorCiudad>
             <FundamentoNormativo claves={grupo.fundamento} className="mt-4" />
           </div>
         );
