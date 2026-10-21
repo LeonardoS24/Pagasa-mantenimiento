@@ -15,11 +15,17 @@ import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAler
 import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstrumentAlertsPanel";
 import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPanel";
 import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
+import { isAggregateCitySlug } from "@/lib/aggregate-city";
 
 export default async function DashboardPage() {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
   const cities = await getAccessibleCities(user);
+  // Con más de una ciudad, cada panel separa sus alertas por ciudad, en el
+  // orden del menú lateral (getAccessibleCities ya viene ordenada). La ciudad
+  // "Administración" no tiene flota propia: no cuenta.
+  const nombresCiudades = cities.filter((c) => !isAggregateCitySlug(c.slug)).map((c) => c.name);
+  const ciudades = nombresCiudades.length > 1 ? nombresCiudades : undefined;
 
   const {
     alertVehicles,
@@ -39,19 +45,19 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <UltrasoundAlertsPanel vehicles={alertVehicles} />
-      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
-      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} />
-      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} />
-      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} />
-      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
-      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
-      <ValveAlertsPanel vehicles={valveAlertVehicles} />
-      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
-      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} />
-      <HoseAlertsPanel vehicles={hoseAlertVehicles} />
-      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} />
-      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} />
+      <UltrasoundAlertsPanel vehicles={alertVehicles} ciudades={ciudades} />
+      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} ciudades={ciudades} />
+      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} ciudades={ciudades} />
+      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} ciudades={ciudades} />
+      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} ciudades={ciudades} />
+      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} ciudades={ciudades} />
+      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} ciudades={ciudades} />
+      <ValveAlertsPanel vehicles={valveAlertVehicles} ciudades={ciudades} />
+      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} ciudades={ciudades} />
+      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} ciudades={ciudades} />
+      <HoseAlertsPanel vehicles={hoseAlertVehicles} ciudades={ciudades} />
+      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} ciudades={ciudades} />
+      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} ciudades={ciudades} />
 
       <form action="/buscar" method="GET" className="mb-8">
         <input

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { assertCityAccess } from "@/lib/access";
 import { resolveSectionPath } from "@/lib/section-path";
 import { isAggregateCitySlug, getAllRealCityIds } from "@/lib/aggregate-city";
@@ -39,6 +40,17 @@ export default async function CityPage({
   // unidades (ver lib/aggregate-city.ts), sus alertas combinan las de todas
   // las ciudades reales en vez de salir vacías.
   const alertCityIds = isAggregateCitySlug(city.slug) ? await getAllRealCityIds() : [city.id];
+  // Administración junta todas las ciudades: sus alertas se separan por ciudad,
+  // en el orden del menú lateral. Una ciudad sola no necesita separación.
+  const ciudades = isAggregateCitySlug(city.slug)
+    ? (
+        await prisma.city.findMany({
+          where: { id: { in: alertCityIds } },
+          orderBy: [{ order: "asc" }, { name: "asc" }],
+          select: { name: true },
+        })
+      ).map((c) => c.name)
+    : undefined;
   const {
     alertVehicles,
     visualAlertVehicles,
@@ -161,19 +173,19 @@ export default async function CityPage({
         </div>
       </div>
 
-      <UltrasoundAlertsPanel vehicles={alertVehicles} />
-      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
-      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} />
-      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} />
-      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} />
-      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
-      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
-      <ValveAlertsPanel vehicles={valveAlertVehicles} />
-      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
-      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} />
-      <HoseAlertsPanel vehicles={hoseAlertVehicles} />
-      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} />
-      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} />
+      <UltrasoundAlertsPanel vehicles={alertVehicles} ciudades={ciudades} />
+      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} ciudades={ciudades} />
+      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} ciudades={ciudades} />
+      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} ciudades={ciudades} />
+      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} ciudades={ciudades} />
+      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} ciudades={ciudades} />
+      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} ciudades={ciudades} />
+      <ValveAlertsPanel vehicles={valveAlertVehicles} ciudades={ciudades} />
+      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} ciudades={ciudades} />
+      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} ciudades={ciudades} />
+      <HoseAlertsPanel vehicles={hoseAlertVehicles} ciudades={ciudades} />
+      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} ciudades={ciudades} />
+      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} ciudades={ciudades} />
       <ComplianceOverviewPanel rows={complianceOverview} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
