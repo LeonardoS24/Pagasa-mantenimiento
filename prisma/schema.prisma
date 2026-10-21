@@ -70,6 +70,7 @@ model User {
   complianceChecklistItems       ComplianceChecklistItem[]
   sealLogsCreated                SealLog[]                       @relation("SealLogCreatedBy")
   sealLogsDeactivated            SealLog[]                       @relation("SealLogDeactivatedBy")
+  lotesDocumentos                LoteDocumentos[]
 
   @@map("users")
 }
@@ -86,6 +87,7 @@ model City {
   userAccess UserCityAccess[]
   // Solo Transportadora Kino (ver ConjuntoTransporte).
   conjuntosTransporte ConjuntoTransporte[]
+  lotesDocumentos     LoteDocumentos[]
 
   @@map("cities")
 }
@@ -1612,4 +1614,46 @@ model ConjuntoSemirremolque {
   orden Int @default(0)
 
   @@map("conjunto_semirremolques")
+}
+
+// Carga de documentos escaneados (ver lib/lote-documentos.ts): un PDF que
+// trae varias pruebas, inspecciones o mantenimientos escaneados juntos. La IA
+// (lib/lector-documentos-ia.ts) dice qué páginas son de qué documento y de
+// qué unidad, y una persona lo revisa antes de que cada uno se guarde en su
+// bitácora con solo sus páginas. El escaneo original se conserva completo
+// (uploads/lotes-documentos/{id}/) como evidencia de lo que se recibió.
+model LoteDocumentos {
+  id String @id @default(cuid())
+
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  fileName   String
+  storedName String
+  size       Int
+  paginas    Int
+
+  // ANALIZANDO → POR_REVISAR (o ERROR si la lectura falló). Sin clave de la
+  // API pasa directo a POR_REVISAR para dividirlo a mano.
+  estado String  @default("ANALIZANDO")
+  error  String?
+
+  // JSON con los documentos detectados y lo que pasó con cada uno al
+  // revisarlo (ver ItemLote en lib/lote-documentos.ts).
+  documentos  String  @default("[]")
+  notasLector String?
+
+  // Consumo de la API, para saber cuánto costó cada lectura.
+  tokensEntrada Int?
+  tokensSalida  Int?
+  analizadoEl   DateTime?
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cityId, createdAt])
+  @@map("lotes_documentos")
 }
