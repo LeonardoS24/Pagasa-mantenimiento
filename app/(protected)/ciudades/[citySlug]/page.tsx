@@ -84,6 +84,16 @@ export default async function CityPage({
           </Link>
         )}
         <Link
+          href={`/ciudades/${city.slug}/calendario`}
+          className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4" />
+          </svg>
+          Calendario de vencimientos
+        </Link>
+        <Link
           href={`/ciudades/${city.slug}/documentos-de-pruebas`}
           className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
         >
