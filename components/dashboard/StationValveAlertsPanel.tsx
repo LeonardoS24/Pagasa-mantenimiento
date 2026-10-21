@@ -1,6 +1,5 @@
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
-import { ListaPorCiudad } from "./ListaPorCiudad";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
 import { getStationValveAlertMessage } from "@/lib/station-valves";
 
@@ -19,7 +18,7 @@ type StationValveAlertVehicle = {
 // Estación de carburación / Planta (ver lib/station-valves.ts) — vive en su
 // propia ficha del tanque, no en la del vehículo, así que necesita su propio
 // cálculo y su propio texto (getStationValveAlertMessage).
-export function StationValveAlertsPanel({ vehicles, ciudades }: { vehicles: StationValveAlertVehicle[]; ciudades?: string[] }) {
+export function StationValveAlertsPanel({ vehicles }: { vehicles: StationValveAlertVehicle[] }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -27,8 +26,8 @@ export function StationValveAlertsPanel({ vehicles, ciudades }: { vehicles: Stat
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
         Alertas de cambio de válvulas — Estaciones
       </h2>
-      <ListaPorCiudad items={vehicles} ciudades={ciudades}>
-        {(vehicle, i) => (
+      <ul className="space-y-2">
+        {vehicles.map((vehicle, i) => (
           <li
             key={`${vehicle.id}-${i}`}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${valveAlertRowStyles[vehicle.level]}`}
@@ -58,8 +57,8 @@ export function StationValveAlertsPanel({ vehicles, ciudades }: { vehicles: Stat
               </Link>
             </span>
           </li>
-        )}
-      </ListaPorCiudad>
+        ))}
+      </ul>
       <FundamentoNormativo claves={["valvulas-estacion", "valvulas-estacion-fabricacion"]} className="mt-4" />
     </div>
   );

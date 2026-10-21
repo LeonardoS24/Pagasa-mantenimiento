@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ListaPorCiudad } from "./ListaPorCiudad";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
   insuranceAlertBadgeStyles,
@@ -21,7 +20,7 @@ type InsuranceAlertVehicle = {
 
 // Mismo formato que los demás paneles de alertas de vencimiento: la póliza de
 // seguro de la unidad (ver InsurancePolicyLog y el apartado "Documentación").
-export function InsuranceAlertsPanel({ vehicles, ciudades }: { vehicles: InsuranceAlertVehicle[]; ciudades?: string[] }) {
+export function InsuranceAlertsPanel({ vehicles }: { vehicles: InsuranceAlertVehicle[] }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -29,8 +28,8 @@ export function InsuranceAlertsPanel({ vehicles, ciudades }: { vehicles: Insuran
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
         Alertas de vencimiento de póliza de seguro
       </h2>
-      <ListaPorCiudad items={vehicles} ciudades={ciudades}>
-        {(vehicle) => (
+      <ul className="space-y-2">
+        {vehicles.map((vehicle) => (
           <li
             key={vehicle.id}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${insuranceAlertRowStyles[vehicle.level]}`}
@@ -53,8 +52,8 @@ export function InsuranceAlertsPanel({ vehicles, ciudades }: { vehicles: Insuran
               </Link>
             </span>
           </li>
-        )}
-      </ListaPorCiudad>
+        ))}
+      </ul>
     </div>
   );
 }

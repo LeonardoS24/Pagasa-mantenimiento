@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ListaPorCiudad } from "./ListaPorCiudad";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
   maintenanceAlertBadgeStyles,
@@ -19,7 +18,7 @@ type AlertVehicle = {
   level: MaintenanceAlertLevel;
 };
 
-export function MaintenanceAlertsPanel({ vehicles, ciudades }: { vehicles: AlertVehicle[]; ciudades?: string[] }) {
+export function MaintenanceAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -27,8 +26,8 @@ export function MaintenanceAlertsPanel({ vehicles, ciudades }: { vehicles: Alert
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
         Alertas de mantenimiento preventivo
       </h2>
-      <ListaPorCiudad items={vehicles} ciudades={ciudades}>
-        {(vehicle) => (
+      <ul className="space-y-2">
+        {vehicles.map((vehicle) => (
           <li
             key={vehicle.id}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${
@@ -63,8 +62,8 @@ export function MaintenanceAlertsPanel({ vehicles, ciudades }: { vehicles: Alert
               </Link>
             </span>
           </li>
-        )}
-      </ListaPorCiudad>
+        ))}
+      </ul>
     </div>
   );
 }
