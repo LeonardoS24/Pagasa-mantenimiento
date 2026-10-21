@@ -8,6 +8,7 @@ import {
   combustibleLabels,
   calidadExtintorLabels,
   vehicleEstatusLabels,
+  estatusEfectivo,
   type CalidadMantenimiento,
   type Combustible,
   type CalidadExtintor,
@@ -159,7 +160,7 @@ function baseColumns(v: VehicleWithSheet, useDeliveryFormat: boolean, includeCit
       : "",
     // Estatus operativo (Operativa / En taller / Fuera de servicio), distinto
     // de "Estado" de arriba, que es si sigue dada de alta.
-    Estatus: vehicleEstatusLabels[v.estatus as VehicleEstatus] ?? v.estatus,
+    Estatus: vehicleEstatusLabels[estatusEfectivo(v.activo, v.estatus) as VehicleEstatus] ?? v.estatus,
     "Marca (datos generales)": v.sucursal,
     Año: t(v.anio),
     Placas: t(v.placas),
@@ -482,7 +483,7 @@ function stationRow(r: StationRecord, tanque: StationTankTechnicalSheet | null, 
     "Calidad de la unidad": r.calidad
       ? (calidadMantenimientoLabels[r.calidad as CalidadMantenimiento] ?? r.calidad)
       : "",
-    Estatus: vehicleEstatusLabels[r.estatus as VehicleEstatus] ?? r.estatus,
+    Estatus: vehicleEstatusLabels[estatusEfectivo(r.activo, r.estatus) as VehicleEstatus] ?? r.estatus,
     Permisionaria: t(r.permisionaria),
     Permiso: t(r.permiso),
     Dirección: r.sucursal,

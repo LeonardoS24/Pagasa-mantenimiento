@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { slugify } from "./slugify";
+import { TRACTOCAMIONES_SLUG, SEMIRREMOLQUES_SLUG } from "./kino-sections";
 
 // Estructura estándar con la que nace toda ciudad. Antes una ciudad nueva
 // quedaba vacía y había que crear a mano los 10 apartados y los 4
@@ -44,6 +45,27 @@ export const PLANTILLA_APARTADOS: PlantillaApartado[] = [
   { name: "Inventarios", slug: "inventarios" },
 ];
 
+// Transportadora Kino no lleva la plantilla de arriba: solo sus unidades
+// (tractocamiones y semirremolques) y la bitácora de esas unidades. Nada de
+// planta, estaciones, equipos, inventarios, órdenes ni manuales.
+export const KINO_CITY_SLUG = "transportadora-kino";
+
+export const PLANTILLA_KINO: PlantillaApartado[] = [
+  {
+    name: "Unidad de distribución",
+    slug: "unidad-de-distribucion",
+    children: [
+      { name: "Tractocamiones", slug: TRACTOCAMIONES_SLUG },
+      { name: "Semirremolques", slug: SEMIRREMOLQUES_SLUG },
+    ],
+  },
+  { name: "Bitácoras de unidades", slug: "bitacoras-de-unidades" },
+];
+
+export function plantillaDeCiudad(citySlug: string): PlantillaApartado[] {
+  return citySlug === KINO_CITY_SLUG ? PLANTILLA_KINO : PLANTILLA_APARTADOS;
+}
+
 // Crea los apartados que falten, respetando los que ya existan (por slug).
 // Es idempotente, así que sirve tanto al crear una ciudad como para
 // completar una que quedó a medias.
@@ -69,7 +91,8 @@ export async function crearApartadosEstandar(cityId: string): Promise<number> {
     }
   }
 
-  await crearNivel(PLANTILLA_APARTADOS, null);
+  const ciudad = await prisma.city.findUnique({ where: { id: cityId }, select: { slug: true } });
+  await crearNivel(plantillaDeCiudad(ciudad?.slug ?? ""), null);
   return creados;
 }
 

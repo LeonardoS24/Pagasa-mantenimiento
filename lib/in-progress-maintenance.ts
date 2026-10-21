@@ -9,7 +9,7 @@ export async function countInProgressMaintenance(cityIds: string[]): Promise<num
   return prisma.maintenanceLog.count({
     where: {
       estatus: "EN_PROCESO",
-      vehicleRecord: { section: { cityId: { in: cityIds } } },
+      vehicleRecord: { activo: true, section: { cityId: { in: cityIds } } },
     },
   });
 }
