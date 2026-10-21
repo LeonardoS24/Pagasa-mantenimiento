@@ -121,7 +121,13 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    interna: sin plazo fijo (se guarda, no entra a la alerta).
 2. **Estaciones de carburación** (`StationTankTechnicalSheet`,
    `lib/station-valves.ts`) — 7 válvulas, solo fecha de fabricación de cada una,
-   y **una sola alerta combinada**: vence 5 años después de la más antigua.
+   y **una sola alerta combinada**: NOM-003-SEDG-2004, transitorio Cuarto
+   (cotejado con el DOF): no más de **5 años de instaladas ni más de 7 desde la
+   fabricación**; vence lo que ocurra primero
+   (`getStationValveVencimiento`: más antigua del juego, instalación del juego
+   `fechaInstalacionValvulas`). Sin fecha de instalación se cuentan 5 años desde
+   la fabricación, para no avisar tarde. Son dos plazos editables
+   (`valvulasEstacion` = 5, `valvulasEstacionFabricacion` = 7).
 3. **Planta** (mismas columnas de `StationTankTechnicalSheet`,
    `lib/planta-tank-instruments.ts`) — 5 instrumentos (máximo llenado, manómetro,
    termómetro, exceso de flujo/no retroceso, relevo de presión), cada uno con
@@ -164,10 +170,10 @@ y cita de cada requisito.
   los numerales 7.2.2.x que traía la tabla original son de la EM-009, no de la
   EM-008 (esta solo tiene Tablas 1 a 3); plantas **NOM-018-ASEA-2023**;
   carburación de vehículos **NOM-005-SESH-2010** (9.6.x y 13). Un requisito
-  puede citar dos normas cuando cada una rige un tipo de unidad. **Aún sin
-  texto: estaciones de carburación** (¿NOM-003-SEDG-2004 o NOM-012-ASEA-2021?),
-  por eso las válvulas de estación quedan como "Criterio interno" (5 años).
-  **Instrumentos de planta**: la NOM-018 (7.2.17.4 VII) los manda reemplazar
+  puede citar dos normas cuando cada una rige un tipo de unidad. Estaciones de
+  carburación: **NOM-003-SEDG-2004** (cotejada; ver arriba), aunque la
+  NOM-012-ASEA-2021 se menciona como su sustituta y solo se confirmó su
+  proyecto: **falta confirmar cuál rige hoy**. **Instrumentos de planta**: la NOM-018 (7.2.17.4 VII) los manda reemplazar
   según la vida útil del fabricante y 7.2.17.1 XII fija 10 años a exceso de
   flujo/no retroceso/relevo; los 5 años del sistema son criterio interno.
   **Diferencia conocida**: la prueba hidrostática la norma la pide cada 10

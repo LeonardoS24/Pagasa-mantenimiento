@@ -18,7 +18,8 @@
 export type Plazos = {
   valvulasTanqueCarga: number; // Auto-Tanques y Semirremolques
   valvulasCarburacion: number; // Vehículo con tanque de carburación
-  valvulasEstacion: number; // Estaciones de carburación
+  valvulasEstacion: number; // Estaciones de carburación: años desde la INSTALACIÓN del juego
+  valvulasEstacionFabricacion: number; // Estaciones de carburación: tope en años desde la FABRICACIÓN
   instrumentosPlanta: number; // Instrumentos del tanque de la Planta
   mangueraTrasiego: number; // manguera de surtir del tanque de carga
   mangueraCarburacion: number; // manguera de alta presión de carburación
@@ -28,6 +29,7 @@ export const PLAZOS_BASE: Plazos = {
   valvulasTanqueCarga: 10,
   valvulasCarburacion: 5,
   valvulasEstacion: 5,
+  valvulasEstacionFabricacion: 7,
   instrumentosPlanta: 5,
   mangueraTrasiego: 5,
   mangueraCarburacion: 2,

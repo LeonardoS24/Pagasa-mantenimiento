@@ -59,7 +59,7 @@ export function StationValveAlertsPanel({ vehicles }: { vehicles: StationValveAl
           </li>
         ))}
       </ul>
-      <FundamentoNormativo claves={["valvulas-estacion"]} className="mt-4" />
+      <FundamentoNormativo claves={["valvulas-estacion", "valvulas-estacion-fabricacion"]} className="mt-4" />
     </div>
   );
 }
