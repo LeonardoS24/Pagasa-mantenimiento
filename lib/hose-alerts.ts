@@ -1,20 +1,44 @@
 import { daysUntil } from "./ultrasound-alerts";
 
-// Alerta de cambio de mangueras: vence a los 2 años de fabricación de la
-// manguera (mismo esquema amarillo/rojo que válvulas/ultrasonido), pero
-// sobre una sola fecha en vez de la más antigua de varias.
+// Alerta de cambio de mangueras (mismo esquema amarillo/rojo que
+// válvulas/ultrasonido), sobre una sola fecha en vez de la más antigua de
+// varias:
+// - Vehículo con tanque de carburación: 2 años (fabricación de la manguera de
+//   alta presión).
+// - Auto-Tanques y Semirremolques: 5 años desde la fabricación de la manguera
+//   de trasiego (NOM-EM-008-ASEA-2026, Tabla 4).
 export type HoseAlertLevel = "none" | "yellow" | "red";
+
+export const ANIOS_VIGENCIA_MANGUERA = 2;
+
+// Qué fecha y qué plazo le toca a cada apartado. La manguera de trasiego de
+// los tanques de carga es la "manguera de surtir" de su ficha técnica.
+export function mangueraParaAlerta(
+  sectionSlug: string | null | undefined,
+  sheet: { fechaFabricacionManguera?: Date | null; fechaFabricacionMangueraSurtir?: Date | null } | null | undefined
+): { fecha: Date | null; anios: number } {
+  if (sectionSlug === "auto-tanques" || sectionSlug === "semirremolques") {
+    return { fecha: sheet?.fechaFabricacionMangueraSurtir ?? null, anios: 5 };
+  }
+  return { fecha: sheet?.fechaFabricacionManguera ?? null, anios: ANIOS_VIGENCIA_MANGUERA };
+}
 
 function addYears(date: Date, years: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
 }
 
-export function getHoseVencimiento(fechaFabricacionManguera: Date | null | undefined): Date | null {
-  return fechaFabricacionManguera ? addYears(fechaFabricacionManguera, 2) : null;
+export function getHoseVencimiento(
+  fechaFabricacionManguera: Date | null | undefined,
+  anios: number = ANIOS_VIGENCIA_MANGUERA
+): Date | null {
+  return fechaFabricacionManguera ? addYears(fechaFabricacionManguera, anios) : null;
 }
 
-export function getHoseAlertLevel(fechaFabricacionManguera: Date | null | undefined): HoseAlertLevel {
-  const vencimiento = getHoseVencimiento(fechaFabricacionManguera);
+export function getHoseAlertLevel(
+  fechaFabricacionManguera: Date | null | undefined,
+  anios: number = ANIOS_VIGENCIA_MANGUERA
+): HoseAlertLevel {
+  const vencimiento = getHoseVencimiento(fechaFabricacionManguera, anios);
   if (!vencimiento) return "none";
   const daysLeft = daysUntil(vencimiento);
   if (daysLeft <= 7) return "red";

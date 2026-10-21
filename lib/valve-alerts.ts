@@ -55,13 +55,20 @@ export function valveDatesFromSheet(
 export const ANIOS_VIGENCIA_VALVULAS = 5;
 
 // Vida máxima de las válvulas desde su fabricación, según el tipo de unidad.
-// Las de los Auto-Tanques (tanque de carga grande) duran 10 años; el resto
-// de las unidades se quedan en 5. Semirremolques lleva el mismo tanque de
-// carga pero por ahora se quedó en 5: si también deben ser 10, agregar su
-// slug aquí. Estaciones y Planta tienen su propia regla (ver
-// lib/station-valves.ts y lib/planta-tank-instruments.ts).
+// Las del tanque de carga (Auto-Tanques y Semirremolques) duran 10 años:
+// NOM-EM-008-ASEA-2026, Tabla 3 (7.4.5.1), "menos de 10 años desde su fecha de
+// fabricación, o menos si lo indica el fabricante" para relevo de presión,
+// exceso de flujo, no retroceso y llenado. El resto de las unidades se queda
+// en 5 (en carburación, 9.6.4: llenado, servicio y seguridad cada 5 años).
+// Estaciones y Planta tienen su propia regla (ver lib/station-valves.ts y
+// lib/planta-tank-instruments.ts).
+//
+// Ojo: la norma fija 10 años solo a esas 4 válvulas; el alerta aplica el
+// mismo plazo a todo el juego del tanque de carga (así se pidió). Si alguna
+// otra válvula debe vencer antes, hay que darle su propio plazo.
 const ANIOS_VIGENCIA_VALVULAS_POR_APARTADO: Record<string, number> = {
   "auto-tanques": 10,
+  semirremolques: 10,
 };
 
 export function aniosVigenciaValvulas(sectionSlug: string | null | undefined): number {

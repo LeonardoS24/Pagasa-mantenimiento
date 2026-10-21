@@ -13,7 +13,7 @@ import {
   oldestValve,
   valveDatesFromSheet,
 } from "@/lib/valve-alerts";
-import { getHoseAlertLevel, getHoseVencimiento } from "@/lib/hose-alerts";
+import { getHoseAlertLevel, getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { getInsuranceAlertLevel } from "@/lib/insurance-alerts";
 import { getStationValveAlertLevel, getStationValveVencimiento, oldestStationValve } from "@/lib/station-valves";
@@ -57,6 +57,7 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
           { fechaFabricacionValvulaExcesoFlujo: { not: null } },
           { fechaFabricacionValvulaCheckLock: { not: null } },
           { fechaFabricacionManguera: { not: null } },
+          { fechaFabricacionMangueraSurtir: { not: null } },
         ],
       },
     },
@@ -387,9 +388,10 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
   const hoseAlertVehicles = upcomingRecords
     .map((record) => {
       if (!isAlertVisibleForSection("mangueras", record.section.slug)) return null;
-      const level = getHoseAlertLevel(record.technicalSheet?.fechaFabricacionManguera);
+      const manguera = mangueraParaAlerta(record.section.slug, record.technicalSheet);
+      const level = getHoseAlertLevel(manguera.fecha, manguera.anios);
       if (level === "none") return null;
-      const vencimiento = getHoseVencimiento(record.technicalSheet?.fechaFabricacionManguera);
+      const vencimiento = getHoseVencimiento(manguera.fecha, manguera.anios);
       if (!vencimiento) return null;
       return {
         id: record.id,

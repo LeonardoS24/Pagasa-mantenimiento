@@ -107,7 +107,13 @@ import {
 } from "@/lib/valve-alerts";
 import { esTanqueDeCarga, esTractocamion, esSemirremolque } from "@/lib/kino-sections";
 import { getConjuntosDeUnidad } from "@/lib/conjuntos";
-import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
+import {
+  getHoseAlertLevel,
+  getHoseVencimiento,
+  hoseAlertBadgeStyles,
+  hoseAlertLabel,
+  mangueraParaAlerta,
+} from "@/lib/hose-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { tipoRegistro, tipoRegistroLabel } from "@/lib/section-labels";
 import { hasActiveElevatedAccess } from "@/lib/elevated-access";
@@ -357,10 +363,11 @@ export default async function VehicleDetailPage({
   // real capturada.
   const calidadEfectiva: CalidadMantenimiento | null =
     valveAlertLevel === "red" ? "MALA" : (vehicle.calidad as CalidadMantenimiento | null);
+  const manguera = mangueraParaAlerta(vehicle.section.slug, vehicle.technicalSheet);
   const hoseAlertLevel = vehicle.activo && isAlertVisibleForSection("mangueras", vehicle.section.slug)
-    ? getHoseAlertLevel(vehicle.technicalSheet?.fechaFabricacionManguera)
+    ? getHoseAlertLevel(manguera.fecha, manguera.anios)
     : "none";
-  const hoseVencimiento = getHoseVencimiento(vehicle.technicalSheet?.fechaFabricacionManguera);
+  const hoseVencimiento = getHoseVencimiento(manguera.fecha, manguera.anios);
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Inicio", href: "/dashboard" },
