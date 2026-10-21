@@ -144,6 +144,17 @@ y cita de cada requisito.
   cálculo de alertas nuevo en el servidor, llama `await asegurarPlazos()`.** Los
   formularios de navegador que calculan su aviso reciben `plazos` por props y
   llaman `fijarPlazos(plazos)`.
+- **Cada requisito cita UNA sola norma, la vigente, con texto corto** (el
+  usuario lo pidió así: nada de "antes decía... en la norma anterior").
+  `NORMAS_VIGENTES` (mismo archivo) lista qué norma rige cada área y se ve
+  arriba en `/admin/normas`. Búsqueda del 21-oct-2026 (solo snippets, el texto
+  oficial no se pudo abrir desde el entorno): transporte **NOM-EM-008-ASEA-2026**;
+  distribución **NOM-EM-009-ASEA-2026**; plantas **NOM-018-ASEA-2023** (sustituye
+  a la NOM-001-SESH-2014); carburación de vehículos **NOM-005-SESH-2010**;
+  estaciones de carburación **NOM-003-SEDG-2004 por confirmar** (la
+  NOM-012-ASEA-2021 se cita como su sustituta pero solo se confirmó el
+  proyecto). **Válvulas de estación e instrumentos de planta siguen como
+  "Criterio interno"** (5 años): falta el numeral/plazo en la norma vigente.
 - **Requisitos "solo referencia"** (conectores flexibles, acoplamiento seco,
   calibración, dictamen de instalación...) están en el catálogo sin plazo
   editable porque todavía no tienen campo ni alerta.

@@ -3,7 +3,7 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { guardarRequisito, restablecerRequisito } from "@/actions/requisitos-actions";
 import type { ActionState } from "@/actions/user-actions";
-import type { RequisitoVigente } from "@/lib/requisitos-normativos";
+import { NORMAS_VIGENTES, type RequisitoVigente } from "@/lib/requisitos-normativos";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -156,19 +156,37 @@ export function NormasPanel({ requisitos }: { requisitos: RequisitoVigente[] }) 
         <p className="font-medium text-primary">Cómo funciona</p>
         <ul className="mt-1 list-disc space-y-1 pl-5">
           <li>
-            Cambiar un <strong>plazo</strong> mueve las alertas de todas las ciudades al instante: se vuelve a calcular
-            el vencimiento a partir de las fechas ya capturadas. No se modifica ninguna fecha guardada.
+            Cambiar un <strong>plazo</strong> mueve las alertas de todas las ciudades al instante. No se modifica
+            ninguna fecha guardada.
           </li>
           <li>
-            La norma y la cita salen como <em>fundamento</em> en los avisos. Marca &quot;Ya lo cotejé&quot; solo cuando
-            hayas comparado la cita con el texto oficial.
+            La norma y la cita salen como fundamento en los avisos. Marca &quot;Ya lo cotejé&quot; solo cuando la
+            hayas comparado con el texto oficial.
           </li>
-          <li>
-            Los ciclos de las pruebas del tanque (10 años la primera vez y 5 después) se calculan al registrar cada
-            prueba y no se editan aquí.
-          </li>
+          <li>Los ciclos de las pruebas del tanque (10 años la primera vez, 5 después) no se editan aquí.</li>
         </ul>
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase text-primary-bright">Normas que rigen hoy</h2>
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+          <table className="w-full text-left text-sm">
+            <tbody>
+              {NORMAS_VIGENTES.map((n) => (
+                <tr key={n.area} className="border-b border-gray-100 align-top last:border-0">
+                  <td className="px-4 py-2 font-medium text-ink">{n.area}</td>
+                  <td className="whitespace-nowrap px-4 py-2 font-semibold text-primary">{n.norma}</td>
+                  <td className="px-4 py-2 text-xs text-gray-600">{n.detalle}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-gray-500">
+          Según una búsqueda en fuentes públicas (oct-2026). No se pudo abrir el texto oficial: cotéjalas en el DOF
+          antes de citarlas hacia fuera.
+        </p>
+      </section>
 
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase text-primary-bright">Requisitos con alerta (plazo editable)</h2>
