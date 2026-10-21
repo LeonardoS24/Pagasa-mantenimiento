@@ -1,3 +1,4 @@
+import { dictamenesDeApartado, getDictamenVencimiento } from "./dictamen-alerts";
 import { asegurarPlazos } from "@/lib/requisitos-runtime";
 import { XLSX, hojaConFormato, escribirLibro } from "./excel-formato";
 import { getConjuntosDeCiudad } from "./conjuntos";
@@ -231,6 +232,19 @@ function valvulasColumns(v: VehicleWithSheet, carburacion = false) {
     out[`${VALVULA_MAXIMO_LLENADO_85.etiqueta} — Número de serie`] = t(s?.codigoValvulaMaximoLlenado85);
     out["Manguera de surtir — Fecha de fabricación"] = d(s?.fechaFabricacionMangueraSurtir ?? null);
     out["Manguera de surtir — Medida"] = t(s?.medidaMangueraSurtir);
+    out["Conector flexible — Fecha de fabricación"] = d(s?.fechaFabricacionConectorFlexible ?? null);
+  }
+  return out;
+}
+
+// Dictámenes de vigencia anual que le tocan al apartado: fecha de emisión y
+// de vencimiento (ver lib/dictamen-alerts.ts).
+function dictamenesColumns(v: VehicleWithSheet, sectionSlug: string) {
+  const out: Record<string, string> = {};
+  for (const dictamen of dictamenesDeApartado(sectionSlug)) {
+    const emision = v.technicalSheet?.[dictamen.campo] ?? null;
+    out[`${dictamen.nombre} — Fecha de emisión`] = d(emision);
+    out[`${dictamen.nombre} — Vence`] = d(getDictamenVencimiento(emision));
   }
   return out;
 }
@@ -321,6 +335,7 @@ function rowsForSection(
         ...tanqueColumns(v, "Tanque"),
         ...valvulasColumns(v),
         ...gobernadorColumns(v),
+        ...dictamenesColumns(v, sectionSlug),
         ...inspeccionesColumns(v),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
@@ -339,6 +354,7 @@ function rowsForSection(
         ...tanqueColumns(v, "Tanque de carburación"),
         ...valvulasColumns(v, true),
         ...manguerasColumns(v),
+        ...dictamenesColumns(v, sectionSlug),
         ...inspeccionesColumns(v),
         ...(v.extraColumns ?? {}),
       }));
@@ -349,6 +365,7 @@ function rowsForSection(
         ...tanqueColumns(v, "Tanque"),
         ...placaTanqueColumns(v),
         ...valvulasColumns(v),
+        ...dictamenesColumns(v, sectionSlug),
         ...inspeccionesColumns(v),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
@@ -358,6 +375,7 @@ function rowsForSection(
       return vehicles.map((v) => ({
         ...baseColumns(v, false, includeCityColumn),
         ...camposKinoColumns(v, CAMPOS_TRACTOCAMION),
+        ...dictamenesColumns(v, sectionSlug),
         ...gobernadorColumns(v),
         ...extintorColumns(v),
         ...mantenimientoColumns(v),
@@ -487,6 +505,8 @@ function stationRow(r: StationRecord, tanque: StationTankTechnicalSheet | null, 
     Permisionaria: t(r.permisionaria),
     Permiso: t(r.permiso),
     Dirección: r.sucursal,
+    "Dictamen de la estación — Fecha de emisión": d(s?.fechaDictamenEstacion ?? null),
+    "Dictamen de la estación — Vence": d(getDictamenVencimiento(s?.fechaDictamenEstacion ?? null)),
     // Ficha técnica del tanque
     "Tanque — Número de serie": t(tanque?.numeroSerie),
     "Tanque — Marca": t(tanque?.marca),

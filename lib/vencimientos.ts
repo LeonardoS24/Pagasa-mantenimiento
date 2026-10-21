@@ -9,7 +9,8 @@ import {
   valveDatesFromSheet,
   valveLabels,
 } from "@/lib/valve-alerts";
-import { getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
+import { conectorParaAlerta, getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
+import { dictamenesDeFicha } from "@/lib/dictamen-alerts";
 import {
   getStationValveVencimiento,
   oldestStationValve,
@@ -40,6 +41,7 @@ export type TipoVencimiento =
   | "mantenimiento"
   | "valvulas"
   | "mangueras"
+  | "dictamen"
   | "poliza";
 
 export const TIPOS_VENCIMIENTO: { tipo: TipoVencimiento; nombre: string }[] = [
@@ -50,7 +52,8 @@ export const TIPOS_VENCIMIENTO: { tipo: TipoVencimiento; nombre: string }[] = [
   { tipo: "hidrostatica", nombre: "Prueba hidrostática" },
   { tipo: "mantenimiento", nombre: "Mantenimiento preventivo" },
   { tipo: "valvulas", nombre: "Cambio de válvulas" },
-  { tipo: "mangueras", nombre: "Cambio de manguera" },
+  { tipo: "mangueras", nombre: "Cambio de manguera o conector" },
+  { tipo: "dictamen", nombre: "Vencimiento de dictamen" },
   { tipo: "poliza", nombre: "Póliza de seguro" },
 ];
 
@@ -188,6 +191,13 @@ export async function getVencimientos(cityIds: string[]): Promise<Vencimiento[]>
     if (visible("mangueras")) {
       const manguera = mangueraParaAlerta(slug, r.technicalSheet);
       agregar("mangueras", getHoseVencimiento(manguera.fecha, manguera.anios));
+      const conector = conectorParaAlerta(slug, r.technicalSheet);
+      agregar("mangueras", getHoseVencimiento(conector.fecha, conector.anios), "Conector flexible");
+    }
+
+    // Dictámenes de vigencia anual (ver lib/dictamen-alerts.ts).
+    for (const dictamen of dictamenesDeFicha(r.technicalSheet, slug)) {
+      agregar("dictamen", dictamen.vencimiento, dictamen.nombre);
     }
 
     // La póliza vigente es la de vencimiento más lejano (ver

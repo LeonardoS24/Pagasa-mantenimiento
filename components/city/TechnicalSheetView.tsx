@@ -59,6 +59,7 @@ import { SECTION_STYLES } from "@/lib/section-colors";
 import type { CustomFieldDef } from "@/lib/custom-fields";
 import { CustomFieldItems } from "@/components/admin/CustomFieldInputs";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
+import { dictamenesDeApartado, getDictamenVencimiento, getDictamenAlertLevel, dictamenAlertLabel } from "@/lib/dictamen-alerts";
 
 function Item({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
@@ -434,7 +435,7 @@ export function TechnicalSheetView({
               sectionSlug === "vehiculo-con-tanque-de-carburacion"
                 ? ["valvulas-carburacion"]
                 : esTanqueDeCarga(sectionSlug)
-                  ? ["valvulas-tanque-carga", "manguera-trasiego"]
+                  ? ["valvulas-tanque-carga", ...(sectionSlug === "auto-tanques" ? ["manguera-trasiego"] : [])]
                   : []
             }
             className="mb-4"
@@ -477,8 +478,30 @@ export function TechnicalSheetView({
                     .join(" · ") || null
                 }
               />
+              <Item label="Conector flexible (fabricación)" value={formatDate(sheet.fechaFabricacionConectorFlexible) || null} />
             </dl>
           )}
+        </div>
+      )}
+
+      {dictamenesDeApartado(sectionSlug).some((d) => sheet[d.campo]) && (
+        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Dictámenes (vigencia de 1 año)</h3>
+          <dl className="grid gap-4 sm:grid-cols-2">
+            {dictamenesDeApartado(sectionSlug).map((d) => {
+              const emision = sheet[d.campo];
+              if (!emision) return null;
+              const vence = getDictamenVencimiento(emision)!;
+              const nivel = getDictamenAlertLevel(vence);
+              return (
+                <Item
+                  key={d.campo}
+                  label={d.nombre}
+                  value={`Emitido ${formatDate(emision)} · ${nivel === "none" ? `vigente hasta ${formatDate(vence)}` : dictamenAlertLabel(nivel, vence)}`}
+                />
+              );
+            })}
+          </dl>
         </div>
       )}
 

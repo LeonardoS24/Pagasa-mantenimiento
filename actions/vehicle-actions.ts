@@ -506,6 +506,12 @@ const technicalSheetSchema = z.object({
   fechaFabricacionValvulaCheckLock: optionalDateConservable,
   fechaFabricacionValvulaInterna: optionalDateConservable,
   fechaFabricacionMangueraSurtir: optionalDateConservable,
+  fechaFabricacionManometro: optionalDateConservable,
+  fechaFabricacionConectorFlexible: optionalDateConservable,
+  fechaDictamenOperacion: optionalDateConservable,
+  fechaDictamenNom068: optionalDateConservable,
+  fechaDictamenInstalacion: optionalDateConservable,
+  fechaDictamenEstacion: optionalDateConservable,
   tieneGobernador: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   // Una válvula no se puede instalar antes de existir. Si la fecha de
@@ -689,6 +695,12 @@ export async function upsertTechnicalSheet(
     fechaFabricacionValvulaCheckLock: campoSiViene(formData, "fechaFabricacionValvulaCheckLock"),
     fechaFabricacionValvulaInterna: campoSiViene(formData, "fechaFabricacionValvulaInterna"),
     fechaFabricacionMangueraSurtir: campoSiViene(formData, "fechaFabricacionMangueraSurtir"),
+    fechaFabricacionManometro: campoSiViene(formData, "fechaFabricacionManometro"),
+    fechaFabricacionConectorFlexible: campoSiViene(formData, "fechaFabricacionConectorFlexible"),
+    fechaDictamenOperacion: campoSiViene(formData, "fechaDictamenOperacion"),
+    fechaDictamenNom068: campoSiViene(formData, "fechaDictamenNom068"),
+    fechaDictamenInstalacion: campoSiViene(formData, "fechaDictamenInstalacion"),
+    fechaDictamenEstacion: campoSiViene(formData, "fechaDictamenEstacion"),
     // Una casilla sin marcar no viaja en el formulario: el campo oculto
     // "tieneGobernadorPresente" dice si el formulario la pintaba, para
     // distinguir "la desmarcaron" de "este formulario no la trae".

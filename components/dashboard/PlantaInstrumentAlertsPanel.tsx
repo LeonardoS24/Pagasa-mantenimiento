@@ -58,7 +58,7 @@ export function PlantaInstrumentAlertsPanel({ vehicles }: { vehicles: PlantaInst
           </li>
         ))}
       </ul>
-      <FundamentoNormativo claves={["instrumentos-planta"]} className="mt-4" />
+      <FundamentoNormativo claves={["valvulas-planta", "instrumentos-planta"]} className="mt-4" />
     </div>
   );
 }

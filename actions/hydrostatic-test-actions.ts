@@ -14,6 +14,7 @@ import {
 } from "@/lib/documents";
 import { deleteLogDocumentFiles } from "@/lib/document-cleanup";
 import type { ActionState } from "./user-actions";
+import { esTanqueDeCarga } from "@/lib/kino-sections";
 
 const optionalText = (max: number) =>
   z.preprocess((value) => {
@@ -39,14 +40,21 @@ const createHydrostaticTestLogSchema = z.object({
   fechaRealizacion: requiredDate,
 });
 
-// Igual que la inspección visual interna (ver
-// actions/internal-visual-inspection-actions.ts): la primera prueba vence a
-// los 10 años de fabricación (calculado una sola vez al dar de alta el
-// tanque, ver actions/vehicle-actions.ts), pero cada prueba ya realizada
-// agenda la siguiente 5 años después — aplica tanto a Planta como a
-// Estaciones de carburación.
-function addFiveYears(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear() + 5, date.getUTCMonth(), date.getUTCDate()));
+// La primera prueba vence a los 10 años de fabricación (calculado una sola
+// vez al dar de alta el tanque, ver actions/vehicle-actions.ts). Cada prueba
+// ya realizada agenda la siguiente:
+// - Tanque de carga (Auto-Tanques y Semirremolques): a los 10 años, porque la
+//   NOM-EM-009 (Tabla 3) y la NOM-EM-008 (Tabla 2) piden la prueba
+//   hidrostática cada 10 años.
+// - Planta, Estaciones y Vehículo con tanque de carburación: a los 5 años
+//   (ciclo que ya usaba el sistema; esas normas no fijan una prueba hidrostática
+//   periódica).
+function addYears(date: Date, years: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate()));
+}
+
+function aniosCicloHidrostatica(sectionSlug: string): number {
+  return esTanqueDeCarga(sectionSlug) ? 10 : 5;
 }
 
 export async function createHydrostaticTestLog(
@@ -124,10 +132,13 @@ export async function createHydrostaticTestLog(
   }
 
   // La primera prueba vence a los 10 años de fabricación; de ahí en
-  // adelante, cada prueba ya realizada agenda la siguiente 5 años después
-  // (ver addFiveYears arriba). Si es de un tanque específico, se guarda en
-  // ESE tanque.
-  const fechaProximaPruebaHidrostatica = addFiveYears(parsed.data.fechaRealizacion);
+  // adelante, cada prueba ya realizada agenda la siguiente (ver
+  // aniosCicloHidrostatica arriba). Si es de un tanque específico, se guarda
+  // en ESE tanque.
+  const fechaProximaPruebaHidrostatica = addYears(
+    parsed.data.fechaRealizacion,
+    aniosCicloHidrostatica(vehicle.section.slug)
+  );
   if (tank) {
     await prisma.stationTankTechnicalSheet.update({
       where: { id: tank.id },

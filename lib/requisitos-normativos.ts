@@ -63,7 +63,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     cita: "Se sustituye al cumplir 5 años a partir de su fecha de fabricación.",
     cuentaDesde: "fabricación de la manguera",
     plazoClave: "mangueraTrasiego",
-    nota: "La NOM-EM-008 (Semirremolques) no fija plazo para la manguera; el sistema también la alerta en Semirremolques.",
+    nota: "En Semirremolques no se alerta: la NOM-EM-008 no fija plazo para la manguera.",
     verificado: true,
   },
   {
@@ -103,16 +103,28 @@ export const REQUISITOS_BASE: Requisito[] = [
     verificado: true,
   },
   {
+    clave: "valvulas-planta",
+    nombre: "Válvulas de seguridad del tanque de la planta",
+    aplicaA: "Planta (exceso de flujo, no retroceso y relevo de presión)",
+    norma: "NOM-018-ASEA-2023",
+    numeral: "7.2.17.1, fracción XII",
+    cita: "Se reemplazan las válvulas de exceso de flujo, no retroceso y relevo de presión con más de 10 años desde su fabricación, o antes si la garantía del fabricante es menor.",
+    cuentaDesde: "último cambio o, si no hay, fabricación",
+    plazoClave: "instrumentosPlantaValvulas",
+    nota: "Si el fabricante da una garantía menor a 10 años, captura aquí ese plazo.",
+    verificado: true,
+  },
+  {
     clave: "instrumentos-planta",
-    nombre: "Instrumentos y válvulas del tanque de la planta",
-    aplicaA: "Planta",
-    norma: "Criterio interno",
-    numeral: "—",
-    cita: "Cada instrumento se cambia a los 5 años de su último cambio o, si nunca se cambió, de su fabricación.",
+    nombre: "Instrumentos del tanque de la planta",
+    aplicaA: "Planta (máximo llenado, manómetro y termómetro)",
+    norma: "NOM-018-ASEA-2023",
+    numeral: "7.2.17.4, fracción VII",
+    cita: "Se reemplazan conforme al tiempo de vida útil establecido por el fabricante.",
     cuentaDesde: "último cambio o, si no hay, fabricación",
     plazoClave: "instrumentosPlanta",
-    nota: "La NOM-018-ASEA-2023 no fija 5 años: 7.2.17.4 VII manda reemplazarlos según la vida útil del fabricante, y 7.2.17.1 XII fija 10 años (o la garantía menor del fabricante) para exceso de flujo, no retroceso y relevo de presión.",
-    verificado: false,
+    nota: "La norma no da un número: el sistema avisa a los 10 años como tope. Si el fabricante marca menos, captura aquí ese plazo.",
+    verificado: true,
   },
 
   // ----- Solo referencia: lo que dice la norma pero que el sistema calcula
@@ -147,7 +159,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "7.2.2.4, Tabla 3 (Auto-Tanques) · 7.4.4, Tabla 2 (Semirremolques)",
     cita: "Inspección visual externa y prueba de hermeticidad, cada año. Prueba hidrostática, cada 10 años desde la fabricación. Espesores por ultrasonido, a los 10 años y luego cada 5.",
     cuentaDesde: "fabricación del tanque",
-    nota: "Diferencia: al registrar una prueba hidrostática el sistema agenda la siguiente a 5 años; la norma pide 10.",
+    nota: "Al registrar una prueba hidrostática el sistema agenda la siguiente a 10 años en tanques de carga (Planta, Estaciones y carburación siguen en 5).",
     verificado: true,
   },
   {
@@ -158,7 +170,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "7.4.1 (Auto-Tanques) · 7.7.5 (Semirremolques)",
     cita: "Se obtiene cada año, de una unidad de inspección acreditada. En Semirremolques y Tractocamiones también el dictamen anual de la NOM-068-SCT-2-2014 (7.5.3).",
     cuentaDesde: "fecha de emisión",
-    nota: "Sin alerta todavía: falta un campo para la fecha del dictamen.",
+    nota: "Se alerta con la fecha de emisión capturada en la ficha (vence un año después), en Auto-Tanques, Semirremolques y Tractocamiones; el de la NOM-068, en Semirremolques y Tractocamiones.",
     verificado: true,
   },
   {
@@ -169,7 +181,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "Procedimiento de evaluación, artículo 5",
     cita: "En tanto no exista la norma de valoración de estaciones ya construidas, se dictaminan cada doce meses.",
     cuentaDesde: "fecha del dictamen",
-    nota: "Sin alerta todavía: falta un campo para la fecha del dictamen.",
+    nota: "Se alerta con la fecha de emisión capturada en la ficha de la estación (vence un año después).",
     verificado: true,
   },
   {
@@ -202,7 +214,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "Tabla 4, inciso p) (Auto-Tanques) · Tabla 3 (Semirremolques)",
     cita: "Se sustituyen al cumplir 5 años a partir de su fabricación; longitud máxima de 1 m.",
     cuentaDesde: "fabricación del conector",
-    nota: "Sin alerta todavía: falta un campo para su fecha.",
+    plazoClave: "conectorFlexible",
     verificado: true,
   },
   {
@@ -224,7 +236,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "Tabla 4, incisos g), h) e i) (Auto-Tanques) · Tabla 3 (Semirremolques)",
     cita: "El manómetro debe tener menos de 10 años desde su fabricación (o menos, si lo indica el fabricante). El indicador de nivel y el termómetro, carátula legible y aguja en funcionamiento.",
     cuentaDesde: "fabricación del manómetro",
-    nota: "Sin alerta todavía: falta un campo para la fecha del manómetro. Los certificados de calibración van al expediente de integridad, sin plazo (NOM-EM-008, 7.5.2).",
+    nota: "El manómetro entra a la alerta de válvulas del tanque de carga (mismo plazo). Los certificados de calibración van al expediente de integridad, sin plazo (NOM-EM-008, 7.5.2).",
     verificado: true,
   },
   {
@@ -235,7 +247,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "13",
     cita: "El dictamen de la instalación tiene vigencia máxima de 1 año desde su emisión.",
     cuentaDesde: "fecha del dictamen",
-    nota: "Sin alerta todavía: falta un campo para su fecha.",
+    nota: "Se alerta con la fecha de emisión capturada en la ficha del vehículo (vence un año después).",
     verificado: true,
   },
 ];

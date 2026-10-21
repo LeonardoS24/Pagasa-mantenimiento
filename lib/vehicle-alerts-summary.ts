@@ -14,7 +14,8 @@ import {
   oldestValve,
   valveDatesFromSheet,
 } from "@/lib/valve-alerts";
-import { getHoseAlertLevel, getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
+import { conectorParaAlerta, getHoseAlertLevel, getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
+import { dictamenesDeFicha, getDictamenAlertLevel } from "@/lib/dictamen-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { getInsuranceAlertLevel } from "@/lib/insurance-alerts";
 import { getStationValveAlertLevel, getStationValveVencimiento, oldestStationValve } from "@/lib/station-valves";
@@ -60,6 +61,12 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
           { fechaFabricacionValvulaCheckLock: { not: null } },
           { fechaFabricacionManguera: { not: null } },
           { fechaFabricacionMangueraSurtir: { not: null } },
+          { fechaFabricacionManometro: { not: null } },
+          { fechaFabricacionConectorFlexible: { not: null } },
+          { fechaDictamenOperacion: { not: null } },
+          { fechaDictamenNom068: { not: null } },
+          { fechaDictamenInstalacion: { not: null } },
+          { fechaDictamenEstacion: { not: null } },
         ],
       },
     },
@@ -387,24 +394,52 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
 
+  // Mangueras y conectores flexibles: cada elemento manda su propia alerta
+  // (una unidad puede tener las dos), con `elemento` para distinguirlas.
   const hoseAlertVehicles = upcomingRecords
-    .map((record) => {
-      if (!isAlertVisibleForSection("mangueras", record.section.slug)) return null;
-      const manguera = mangueraParaAlerta(record.section.slug, record.technicalSheet);
-      const level = getHoseAlertLevel(manguera.fecha, manguera.anios);
-      if (level === "none") return null;
-      const vencimiento = getHoseVencimiento(manguera.fecha, manguera.anios);
-      if (!vencimiento) return null;
-      return {
+    .flatMap((record) => {
+      if (!isAlertVisibleForSection("mangueras", record.section.slug)) return [];
+      const base = {
         id: record.id,
         numeroEconomico: record.numeroEconomico,
         sectionSlug: record.section.slug,
         citySlug: record.section.city.slug,
         cityName: record.section.city.name,
-        vencimiento,
-        level,
       };
+      const elementos = [
+        { elemento: "Manguera", ...mangueraParaAlerta(record.section.slug, record.technicalSheet) },
+        { elemento: "Conector flexible", ...conectorParaAlerta(record.section.slug, record.technicalSheet) },
+      ];
+      return elementos.map(({ elemento, fecha, anios }) => {
+        const level = getHoseAlertLevel(fecha, anios);
+        if (level === "none") return null;
+        const vencimiento = getHoseVencimiento(fecha, anios);
+        if (!vencimiento) return null;
+        return { ...base, elemento, vencimiento, level };
+      });
     })
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
+
+  // Dictámenes de vigencia anual (ver lib/dictamen-alerts.ts): la ficha
+  // guarda la fecha de emisión del último de cada tipo.
+  const dictamenAlertVehicles = upcomingRecords
+    .flatMap((record) =>
+      dictamenesDeFicha(record.technicalSheet, record.section.slug).map((dictamen) => {
+        const level = getDictamenAlertLevel(dictamen.vencimiento);
+        if (level === "none") return null;
+        return {
+          id: record.id,
+          numeroEconomico: record.numeroEconomico,
+          sectionSlug: record.section.slug,
+          citySlug: record.section.city.slug,
+          cityName: record.section.city.name,
+          dictamen: dictamen.nombre,
+          vencimiento: dictamen.vencimiento,
+          level,
+        };
+      })
+    )
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
 
@@ -513,6 +548,7 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
     maintenanceAlertVehicles,
     valveAlertVehicles,
     hoseAlertVehicles,
+    dictamenAlertVehicles,
     stationValveAlertVehicles,
     plantaInstrumentAlertVehicles,
     insuranceAlertVehicles,

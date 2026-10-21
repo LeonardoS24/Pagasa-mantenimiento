@@ -23,6 +23,8 @@ export type ValveDates = {
   // tipo para no obligar a cada llamador que arma estas fechas a mano.
   fechaFabricacionValvulaExcesoFlujo?: Date | null | undefined;
   fechaFabricacionValvulaCheckLock?: Date | null | undefined;
+  // El manómetro del tanque de carga lleva el mismo plazo que las válvulas.
+  fechaFabricacionManometro?: Date | null | undefined;
 };
 
 export const valveLabels: Record<keyof ValveDates, string> = {
@@ -37,6 +39,7 @@ export const valveLabels: Record<keyof ValveDates, string> = {
   fechaFabricacionValvulaDescargaEmergencia: "Válvula de descarga de emergencia",
   fechaFabricacionValvulaExcesoFlujo: "Válvula de exceso de flujo (litrómetro)",
   fechaFabricacionValvulaCheckLock: "Válvula check lock",
+  fechaFabricacionManometro: "Manómetro de presión",
 };
 
 // Saca de una ficha técnica (o de cualquier objeto con estos campos) todas
