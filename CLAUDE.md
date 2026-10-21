@@ -272,8 +272,12 @@ alta** en vez de ignorarlo:
 - `crear-transportadora-kino.mts "<carpeta TRANSPORTADORA KINO>"`
 - `importar-mangueras-surtir.mts` — fecha de fabricación de la manguera de
   surtir de 15 unidades "Kg" (lista del área de normatividad, oct-2026, en
-  mes/día/año). No da de alta unidades: reporta las que no encuentra, las
-  ambiguas y las que ya tienen otra fecha.
+  mes/día/año; el usuario confirmó que son fechas de **fabricación**). No da de
+  alta unidades: reporta las que no encuentra, las ambiguas y las que ya tienen
+  otra fecha; con `--sobrescribir` reemplaza esas (el Excel de flotilla solo
+  traía el año, guardado como 1 de enero). `importar-valvulas-flotilla.mts`
+  ahora también lee fecha completa ("5 jul 2023") en la columna de manguera
+  de surtir, además del año suelto.
 
 ## Estado y pendientes
 
