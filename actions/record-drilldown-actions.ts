@@ -6,13 +6,13 @@ import { AGGREGATE_CITY_SLUG } from "@/lib/aggregate-city";
 import { getCityUnitLogFeed, type UnitLogEvent } from "@/lib/city-unit-log-feed";
 import { RECORD_TYPE_LABELS, type RecordTypeKey } from "@/lib/record-count-stats";
 import type { MonthRange } from "@/lib/piece-maintenance-stats";
-import type { SessionData } from "@/lib/session";
+import type { UsuarioSesion } from "@/lib/session";
 
 // Mismo control de acceso que actions/piece-maintenance-actions.ts: esta
 // acción se pide desde el cliente (al hacer clic en una barra de
 // RecordCountByCityChart o RecordTypeComparisonSection), así que hay que
 // revalidar el acceso aquí, no confiar en lo que el cliente diga que ve.
-export async function assertCanViewCity(user: SessionData, cityId: string | null) {
+export async function assertCanViewCity(user: UsuarioSesion, cityId: string | null) {
   if (user.role === "ADMIN") return;
 
   const targetCityId =

@@ -2,17 +2,57 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getIronSession, type IronSession } from "iron-session";
-import { sessionOptions, type SessionData } from "./session";
+import { sessionOptions, type SessionData, type UsuarioSesion } from "./session";
+import { estadoDeVigencia } from "./sesion-vigencia";
 import { canEdit, roleSchema } from "./roles";
 import { prisma } from "./prisma";
 import { parseElevatedAccessSchedule, isWithinElevatedAccessWindow } from "./elevated-access";
 
-// A dónde manda requireUser cuando la cuenta de la cookie ya no sirve. Esa
-// ruta borra la cookie y regresa al login con un aviso.
+// A dónde manda requireUser cuando la sesión ya no sirve (cuenta eliminada,
+// inactividad, sesión cerrada o vencida). Esa ruta borra la cookie y regresa
+// al login con un aviso.
 const RUTA_SESION_INVALIDA = "/sesion-invalida";
 
+export type MotivoSesionPerdida = "inactividad" | "expirada";
+
+// ¿Sigue existiendo la sesión en la base? Cerrar sesión, cambiar la contraseña
+// o eliminar la cuenta borran la fila, y con ella dejan de servir las copias
+// de la cookie. cache() la deduplica dentro del mismo request.
+const sesionExiste = cache(async (sesionId: string, userId: string) => {
+  const fila = await prisma.sesionActiva.findUnique({
+    where: { id: sesionId },
+    select: { userId: true },
+  });
+  return fila?.userId === userId;
+});
+
+// Lee la sesión y la valida. Si no es vigente (inactividad > 20 min, más de
+// 12 h desde que inició o ya no existe en la base) se le quita el userId EN
+// MEMORIA: todo el que revisa `session.userId` la trata como sin sesión, sin
+// excepciones por olvido. La cookie vieja se borra en /sesion-invalida o en
+// el middleware.
+export async function leerSesion(): Promise<{
+  session: IronSession<SessionData>;
+  perdida: MotivoSesionPerdida | null;
+}> {
+  const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+  if (!session.userId) return { session, perdida: null };
+
+  const estado = estadoDeVigencia(session);
+  const revocada = estado === "vigente" && !(session.sesionId && (await sesionExiste(session.sesionId, session.userId)));
+  if (estado !== "vigente" || revocada) {
+    (session as Partial<SessionData>).userId = undefined;
+    return { session, perdida: estado === "inactividad" ? "inactividad" : "expirada" };
+  }
+
+  // Cuenta como actividad: si esta petición guarda la sesión (los avisos de
+  // inicio de sesión), la marca nueva viaja en esa cookie.
+  session.ultimaActividad = Date.now();
+  return { session, perdida: null };
+}
+
 export async function getSession(): Promise<IronSession<SessionData>> {
-  return getIronSession<SessionData>(cookies(), sessionOptions);
+  return (await leerSesion()).session;
 }
 
 // La cookie solo guarda el userId; el usuario pudo haber sido eliminado o
@@ -26,8 +66,11 @@ const cargarUsuarioDeSesion = cache(async (userId: string) => {
   });
 });
 
-export async function requireUser(): Promise<SessionData> {
-  const session = await getSession();
+export async function requireUser(): Promise<UsuarioSesion> {
+  const { session, perdida } = await leerSesion();
+  if (perdida) {
+    redirect(`${RUTA_SESION_INVALIDA}?motivo=${perdida}`);
+  }
   if (!session.userId) {
     redirect("/login");
   }
@@ -37,7 +80,7 @@ export async function requireUser(): Promise<SessionData> {
     // La cuenta fue eliminada mientras la sesión seguía abierta en el
     // navegador. Sin esto, la cookie firmada seguiría dando acceso completo
     // hasta que expirara.
-    redirect(RUTA_SESION_INVALIDA);
+    redirect(`${RUTA_SESION_INVALIDA}?motivo=cuenta-eliminada`);
   }
 
   // La base manda sobre la cookie: si a alguien le cambian el rol, el cambio
@@ -47,13 +90,14 @@ export async function requireUser(): Promise<SessionData> {
   const rol = roleSchema.safeParse(user.role);
   return {
     userId: user.id,
+    sesionId: session.sesionId,
     username: user.username,
     role: rol.success ? rol.data : "LECTOR",
     puesto: user.puesto,
   };
 }
 
-export async function requireAdmin(): Promise<SessionData> {
+export async function requireAdmin(): Promise<UsuarioSesion> {
   const user = await requireUser();
   if (user.role !== "ADMIN") {
     redirect("/dashboard");
@@ -63,7 +107,7 @@ export async function requireAdmin(): Promise<SessionData> {
 
 // ADMIN o USUARIO: puede crear/editar números económicos, fichas técnicas,
 // bitácoras de mantenimiento y subir archivos. LECTOR queda excluido.
-export async function requireEditor(): Promise<SessionData> {
+export async function requireEditor(): Promise<UsuarioSesion> {
   const user = await requireUser();
   if (!canEdit(user.role)) {
     throw new Error("Se requiere rol ADMIN o USUARIO");
@@ -77,7 +121,7 @@ export async function requireEditor(): Promise<SessionData> {
 // documentos, inventario, órdenes, equipos) — NUNCA en las de usuarios,
 // ciudades o apartados, que siguen exigiendo requireAdmin a secas sin
 // importar la hora.
-export async function requireElevatedEditor(): Promise<SessionData> {
+export async function requireElevatedEditor(): Promise<UsuarioSesion> {
   const user = await requireUser();
   if (user.role === "ADMIN") return user;
 
@@ -99,7 +143,7 @@ export async function requireElevatedEditor(): Promise<SessionData> {
 // llave foránea. requireUser ya revalida la cuenta contra la base, así que
 // esto solo alcanza a disparar si la cuenta se elimina entre esa lectura y
 // la escritura; devuelve un mensaje claro en vez de un error de base.
-export async function checkSessionUserExists(user: SessionData): Promise<string | null> {
+export async function checkSessionUserExists(user: UsuarioSesion): Promise<string | null> {
   const exists = await prisma.user.findUnique({ where: { id: user.userId }, select: { id: true } });
   if (!exists) {
     return "Tu sesión ya no es válida (tu usuario fue eliminado o recreado). Cierra sesión y vuelve a entrar.";

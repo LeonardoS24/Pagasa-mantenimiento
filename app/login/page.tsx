@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { LoginForm } from "@/components/login/LoginForm";
 import { rutaInternaSegura } from "@/lib/ruta-segura";
+import { INACTIVIDAD_MINUTOS } from "@/lib/sesion-vigencia";
 
 export default async function LoginPage({
   searchParams,
@@ -16,6 +17,8 @@ export default async function LoginPage({
   }
 
   const cuentaEliminada = searchParams?.motivo === "cuenta-eliminada";
+  const porInactividad = searchParams?.motivo === "inactividad";
+  const sesionExpirada = searchParams?.motivo === "expirada";
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-primary via-primary-dark to-accent px-4">
@@ -50,6 +53,16 @@ export default async function LoginPage({
           <p className="mb-4 rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-sm text-orange-800">
             Tu sesión se cerró porque la cuenta ya no existe en el sistema.
             Pide a un administrador que la vuelva a crear.
+          </p>
+        )}
+        {porInactividad && (
+          <p className="mb-4 rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+            Tu sesión se cerró por {INACTIVIDAD_MINUTOS} minutos de inactividad. Inicia sesión de nuevo para continuar.
+          </p>
+        )}
+        {sesionExpirada && (
+          <p className="mb-4 rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+            Tu sesión terminó. Inicia sesión de nuevo para continuar.
           </p>
         )}
         <LoginForm desde={desde} />

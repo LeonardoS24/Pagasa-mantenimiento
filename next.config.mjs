@@ -1,5 +1,23 @@
 /** @type {import('next').NextConfig} */
+// Encabezados de seguridad en todas las respuestas. HSTS solo cuando el
+// sistema ya se sirve por https (COOKIE_SECURE=true, ver .env.example): por
+// http el navegador lo ignora, pero ponerlo antes de tener https dejaría
+// trabado el acceso si luego se cambia de dirección.
+const encabezadosSeguridad = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "same-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  ...(process.env.COOKIE_SECURE === "true"
+    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000" }]
+    : []),
+];
+
 const nextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: encabezadosSeguridad }];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "20mb",

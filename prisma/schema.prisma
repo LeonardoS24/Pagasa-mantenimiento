@@ -48,6 +48,7 @@ model User {
   // un empleado no debe borrar el historial de mantenimiento de la flota. El
   // registro se conserva y solo pierde el nombre de quien lo capturó.
   cityAccess                     UserCityAccess[]
+  sesionesActivas                SesionActiva[]
   documents                      Document[]
   maintenanceLogs                MaintenanceLog[]
   ultrasoundLogs                 UltrasoundLog[]
@@ -1747,4 +1748,18 @@ model AjusteSistema {
   updatedAt DateTime @updatedAt
 
   @@map("ajustes_sistema")
+}
+
+// Una fila por sesión abierta (ver lib/sesion-vigencia.ts y lib/auth.ts). La
+// cookie firmada trae el id; si la fila ya no existe (cerró sesión, cambió su
+// contraseña, la cuenta se eliminó) la cookie deja de servir aunque alguien
+// haya copiado su valor. Es la única tabla de este tipo con Cascade: no
+// guarda historial de negocio, solo sesiones.
+model SesionActiva {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creadaEl  DateTime @default(now())
+
+  @@index([userId])
 }

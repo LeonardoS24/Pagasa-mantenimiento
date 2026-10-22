@@ -11,6 +11,7 @@ import { isAggregateCitySlug } from "@/lib/aggregate-city";
 import { countInProgressMaintenance } from "@/lib/in-progress-maintenance";
 import { countPendingHighPriorityOrders, countValveRedAlerts } from "@/lib/login-alerts";
 import { rutaInternaSegura } from "@/lib/ruta-segura";
+import { DURACION_MAXIMA_MS } from "@/lib/sesion-vigencia";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Ingresa tu usuario"),
@@ -86,7 +87,20 @@ export async function loginAction(
   const role = roleSchema.parse(user.role);
 
   const session = await getSession();
+  // Si este navegador traía otra sesión, se cierra: cada inicio es desde cero.
+  if (session.sesionId) {
+    await prisma.sesionActiva.deleteMany({ where: { id: session.sesionId } });
+  }
+  // De paso se limpian las sesiones que ya pasaron el tope de duración.
+  await prisma.sesionActiva.deleteMany({
+    where: { creadaEl: { lt: new Date(Date.now() - DURACION_MAXIMA_MS) } },
+  });
+  const sesionActiva = await prisma.sesionActiva.create({ data: { userId: user.id } });
+  const ahora = Date.now();
   session.userId = user.id;
+  session.sesionId = sesionActiva.id;
+  session.iniciadaEl = ahora;
+  session.ultimaActividad = ahora;
   session.username = user.username;
   session.role = role;
 

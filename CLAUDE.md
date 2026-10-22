@@ -379,6 +379,42 @@ Ojo con `requireEditor()` en código que corre **al renderizar una página**:
 **lanza** para un LECTOR y rompe la página entera. Para barridos automáticos por
 tiempo va `requireUser()` + acceso a la ciudad, sin exigir rol de editor.
 
+**Sesión (lo que el usuario pidió: "al cerrar debe pedir login desde cero" y
+"cerrar a los 20 min de inactividad")**:
+
+- La cookie `pagasa_session` es **de sesión** (sin `maxAge`): el navegador la
+  tira al cerrarse. Dentro lleva `sesionId`, `iniciadaEl` y `ultimaActividad`
+  (firmadas). Reglas en `lib/sesion-vigencia.ts`: **20 min sin actividad** y
+  **tope de 12 h** desde que inició.
+- **Dos capas de vigencia**: el middleware (edge, solo cookie) corta por
+  inactividad/tope y renueva `ultimaActividad` cada ≥30 s; `getSession()`
+  (`lib/auth.ts`, `leerSesion`) repite la revisión y además confirma que la
+  fila **`SesionActiva`** siga existiendo. Si no es vigente le quita el
+  `userId` en memoria, así que todo código que revisa `session.userId` la trata
+  como sin sesión. **No leas la cookie con `getIronSession` directo en código
+  nuevo; usa `getSession()`/`requireUser()`.**
+- **`SesionActiva`** (una fila por inicio de sesión) es lo que hace que cerrar
+  sesión de verdad invalide copias de la cookie: `/api/logout` y
+  `/sesion-invalida` borran la fila; cambiar la contraseña de una cuenta cierra
+  sus otras sesiones; eliminar la cuenta las borra en cascada; el login limpia
+  las de más de 12 h. Cookies del formato anterior (sin `sesionId`) ya no
+  valen: tras actualizar todos vuelven a entrar una vez.
+- `/sesion-invalida?motivo=inactividad|expirada|cuenta-eliminada` borra la
+  cookie y manda a `/login?motivo=...` (el login muestra el aviso).
+- **`InactividadGuard`** (en el layout protegido): avisa 3 min antes, cierra a
+  los 20, comparte la última actividad entre pestañas (localStorage) y manda un
+  latido a `/api/sesion/ping` cada ≥60 s mientras la persona usa la pantalla,
+  para que escribir un formulario largo no deje vencer la sesión.
+- Las páginas protegidas salen con `Cache-Control: no-store` (el botón "atrás"
+  tras cerrar sesión no muestra pantallas) y `next.config.mjs` agrega
+  `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` y quita
+  `X-Powered-By`; HSTS solo con `COOKIE_SECURE=true`.
+- **Límites que conviene decir**: el sistema va por HTTP en la red local, así
+  que usuario y contraseña viajan sin cifrar hasta que haya HTTPS (entonces
+  `COOKIE_SECURE=true`). Y la opción "continuar donde lo dejé" de algunos
+  navegadores restaura las cookies de sesión; el tope de 20 min / 12 h sigue
+  aplicando, pero antes de eso la sesión puede reaparecer.
+
 Otros puntos: borrar registros pide la contraseña del admin
 (`lib/reauth.ts`) y queda en la bitácora de auditoría (`lib/activity-log.ts`,
 solo acepta `"ELIMINAR"` o `"EDITAR"`). Las subidas se validan por lista blanca

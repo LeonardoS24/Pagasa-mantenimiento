@@ -9,7 +9,7 @@ import {
   type MonthRange,
 } from "@/lib/piece-maintenance-stats";
 import { getMaintenanceLogsForType, type MaintenanceTypeLogEntry } from "@/lib/maintenance-type-stats";
-import type { SessionData } from "@/lib/session";
+import type { UsuarioSesion } from "@/lib/session";
 
 // El desglose de una pieza (ver components/city/PieceMaintenanceChart.tsx) se
 // pide desde el cliente, así que hay que revalidar el acceso aquí mismo: la
@@ -17,7 +17,7 @@ import type { SessionData } from "@/lib/session";
 // llamada aparte y no puede confiar en lo que el cliente diga que está viendo.
 // cityId null = la vista combinada de Administración: para eso se exige
 // acceso a esa ciudad agregada en concreto, no a "cualquier ciudad".
-async function assertCanViewPieceStats(user: SessionData, cityId: string | null) {
+async function assertCanViewPieceStats(user: UsuarioSesion, cityId: string | null) {
   if (user.role === "ADMIN") return;
 
   const targetCityId =

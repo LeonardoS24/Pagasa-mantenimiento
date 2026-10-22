@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { SessionData } from "@/lib/session";
+import type { UsuarioSesion } from "@/lib/session";
 
 export interface ActivityEvent {
   id: string;
@@ -19,7 +19,7 @@ export interface ActivityEvent {
 // para describirlo. citySlug es opcional porque algunas acciones (borrar un
 // usuario) no pertenecen a ninguna ciudad.
 export async function logActivity(params: {
-  user: SessionData;
+  user: UsuarioSesion;
   accion: "ELIMINAR" | "EDITAR";
   entidad: string;
   resumen: string;

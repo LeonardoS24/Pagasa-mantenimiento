@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import type { SessionData } from "@/lib/session";
+import type { UsuarioSesion } from "@/lib/session";
 
-export function Header({ user }: { user: SessionData }) {
+export function Header({ user }: { user: UsuarioSesion }) {
   const pathname = usePathname();
   // El buscador grande vive en el inicio (dashboard), justo encima de
   // Ciudades; el de la barra superior solo aparece en el resto de las

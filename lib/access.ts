@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "./prisma";
-import type { SessionData } from "./session";
+import type { UsuarioSesion } from "./session";
 
-export async function getAccessibleCities(user: SessionData) {
+export async function getAccessibleCities(user: UsuarioSesion) {
   if (user.role === "ADMIN") {
     return prisma.city.findMany({ orderBy: { order: "asc" } });
   }
@@ -13,7 +13,7 @@ export async function getAccessibleCities(user: SessionData) {
   });
 }
 
-export async function assertCityAccess(user: SessionData, citySlug: string) {
+export async function assertCityAccess(user: UsuarioSesion, citySlug: string) {
   const city = await prisma.city.findUnique({ where: { slug: citySlug } });
   if (!city) notFound();
 
@@ -41,7 +41,7 @@ export async function assertCityAccess(user: SessionData, citySlug: string) {
 //
 // Fallan lanzando (no con notFound()) porque una acción no renderiza una
 // página: el error lo recoge quien la llamó.
-export async function assertCityAccessById(user: SessionData, cityId: string): Promise<void> {
+export async function assertCityAccessById(user: UsuarioSesion, cityId: string): Promise<void> {
   if (user.role === "ADMIN") return;
 
   const access = await prisma.userCityAccess.findUnique({
@@ -50,7 +50,7 @@ export async function assertCityAccessById(user: SessionData, cityId: string): P
   if (!access) throw new Error("No tienes acceso a esta ciudad.");
 }
 
-export async function assertSectionAccess(user: SessionData, sectionId: string): Promise<void> {
+export async function assertSectionAccess(user: UsuarioSesion, sectionId: string): Promise<void> {
   const section = await prisma.section.findUnique({
     where: { id: sectionId },
     select: { cityId: true },
@@ -59,7 +59,7 @@ export async function assertSectionAccess(user: SessionData, sectionId: string):
   await assertCityAccessById(user, section.cityId);
 }
 
-export async function assertVehicleAccess(user: SessionData, vehicleRecordId: string): Promise<void> {
+export async function assertVehicleAccess(user: UsuarioSesion, vehicleRecordId: string): Promise<void> {
   const record = await prisma.vehicleRecord.findUnique({
     where: { id: vehicleRecordId },
     select: { section: { select: { cityId: true } } },
@@ -68,7 +68,7 @@ export async function assertVehicleAccess(user: SessionData, vehicleRecordId: st
   await assertCityAccessById(user, record.section.cityId);
 }
 
-export async function assertEquipoAccess(user: SessionData, equipoId: string): Promise<void> {
+export async function assertEquipoAccess(user: UsuarioSesion, equipoId: string): Promise<void> {
   const equipo = await prisma.equipo.findUnique({
     where: { id: equipoId },
     select: { section: { select: { cityId: true } } },

@@ -187,7 +187,7 @@ export async function changeUserPassword(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = changePasswordSchema.safeParse({ password: formData.get("password") });
   if (!parsed.success) {
@@ -196,6 +196,11 @@ export async function changeUserPassword(
 
   const passwordHash = await hashPassword(parsed.data.password);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  // Con la contraseña nueva, las sesiones abiertas de esa cuenta se cierran
+  // (menos la de quien la cambia, si es la suya).
+  await prisma.sesionActiva.deleteMany({
+    where: { userId, ...(admin.userId === userId ? { NOT: { id: admin.sesionId } } : {}) },
+  });
 
   return { success: "Contraseña actualizada." };
 }
