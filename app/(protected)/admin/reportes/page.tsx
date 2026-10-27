@@ -34,6 +34,8 @@ export default async function AdminReportesPage() {
         ultimoEnvio: config?.ultimoEnvio?.toISOString() ?? null,
         ultimoError: config?.ultimoError ?? null,
         ultimoResumen: config?.ultimoResumen ?? null,
+        avisoRojoActivo: config?.avisoRojoActivo ?? false,
+        avisoRojoUltimoResumen: config?.avisoRojoUltimoResumen ?? null,
         proximoEnvio: config?.activo ? proximoMomentoProgramado(new Date(), diaSemana, hora).toISOString() : null,
       }}
     />

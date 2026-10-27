@@ -56,6 +56,8 @@ model User {
   cityAccess                     UserCityAccess[]
   sesionesActivas                SesionActiva[]
   registrosAcceso                RegistroAcceso[]
+  mensajesEnviados               Mensaje[]
+  lecturasCanal                  LecturaCanal[]
   documents                      Document[]
   maintenanceLogs                MaintenanceLog[]
   ultrasoundLogs                 UltrasoundLog[]
@@ -1748,6 +1750,15 @@ model ConfiguracionReportes {
   ultimoError   String?
   ultimoResumen String?
 
+  // Aviso por correo cuando algo pasa a rojo (7 días o menos, o vencido):
+  // una vez al día, a la misma hora del reporte, solo con lo NUEVO en rojo
+  // desde el último aviso (ver lib/aviso-rojo.ts). avisoRojoNotificados es un
+  // JSON con las claves ya avisadas, para no repetirlas cada día.
+  avisoRojoActivo        Boolean @default(false)
+  avisoRojoUltimoDia     String?
+  avisoRojoNotificados   String  @default("[]")
+  avisoRojoUltimoResumen String?
+
   actualizadoPor String?
   updatedAt      DateTime @updatedAt
 
@@ -1806,4 +1817,30 @@ model RegistroAcceso {
   @@index([createdAt])
   @@index([userId, createdAt])
   @@index([ip, createdAt])
+}
+
+// Mensajes entre usuarios (ver lib/mensajes.ts y /mensajes). `canal` es
+// "general" (todos) o "dm:<id>:<id>" (conversación entre dos, ids en orden).
+// Nada se borra: es comunicación de trabajo. Si la cuenta se elimina, el
+// mensaje se queda con el nombre.
+model Mensaje {
+  id         String   @id @default(cuid())
+  canal      String
+  deUserId   String?
+  deUser     User?    @relation(fields: [deUserId], references: [id], onDelete: SetNull)
+  deUsername String
+  texto      String
+  createdAt  DateTime @default(now())
+
+  @@index([canal, createdAt])
+}
+
+// Hasta dónde leyó cada persona cada conversación (para los no leídos).
+model LecturaCanal {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  canal      String
+  leidoHasta DateTime
+
+  @@id([userId, canal])
 }

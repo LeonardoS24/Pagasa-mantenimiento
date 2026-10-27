@@ -24,6 +24,7 @@ const opcional = (max: number) =>
 
 const schema = z.object({
   activo: z.preprocess((v) => v === "on" || v === "true", z.boolean()),
+  avisoRojoActivo: z.preprocess((v) => v === "on" || v === "true", z.boolean()),
   destinatarios: z.preprocess((v) => String(v ?? ""), z.string().max(3000)),
   diaSemana: entero(0, 6, "Elige el día de la semana"),
   hora: entero(0, 23, "La hora va de 0 a 23"),
@@ -58,7 +59,7 @@ export async function guardarReportes(_prev: ActionState, formData: FormData): P
   }
 
   const anterior = await prisma.configuracionReportes.findUnique({ where: { id: "unico" } });
-  if (d.activo) {
+  if (d.activo || d.avisoRojoActivo) {
     if (validos.length === 0) return { error: "Para activar el envío escribe al menos un destinatario." };
     const hayServidor = !!(d.smtpHost || process.env.SMTP_HOST);
     if (!hayServidor) return { error: "Para activar el envío captura el servidor de correo (SMTP)." };
@@ -68,6 +69,7 @@ export async function guardarReportes(_prev: ActionState, formData: FormData): P
   const claveCifrada = d.smtpClave ? cifrarSecreto(d.smtpClave) : anterior?.smtpClaveCifrada ?? null;
   const datos = {
     activo: d.activo,
+    avisoRojoActivo: d.avisoRojoActivo,
     destinatarios: validos.join("\n"),
     diaSemana: d.diaSemana,
     hora: d.hora,

@@ -14,6 +14,11 @@ export const config = {
 // que se nota sin base de datos (sin sesión, 20 min de inactividad, 12 h de
 // tope) y se renueva la marca de actividad. Que la sesión siga existiendo en
 // la base (cerrar sesión la revoca) lo revisa getSession en lib/auth.ts.
+// Consultas automáticas del navegador (avisos, mensajes): no cuentan como
+// actividad. Si contaran, una pestaña abierta las haría cada pocos segundos y
+// la sesión nunca se cerraría por inactividad.
+const RUTAS_PASIVAS = ["/api/avisos", "/api/mensajes"];
+
 const RUTAS_SIN_CAMBIO_DE_CONTRASENA = ["/cambiar-contrasena", "/api/logout", "/api/sesion/ping"];
 
 export async function middleware(request: NextRequest) {
@@ -56,7 +61,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const ahora = Date.now();
-  if (ahora - session.ultimaActividad > RENOVAR_CADA_MS) {
+  if (ahora - session.ultimaActividad > RENOVAR_CADA_MS && !RUTAS_PASIVAS.includes(request.nextUrl.pathname)) {
     session.ultimaActividad = ahora;
     await session.save();
   }

@@ -33,7 +33,9 @@ function que(v: Vencimiento): string {
 
 export function armarReporte(
   todos: Vencimiento[],
-  opciones: { dias: number; urlBase: string | null; fecha?: Date }
+  // `titulo` cambia el encabezado del correo (el aviso de lo que pasa a rojo
+  // usa este mismo formato, ver lib/aviso-rojo.ts).
+  opciones: { dias: number; urlBase: string | null; fecha?: Date; titulo?: string }
 ): ReporteVencimientos {
   const { dias, urlBase } = opciones;
   const hoy = opciones.fecha ?? new Date();
@@ -85,7 +87,7 @@ ${filas(lista)}
 <html lang="es"><body style="margin:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
 <div style="max-width:760px;margin:0 auto;background:#ffffff">
 <div style="background:#054095;color:#ffffff;padding:16px 20px">
-<div style="font-size:18px;font-weight:bold">Reporte de vencimientos</div>
+<div style="font-size:18px;font-weight:bold">${esc(opciones.titulo ?? "Reporte de vencimientos")}</div>
 <div style="font-size:13px;opacity:.85">Sistema Integral de Mantenimiento · Grupo Pagasa · ${esc(fechaTexto)}</div>
 </div>
 <div style="padding:16px 20px">
