@@ -8,6 +8,10 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { scheduleBackups } = await import("./lib/backup");
     scheduleBackups();
+    // Copia a la memoria USB ("Copia de seguridad servidor", ver
+    // /admin/respaldos y lib/respaldo-externo.ts).
+    const { scheduleRespaldoExterno } = await import("./lib/respaldo-externo");
+    scheduleRespaldoExterno();
     // Reporte semanal de vencimientos por correo (ver /admin/reportes).
     const { scheduleReportes } = await import("./lib/reportes-programados");
     scheduleReportes();

@@ -1,5 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
+import { BACKUP_DIR, UPLOADS_DIR } from "./rutas-datos";
+import { fotografiarBase } from "./copia-base";
 
 // Respaldo automático de la base (prisma/dev.db) y de los archivos subidos
 // (uploads/, PDFs e imágenes de cada apartado): sin esto, un disco dañado o
@@ -8,10 +10,7 @@ import path from "path";
 // carpeta hermana, backups/) para que un respaldo nunca intente copiarse a
 // sí mismo, y queda fuera de git (ver .gitignore) porque son datos reales,
 // no código.
-const PROJECT_ROOT = process.cwd();
-export const BACKUP_DIR = path.join(PROJECT_ROOT, "backups");
-const DB_PATH = path.join(PROJECT_ROOT, "prisma", "dev.db");
-const UPLOADS_DIR = path.join(PROJECT_ROOT, "uploads");
+export { BACKUP_DIR };
 
 // Cuántos respaldos completos se conservan: cada uno incluye una copia
 // entera de uploads/ (cientos de MB), así que hay que limitarlo en vez de
@@ -40,12 +39,19 @@ async function pathExists(target: string): Promise<boolean> {
 // El nombre de cada carpeta es una marca de tiempo ISO con ":" y "." vueltos
 // "-" (timestampFolderName), así que ordenar por nombre ya deja la más
 // reciente primero — no hace falta reconstruir la fecha desde el nombre.
+//
+// Solo cuentan las carpetas con nombre de fecha: en backups/ también viven
+// antes-de-actualizar/, antes-de-importar/ y .verificacion/, que no son
+// respaldos diarios y no deben ocupar lugar entre los 5 que se conservan (ni
+// borrarse por "viejos").
+const NOMBRE_DE_RESPALDO = /^\d{4}-\d{2}-\d{2}T/;
+
 export async function listBackups(): Promise<{ name: string; date: Date }[]> {
   if (!(await pathExists(BACKUP_DIR))) return [];
   const entries = await fs.readdir(BACKUP_DIR, { withFileTypes: true });
   const backups = await Promise.all(
     entries
-      .filter((e) => e.isDirectory())
+      .filter((e) => e.isDirectory() && NOMBRE_DE_RESPALDO.test(e.name))
       .map(async (e) => {
         const stat = await fs.stat(path.join(BACKUP_DIR, e.name));
         return { name: e.name, date: stat.birthtime };
@@ -70,9 +76,9 @@ export async function runBackup(): Promise<string> {
   const target = path.join(BACKUP_DIR, folderName);
   await fs.mkdir(target, { recursive: true });
 
-  if (await pathExists(DB_PATH)) {
-    await fs.copyFile(DB_PATH, path.join(target, "dev.db"));
-  }
+  // Foto consistente de la base (ver lib/copia-base.ts), no un copy del
+  // archivo: con el sistema en uso un copy puede salir dañado.
+  await fotografiarBase(path.join(target, "dev.db"));
   if (await pathExists(UPLOADS_DIR)) {
     await fs.cp(UPLOADS_DIR, path.join(target, "uploads"), { recursive: true });
   }

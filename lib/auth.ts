@@ -13,7 +13,7 @@ import { parseElevatedAccessSchedule, isWithinElevatedAccessWindow } from "./ele
 // al login con un aviso.
 const RUTA_SESION_INVALIDA = "/sesion-invalida";
 
-export type MotivoSesionPerdida = "inactividad" | "expirada";
+export type MotivoSesionPerdida = "inactividad" | "expirada" | "cuenta-eliminada";
 
 // ¿Sigue existiendo la sesión en la base? Cerrar sesión, cambiar la contraseña
 // o eliminar la cuenta borran la fila, y con ella dejan de servir las copias
@@ -24,6 +24,17 @@ const sesionExiste = cache(async (sesionId: string, userId: string) => {
     select: { userId: true },
   });
   return fila?.userId === userId;
+});
+
+// La cookie solo guarda el userId; el usuario pudo haber sido eliminado o
+// haber cambiado de rol después de iniciar sesión. Se relee de la base en
+// cada request. cache() lo deduplica: aunque el layout, la página y varios
+// actions llamen a requireUser, es una sola consulta por request.
+const cargarUsuarioDeSesion = cache(async (userId: string) => {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, username: true, role: true, puesto: true },
+  });
 });
 
 // Lee la sesión y la valida. Si no es vigente (inactividad > 20 min, más de
@@ -45,6 +56,19 @@ export async function leerSesion(): Promise<{
     return { session, perdida: estado === "inactividad" ? "inactividad" : "expirada" };
   }
 
+  // El rol y el nombre de la cookie son los del momento del login. Muchas
+  // páginas arman el usuario con `session.role` para revisar el acceso a la
+  // ciudad: si a alguien le quitan el rol de ADMIN, la cookie seguiría
+  // diciendo ADMIN. Por eso aquí se pisan EN MEMORIA con los de la base.
+  const usuario = await cargarUsuarioDeSesion(session.userId);
+  if (!usuario) {
+    (session as Partial<SessionData>).userId = undefined;
+    return { session, perdida: "cuenta-eliminada" };
+  }
+  const rol = roleSchema.safeParse(usuario.role);
+  session.role = rol.success ? rol.data : "LECTOR";
+  session.username = usuario.username;
+
   // Cuenta como actividad: si esta petición guarda la sesión (los avisos de
   // inicio de sesión), la marca nueva viaja en esa cookie.
   session.ultimaActividad = Date.now();
@@ -54,17 +78,6 @@ export async function leerSesion(): Promise<{
 export async function getSession(): Promise<IronSession<SessionData>> {
   return (await leerSesion()).session;
 }
-
-// La cookie solo guarda el userId; el usuario pudo haber sido eliminado o
-// haber cambiado de rol después de iniciar sesión. Se relee de la base en
-// cada request. cache() lo deduplica: aunque el layout, la página y varios
-// actions llamen a requireUser, es una sola consulta por request.
-const cargarUsuarioDeSesion = cache(async (userId: string) => {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, username: true, role: true, puesto: true },
-  });
-});
 
 export async function requireUser(): Promise<UsuarioSesion> {
   const { session, perdida } = await leerSesion();
