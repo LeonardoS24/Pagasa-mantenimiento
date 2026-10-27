@@ -78,7 +78,7 @@ export async function getAlmacenamiento(): Promise<Almacenamiento> {
   const backups = await medirCarpeta(BACKUP_DIR);
   let backupsCantidad = 0;
   try {
-    backupsCantidad = (await fs.readdir(BACKUP_DIR, { withFileTypes: true })).filter((e) => e.isDirectory()).length;
+    backupsCantidad = (await fs.readdir(BACKUP_DIR, { withFileTypes: true })).filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}T/.test(e.name)).length;
   } catch {
     // Sin carpeta backups/ todavía.
   }

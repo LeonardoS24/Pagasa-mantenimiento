@@ -14,6 +14,8 @@ export const config = {
 // que se nota sin base de datos (sin sesión, 20 min de inactividad, 12 h de
 // tope) y se renueva la marca de actividad. Que la sesión siga existiendo en
 // la base (cerrar sesión la revoca) lo revisa getSession en lib/auth.ts.
+const RUTAS_SIN_CAMBIO_DE_CONTRASENA = ["/cambiar-contrasena", "/api/logout", "/api/sesion/ping"];
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   const session = await getIronSession<SessionData>(request, response, sessionOptions);
@@ -31,12 +33,22 @@ export async function middleware(request: NextRequest) {
 
   const estado = estadoDeVigencia(session);
   if (estado !== "vigente") {
-    const salida = aLogin(estado === "inactividad" ? "inactividad" : "expirada");
-    salida.headers.set("Cache-Control", "no-store");
-    // Se borra la cookie vencida para que no quede dando vueltas.
-    const vencida = await getIronSession<SessionData>(request, salida, sessionOptions);
-    vencida.destroy();
-    return salida;
+    // /sesion-invalida (Node, con base de datos) borra la cookie y la sesión
+    // y lo anota en la bitácora de acceso; de ahí sigue al login con el aviso.
+    const salida = new URL("/sesion-invalida", request.url);
+    salida.searchParams.set("motivo", estado === "inactividad" ? "inactividad" : "expirada");
+    salida.searchParams.set("from", request.nextUrl.pathname);
+    const respuesta = NextResponse.redirect(salida);
+    respuesta.headers.set("Cache-Control", "no-store");
+    return respuesta;
+  }
+
+  // Contraseña temporal o que ya no cumple la política: hasta cambiarla no
+  // se puede hacer nada más (sí cerrar sesión).
+  if (session.debeCambiarContrasena && !RUTAS_SIN_CAMBIO_DE_CONTRASENA.includes(request.nextUrl.pathname)) {
+    const destino = new URL("/cambiar-contrasena", request.url);
+    if (!request.nextUrl.pathname.startsWith("/api/")) destino.searchParams.set("from", request.nextUrl.pathname);
+    return NextResponse.redirect(destino);
   }
 
   if (request.nextUrl.pathname.startsWith("/admin") && session.role !== "ADMIN") {

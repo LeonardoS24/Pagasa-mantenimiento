@@ -57,10 +57,9 @@ export function AlmacenamientoPanel({ datos }: { datos: Almacenamiento }) {
       <div className="rounded-md bg-yellow-50 px-3 py-3 text-sm text-yellow-900">
         <p className="font-medium">Los respaldos de arriba están en el mismo equipo que el sistema.</p>
         <p className="mt-1">
-          Si el disco falla, se pierde todo junto. Copia con regularidad la carpeta <code>uploads</code> y el archivo{" "}
-          <code>prisma\dev.db</code> a un disco externo: hoy ocupan <strong>{formatBytes(datosReales)}</strong>. Un disco de{" "}
-          <strong>{formatBytes(Math.max(datosReales * 10, 64 * 1024 ** 3))}</strong> o más alcanza para guardar varias copias y años de
-          crecimiento.
+          Si el disco falla, se pierde todo junto. Por eso existe la <strong>Copia de seguridad servidor</strong> (abajo), que copia
+          sola la base y los archivos a una memoria USB: hoy son <strong>{formatBytes(datosReales)}</strong>. Una memoria de{" "}
+          <strong>{formatBytes(Math.max(datosReales * 10, 64 * 1024 ** 3))}</strong> o más alcanza para años de crecimiento.
         </p>
       </div>
     </div>

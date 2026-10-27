@@ -41,6 +41,12 @@ model User {
   // correcto también reinicia el contador.
   intentosFallidosLogin      Int       @default(0)
   bloqueadoHasta             DateTime?
+  // La persona tiene que poner una contraseña nueva antes de usar el sistema
+  // (ver app/cambiar-contrasena): cuenta recién creada, contraseña
+  // restablecida por el ADMIN, o una que ya no cumple la política
+  // (lib/politica-contrasena.ts), que se detecta al iniciar sesión.
+  debeCambiarContrasena      Boolean   @default(false)
+  contrasenaCambiadaEl       DateTime?
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt
 
@@ -49,6 +55,7 @@ model User {
   // registro se conserva y solo pierde el nombre de quien lo capturó.
   cityAccess                     UserCityAccess[]
   sesionesActivas                SesionActiva[]
+  registrosAcceso                RegistroAcceso[]
   documents                      Document[]
   maintenanceLogs                MaintenanceLog[]
   ultrasoundLogs                 UltrasoundLog[]
@@ -1760,6 +1767,35 @@ model SesionActiva {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   creadaEl  DateTime @default(now())
+  // De dónde se inició, para la lista de sesiones abiertas en
+  // /admin/accesos.
+  ip        String?
+  navegador String?
 
   @@index([userId])
+}
+
+// Bitácora de acceso (ver lib/registro-acceso.ts y /admin/accesos): inicios
+// de sesión, intentos fallidos, bloqueos, cierres (a mano, por inactividad,
+// por vencimiento) y cambios a las cuentas (alta, baja, rol, contraseña,
+// ciudades). Es aparte de ActivityLog, que registra cambios a los datos de
+// negocio. `username` se guarda como texto: en un intento fallido puede ser
+// un usuario que no existe, y si la cuenta se elimina el registro se queda.
+model RegistroAcceso {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  evento    String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username  String
+  // Quién hizo el cambio cuando no es la propia persona (el ADMIN que
+  // restableció la contraseña, cambió el rol, etc.).
+  actorUsername String?
+  ip        String?
+  navegador String?
+  detalle   String?
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([ip, createdAt])
 }

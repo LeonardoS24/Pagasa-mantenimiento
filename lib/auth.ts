@@ -33,7 +33,7 @@ const sesionExiste = cache(async (sesionId: string, userId: string) => {
 const cargarUsuarioDeSesion = cache(async (userId: string) => {
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, username: true, role: true, puesto: true },
+    select: { id: true, username: true, role: true, puesto: true, debeCambiarContrasena: true },
   });
 });
 
@@ -79,7 +79,11 @@ export async function getSession(): Promise<IronSession<SessionData>> {
   return (await leerSesion()).session;
 }
 
-export async function requireUser(): Promise<UsuarioSesion> {
+// `aunqueDebaCambiarContrasena`: solo para la página y la acción de cambiar la
+// contraseña, que son lo único que se puede usar mientras está pendiente.
+export async function requireUser(
+  opciones: { aunqueDebaCambiarContrasena?: boolean } = {}
+): Promise<UsuarioSesion> {
   const { session, perdida } = await leerSesion();
   if (perdida) {
     redirect(`${RUTA_SESION_INVALIDA}?motivo=${perdida}`);
@@ -94,6 +98,9 @@ export async function requireUser(): Promise<UsuarioSesion> {
     // navegador. Sin esto, la cookie firmada seguiría dando acceso completo
     // hasta que expirara.
     redirect(`${RUTA_SESION_INVALIDA}?motivo=cuenta-eliminada`);
+  }
+  if (user.debeCambiarContrasena && !opciones.aunqueDebaCambiarContrasena) {
+    redirect("/cambiar-contrasena");
   }
 
   // La base manda sobre la cookie: si a alguien le cambian el rol, el cambio

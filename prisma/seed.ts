@@ -77,12 +77,15 @@ async function main() {
       username: ADMIN_USERNAME,
       passwordHash: adminPasswordHash,
       role: "ADMIN",
+      // La contraseña temporal es pública (está en este archivo): al primer
+      // inicio de sesión el sistema obliga a cambiarla.
+      debeCambiarContrasena: true,
     },
   });
 
   console.warn(
     `\n[SEED] Cuenta admin lista -> usuario "${ADMIN_USERNAME}" / contraseña temporal "${ADMIN_TEMP_PASSWORD}".` +
-      `\n[SEED] Cámbiala desde /admin/usuarios en el primer inicio de sesión.\n`
+      `\n[SEED] Al entrar por primera vez el sistema pide cambiarla.\n`
   );
 }
 

@@ -45,6 +45,9 @@ export function Header({ user }: { user: UsuarioSesion }) {
           {user.username}
           {user.puesto && <span className="text-blue-200"> — {user.puesto}</span>}
         </span>
+        <a href="/cambiar-contrasena" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
+          Mi contraseña
+        </a>
         <form action="/api/logout" method="POST">
           <button
             type="submit"

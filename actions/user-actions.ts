@@ -9,6 +9,8 @@ import { requireAdmin, requireUser, getSession } from "@/lib/auth";
 import { roleSchema } from "@/lib/roles";
 import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
+import { problemaDeContrasena } from "@/lib/politica-contrasena";
+import { registrarAcceso } from "@/lib/registro-acceso";
 
 export interface ActionState {
   error?: string;
@@ -21,7 +23,7 @@ const createUserSchema = z.object({
     .min(3, "El usuario debe tener al menos 3 caracteres")
     .max(50)
     .regex(/^[a-zA-Z0-9._-]+$/, "Solo letras, números, punto, guion y guion bajo"),
-  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
+  password: z.string().min(1, "Escribe una contraseña temporal"),
   role: roleSchema,
   puesto: z.string().trim().min(1, "El puesto es requerido").max(80),
 });
@@ -30,7 +32,7 @@ export async function createUser(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = createUserSchema.safeParse({
     username: formData.get("username"),
@@ -43,19 +45,31 @@ export async function createUser(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
+  const problema = problemaDeContrasena(parsed.data.password, parsed.data.username);
+  if (problema) return { error: problema };
+
   const existing = await prisma.user.findUnique({ where: { username: parsed.data.username } });
   if (existing) {
     return { error: "Ese nombre de usuario ya existe." };
   }
 
   const passwordHash = await hashPassword(parsed.data.password);
-  await prisma.user.create({
+  // La contraseña la eligió el ADMIN: la persona pone la suya al entrar.
+  const nuevo = await prisma.user.create({
     data: {
       username: parsed.data.username,
       passwordHash,
       role: parsed.data.role,
       puesto: parsed.data.puesto,
+      debeCambiarContrasena: true,
     },
+  });
+  await registrarAcceso({
+    evento: "USUARIO_CREADO",
+    username: nuevo.username,
+    userId: nuevo.id,
+    actorUsername: admin.username,
+    detalle: `Rol ${nuevo.role}`,
   });
 
   revalidatePath("/admin/usuarios");
@@ -87,6 +101,14 @@ export async function deleteUser(
     accion: "ELIMINAR",
     entidad: "Usuario",
     resumen: `${user.username} (${user.role})`,
+  });
+  // Antes de borrar: el registro guarda el nombre como texto y sobrevive.
+  await registrarAcceso({
+    evento: "USUARIO_ELIMINADO",
+    username: user.username,
+    userId: user.id,
+    actorUsername: admin.username,
+    detalle: `Rol ${user.role}`,
   });
 
   await prisma.user.delete({ where: { id: userId } });
@@ -137,6 +159,13 @@ export async function changeUserRole(
   }
 
   await prisma.user.update({ where: { id: userId }, data: { role: parsed.data } });
+  await registrarAcceso({
+    evento: "CAMBIO_ROL",
+    username: user.username,
+    userId,
+    actorUsername: admin.username,
+    detalle: `${user.role} → ${parsed.data}`,
+  });
 
   // Un ADMIN ve todas las ciudades sin necesidad de asignaciones; al dejar de
   // serlo se queda sin ninguna, así que conviene avisarlo.
@@ -179,7 +208,7 @@ export async function changeUserPuesto(
 }
 
 const changePasswordSchema = z.object({
-  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
+  password: z.string().min(1, "Escribe la contraseña nueva"),
 });
 
 export async function changeUserPassword(
@@ -194,19 +223,49 @@ export async function changeUserPassword(
     return { error: parsed.error.issues[0]?.message ?? "Contraseña inválida" };
   }
 
+  const destino = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  if (!destino) return { error: "El usuario ya no existe." };
+  const problema = problemaDeContrasena(parsed.data.password, destino.username);
+  if (problema) return { error: problema };
+
+  const propia = admin.userId === userId;
   const passwordHash = await hashPassword(parsed.data.password);
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  // Si el ADMIN restablece la de otro, esa persona la cambia por una suya al
+  // entrar: el ADMIN no debe conocer la contraseña de nadie.
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash,
+      debeCambiarContrasena: !propia,
+      intentosFallidosLogin: 0,
+      bloqueadoHasta: null,
+      ...(propia ? { contrasenaCambiadaEl: new Date() } : {}),
+    },
+  });
+  await registrarAcceso({
+    evento: propia ? "CAMBIO_CONTRASENA" : "CONTRASENA_RESTABLECIDA",
+    username: destino.username,
+    userId,
+    actorUsername: propia ? null : admin.username,
+  });
   // Con la contraseña nueva, las sesiones abiertas de esa cuenta se cierran
   // (menos la de quien la cambia, si es la suya).
   await prisma.sesionActiva.deleteMany({
     where: { userId, ...(admin.userId === userId ? { NOT: { id: admin.sesionId } } : {}) },
   });
 
-  return { success: "Contraseña actualizada." };
+  return {
+    success: propia
+      ? "Contraseña actualizada."
+      : "Contraseña restablecida. Al entrar, la persona tendrá que poner una suya. Si estaba bloqueada, ya puede entrar.",
+  };
 }
 
 export async function assignUserCities(userId: string, cityIds: string[]) {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  if (!user) return;
+  const ciudades = await prisma.city.findMany({ where: { id: { in: cityIds } }, select: { name: true } });
 
   await prisma.$transaction([
     prisma.userCityAccess.deleteMany({ where: { userId } }),
@@ -214,6 +273,13 @@ export async function assignUserCities(userId: string, cityIds: string[]) {
       data: cityIds.map((cityId) => ({ userId, cityId })),
     }),
   ]);
+  await registrarAcceso({
+    evento: "CAMBIO_CIUDADES",
+    username: user.username,
+    userId,
+    actorUsername: admin.username,
+    detalle: ciudades.length ? ciudades.map((c) => c.name).join(", ") : "Sin ciudades",
+  });
 
   revalidatePath(`/admin/usuarios/${userId}`);
 }
@@ -251,7 +317,7 @@ export async function updateElevatedAccessSchedule(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "El usuario no existe." };
@@ -276,16 +342,31 @@ export async function updateElevatedAccessSchedule(
       accesoAmpliadoHoraFin: parsed.data.horaFin,
     },
   });
+  const nombresDias = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  await registrarAcceso({
+    evento: "CAMBIO_ACCESO_AMPLIADO",
+    username: user.username,
+    userId,
+    actorUsername: admin.username,
+    detalle: `${parsed.data.dias.map((d) => nombresDias[d]).join(", ")} de ${parsed.data.horaInicio} a ${parsed.data.horaFin}`,
+  });
 
   revalidatePath(`/admin/usuarios/${userId}`);
   return { success: "Acceso ampliado guardado." };
 }
 
 export async function disableElevatedAccessSchedule(userId: string): Promise<void> {
-  await requireAdmin();
-  await prisma.user.update({
+  const admin = await requireAdmin();
+  const user = await prisma.user.update({
     where: { id: userId },
     data: { accesoAmpliadoDias: null, accesoAmpliadoHoraInicio: null, accesoAmpliadoHoraFin: null },
+  });
+  await registrarAcceso({
+    evento: "CAMBIO_ACCESO_AMPLIADO",
+    username: user.username,
+    userId,
+    actorUsername: admin.username,
+    detalle: "Acceso ampliado desactivado",
   });
   revalidatePath(`/admin/usuarios/${userId}`);
 }

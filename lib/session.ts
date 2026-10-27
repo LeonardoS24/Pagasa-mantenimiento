@@ -10,6 +10,9 @@ export interface SessionData {
   // duración (ver lib/sesion-vigencia.ts). Van dentro de la cookie firmada.
   iniciadaEl: number;
   ultimaActividad: number;
+  // Tiene que cambiar su contraseña antes de usar el sistema (ver
+  // User.debeCambiarContrasena): el middleware lo manda a /cambiar-contrasena.
+  debeCambiarContrasena?: boolean;
   username: string;
   role: Role;
   // Puesto de la persona (ver User.puesto en el schema): no se guarda en la
