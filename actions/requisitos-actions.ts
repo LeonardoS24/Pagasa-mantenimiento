@@ -61,6 +61,25 @@ export async function guardarRequisito(clave: string, _prevState: ActionState, f
   const sinCambios = Object.values(datos).every((v) => v === null);
 
   const anterior = await prisma.requisitoNormativoAjuste.findUnique({ where: { clave } });
+
+  // Qué cambió respecto a lo que regía hasta ahora (no respecto al base):
+  // queda en el historial de /admin/normas con fecha y quién, para poder
+  // decir qué criterio aplicaba el sistema en cada momento.
+  const antes = {
+    plazo: base.plazoClave ? anterior?.plazoAnios ?? plazoBase : null,
+    norma: anterior?.norma ?? base.norma,
+    numeral: anterior?.numeral ?? base.numeral,
+    cita: anterior?.cita ?? base.cita,
+    verificado: anterior?.verificado ?? base.verificado,
+  };
+  const cambios: string[] = [];
+  if (base.plazoClave && antes.plazo !== d.plazoAnios) cambios.push(`Plazo: ${antes.plazo} → ${d.plazoAnios} años`);
+  if (antes.norma !== d.norma) cambios.push(`Norma: ${antes.norma} → ${d.norma}`);
+  if (antes.numeral !== d.numeral) cambios.push(`Numeral: ${antes.numeral} → ${d.numeral}`);
+  if (antes.cita !== d.cita) cambios.push(`Cita: «${d.cita}»`);
+  if (antes.verificado !== d.verificado) cambios.push(d.verificado ? "Marcado como cotejado" : "Marcado como pendiente de cotejar");
+  if (cambios.length === 0) return { success: "No había cambios que guardar." };
+
   if (sinCambios) {
     if (anterior) await prisma.requisitoNormativoAjuste.delete({ where: { clave } });
   } else {
@@ -76,9 +95,7 @@ export async function guardarRequisito(clave: string, _prevState: ActionState, f
     accion: "EDITAR",
     entidad: "Requisito normativo",
     resumen: base.nombre,
-    detalle: base.plazoClave
-      ? `Plazo: ${d.plazoAnios} años (base ${plazoBase}) · ${d.norma}, ${d.numeral}${d.verificado ? " · cotejado" : " · sin cotejar"}`
-      : `${d.norma}, ${d.numeral}${d.verificado ? " · cotejado" : " · sin cotejar"}`,
+    detalle: cambios.join(" · "),
   });
 
   // Las alertas toman el plazo nuevo desde ya, en todas las pantallas.

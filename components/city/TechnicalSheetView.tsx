@@ -50,6 +50,7 @@ import {
   VALVULAS_TANQUE_CARGA,
   VALVULAS_CARBURACION,
   VALVULA_MAXIMO_LLENADO_85,
+  ACOPLAMIENTO_DESCONEXION_SECA,
   CAMPOS_TRACTOCAMION,
   CAMPOS_SEMIRREMOLQUE,
   type ValvulaDef,
@@ -464,6 +465,12 @@ export function TechnicalSheetView({
                   value={valvulaTexto(sheet, valvula)}
                 />
               ))}
+              {sectionSlug === "auto-tanques" && sheet.fechaFabricacionAcoplamientoSeco && (
+                <Item
+                  label={ACOPLAMIENTO_DESCONEXION_SECA.etiqueta}
+                  value={valvulaTexto(sheet, ACOPLAMIENTO_DESCONEXION_SECA)}
+                />
+              )}
               {sheet.tieneValvulaMaximoLlenado85 && (
                 <Item
                   label={VALVULA_MAXIMO_LLENADO_85.etiqueta}

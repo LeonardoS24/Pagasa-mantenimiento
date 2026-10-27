@@ -442,6 +442,14 @@ model VehicleTechnicalSheet {
   // años de su fabricación. Su alerta sale junto con la de mangueras.
   fechaFabricacionConectorFlexible DateTime?
 
+  // Acoplamiento de llenado de desconexión seca (solo Auto-Tanques): lo
+  // exige la NOM-EM-009-ASEA-2026 (Tabla 4 d iv) a los que cargan en plantas
+  // de las zonas metropolitanas del Apéndice C, y lleva el mismo plazo que la
+  // válvula de llenado (menos de 10 años desde su fabricación). Si se
+  // captura, entra a la alerta de válvulas.
+  fechaFabricacionAcoplamientoSeco DateTime?
+  codigoAcoplamientoSeco           String?
+
   // Dictámenes con vigencia de 1 año: aquí va la fecha de emisión del último
   // (el vencimiento se calcula sumando un año, ver lib/dictamen-alerts.ts); el
   // PDF se sube como documento de la unidad.

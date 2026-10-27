@@ -225,7 +225,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     numeral: "Tabla 4, inciso d)",
     cita: "Mismo criterio que la válvula de llenado: menos de 10 años desde su fabricación, o menos si lo indica el fabricante.",
     cuentaDesde: "fabricación del acoplamiento",
-    nota: "Sin alerta todavía: falta un campo para su fecha.",
+    nota: "Ninguna ciudad de Pagasa (Sonora y Baja California) está en el Apéndice C. Si una unidad lo trae, su fecha se captura en la ficha (solo Auto-Tanques) y entra a la alerta de válvulas del tanque de carga con el mismo plazo.",
     verificado: true,
   },
   {
@@ -254,18 +254,33 @@ export const REQUISITOS_BASE: Requisito[] = [
 
 // Normas que rigen cada área hoy. Las de transporte, distribución, plantas y
 // equipos de carburación y estaciones se cotejaron con el texto del DOF
-// (21-oct-2026); de las estaciones falta confirmar si la NOM-012-ASEA-2021 ya
-// sustituyó a la NOM-003-SEDG-2004.
-export const NORMAS_VIGENTES: { area: string; norma: string; detalle: string }[] = [
+// (21-oct-2026). Estaciones (27-oct-2026): la NOM-012-ASEA-2021 solo existe
+// como proyecto, así que rige la NOM-003-SEDG-2004.
+export type NormaVigente = {
+  area: string;
+  norma: string;
+  detalle: string;
+  // Solo las de emergencia: último día de vigencia (AAAA-MM-DD). Por la Ley
+  // de Infraestructura de la Calidad (art. 31) se pueden prorrogar UNA vez
+  // por otros 6 meses; si no sale la prórroga ni la norma definitiva, se
+  // cancelan solas. El sistema avisa antes (ver avisosDeVigencia).
+  vigenteHasta?: string;
+};
+
+export const NORMAS_VIGENTES: NormaVigente[] = [
   {
     area: "Transporte en auto-tanque y semirremolque (Kino)",
     norma: "NOM-EM-008-ASEA-2026",
-    detalle: "DOF 2-oct-2026; en vigor desde el 6-oct-2026 por 6 meses. Reconoce los dictámenes de la NOM-EM-006-ASEA-2025.",
+    detalle:
+      "DOF 2-oct-2026; en vigor del 6-oct-2026 al 5-abr-2027 (6 meses, prorrogable una vez). Reconoce los dictámenes de la NOM-EM-006-ASEA-2025. Unidades sin dictamen vigente: 90 días para obtenerlo (hasta el 4-ene-2027, transitorio cuarto). Norma definitiva en proyecto: PROY-NOM-029-ASEA-2026.",
+    vigenteHasta: "2027-04-05",
   },
   {
     area: "Distribución con auto-tanque y vehículo de reparto",
     norma: "NOM-EM-009-ASEA-2026",
-    detalle: "DOF 5-oct-2026; en vigor desde el 6-oct-2026 por 6 meses. Reconoce los dictámenes de la NOM-EM-007-ASEA-2025.",
+    detalle:
+      "DOF 5-oct-2026; en vigor del 6-oct-2026 al 5-abr-2027 (6 meses, prorrogable una vez). Reconoce los dictámenes de la NOM-EM-007-ASEA-2025. La desconexión seca solo aplica en las zonas metropolitanas del Apéndice C (ninguna de Sonora ni Baja California). Norma definitiva en proyecto: PROY-NOM-030-ASEA-2026.",
+    vigenteHasta: "2027-04-05",
   },
   {
     area: "Plantas de distribución de gas LP",
@@ -281,9 +296,25 @@ export const NORMAS_VIGENTES: { area: string; norma: string; detalle: string }[]
     area: "Estaciones de carburación",
     norma: "NOM-003-SEDG-2004",
     detalle:
-      "DOF 28-abr-2005; cancela las NOM-025 y 026-SCFI-1993. La NOM-012-ASEA-2021 se menciona como su sustituta, pero solo se confirmó su proyecto: falta confirmar cuál rige hoy.",
+      "DOF 28-abr-2005. Sigue vigente: su sustituta solo se publicó como proyecto (PROY-NOM-012-ASEA-2021, DOF 29-abr-2021) y no se encontró norma definitiva; el catálogo de normas de la Secretaría de Economía la marca vigente.",
   },
 ];
+
+// Aviso para las normas de emergencia que están por vencer: 60 días antes
+// (amarillo) y 30 días antes o ya vencida (rojo). Toca revisar el DOF: si
+// salió la prórroga, la norma definitiva o una de emergencia nueva, y
+// actualizar este catálogo.
+export function avisosDeVigencia(hoy: Date = new Date()): (NormaVigente & { dias: number; nivel: "rojo" | "amarillo" })[] {
+  const lista: (NormaVigente & { dias: number; nivel: "rojo" | "amarillo" })[] = [];
+  for (const n of NORMAS_VIGENTES) {
+    if (!n.vigenteHasta) continue;
+    const [a, m, d] = n.vigenteHasta.split("-").map(Number);
+    const fin = new Date(a, m - 1, d, 23, 59, 59);
+    const dias = Math.ceil((fin.getTime() - hoy.getTime()) / 86_400_000);
+    if (dias <= 60) lista.push({ ...n, dias, nivel: dias <= 30 ? "rojo" : "amarillo" });
+  }
+  return lista;
+}
 
 export type RequisitoVigente = Requisito & {
   // Plazo con el que están calculando hoy las alertas (el ajustado o el base).

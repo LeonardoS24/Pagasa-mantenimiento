@@ -41,7 +41,9 @@ export function grupoDeColumna(encabezado: string): Grupo {
   const h = encabezado.toLowerCase();
   if (h.startsWith("fecha de baja") || h.startsWith("motivo de baja") || h.includes("gobernador")) return "baja";
   if (h.startsWith("válvula") || h.startsWith("válvulas") || h.startsWith("¿tiene válvula")) return "valvulas";
-  if (h.startsWith("manguera")) return "mangueras";
+  // Llevan el mismo plazo que las válvulas y entran a su misma alerta.
+  if (h.startsWith("manómetro") || h.startsWith("acoplamiento")) return "valvulas";
+  if (h.startsWith("manguera") || h.startsWith("conector flexible")) return "mangueras";
   if (h.startsWith("tanque") || h.startsWith("placa —")) return "tanque";
   if (
     /^(visual externa|hermeticidad|visual interna|ultrasonido|hidrostática|último|última|próximo|próxima|extintor|mant\. preventivo|cumplimiento|cumple|póliza —)/.test(h)

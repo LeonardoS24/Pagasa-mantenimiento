@@ -25,6 +25,8 @@ export type ValveDates = {
   fechaFabricacionValvulaCheckLock?: Date | null | undefined;
   // El manómetro del tanque de carga lleva el mismo plazo que las válvulas.
   fechaFabricacionManometro?: Date | null | undefined;
+  // Acoplamiento de desconexión seca (solo Auto-Tanques), mismo plazo.
+  fechaFabricacionAcoplamientoSeco?: Date | null | undefined;
 };
 
 export const valveLabels: Record<keyof ValveDates, string> = {
@@ -40,6 +42,7 @@ export const valveLabels: Record<keyof ValveDates, string> = {
   fechaFabricacionValvulaExcesoFlujo: "Válvula de exceso de flujo (litrómetro)",
   fechaFabricacionValvulaCheckLock: "Válvula check lock",
   fechaFabricacionManometro: "Manómetro de presión",
+  fechaFabricacionAcoplamientoSeco: "Acoplamiento de desconexión seca",
 };
 
 // Saca de una ficha técnica (o de cualquier objeto con estos campos) todas
