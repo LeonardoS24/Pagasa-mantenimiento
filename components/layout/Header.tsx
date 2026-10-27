@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { UsuarioSesion } from "@/lib/session";
+import { CentroDeAvisos } from "./CentroDeAvisos";
+import { BotonMenuMovil } from "./MenuMovil";
 
 export function Header({ user }: { user: UsuarioSesion }) {
   const pathname = usePathname();
@@ -14,8 +16,9 @@ export function Header({ user }: { user: UsuarioSesion }) {
   return (
     // Barra azul sólida sin bordes redondeados, como la navegación de
     // grupopagasa.com.mx; la línea inferior naranja es el acento de marca.
-    <header className="flex h-16 items-center justify-between border-b-[3px] border-accent bg-primary px-6 text-white shadow-sm print:hidden">
-      <div className="flex items-center gap-3">
+    <header className="flex h-16 items-center justify-between gap-2 border-b-[3px] border-accent bg-primary px-3 text-white shadow-sm sm:px-6 print:hidden">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <BotonMenuMovil />
         <div className="rounded-md bg-white px-2.5 py-1.5 shadow-sm">
           <Image
             src="/logos/header-logo.png"
@@ -40,17 +43,22 @@ export function Header({ user }: { user: UsuarioSesion }) {
           />
         </form>
       )}
-      <div className="flex items-center gap-4 text-sm">
-        <span>
+      <div className="flex items-center gap-3 text-sm sm:gap-4">
+        <span className="hidden lg:inline">
           {user.username}
           {user.puesto && <span className="text-blue-200"> — {user.puesto}</span>}
         </span>
+        <CentroDeAvisos />
+        <a href="/cambiar-contrasena" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
+          Mi contraseña
+        </a>
         <form action="/api/logout" method="POST">
           <button
             type="submit"
-            className="rounded-md border border-white/40 px-3 py-1 text-sm transition hover:bg-white/10"
+            className="whitespace-nowrap rounded-md border border-white/40 px-2 py-1 text-sm transition hover:bg-white/10 sm:px-3"
           >
-            Cerrar sesión
+            <span className="sm:hidden">Salir</span>
+            <span className="hidden sm:inline">Cerrar sesión</span>
           </button>
         </form>
       </div>

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { City } from "@prisma/client";
 import { isAggregateCitySlug } from "@/lib/aggregate-city";
 import { getCityInfo } from "@/lib/city-info";
+import { useMenuMovil } from "./MenuMovil";
 
 function CityDot() {
   return <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-60" />;
@@ -18,9 +19,17 @@ export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean 
   // "Panel de administración" de más abajo, que es otra cosa.
   const aggregateCity = cities.find((city) => isAggregateCitySlug(city.slug));
   const realCities = cities.filter((city) => !isAggregateCitySlug(city.slug));
+  const { abierto, cerrar } = useMenuMovil();
 
   return (
-    <aside className="w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white print:hidden">
+    <>
+    {/* En celular el menú flota sobre el contenido (se abre con ☰). */}
+    {abierto && <div className="fixed inset-0 top-16 z-30 bg-black/30 md:hidden" onClick={cerrar} aria-hidden />}
+    <aside
+      className={`fixed bottom-0 left-0 top-16 z-40 w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white transition-transform md:static md:z-auto md:translate-x-0 print:hidden ${
+        abierto ? "translate-x-0 shadow-xl" : "-translate-x-full"
+      }`}
+    >
       <nav className="flex flex-col py-4">
         <Link
           href="/dashboard"
@@ -91,7 +100,12 @@ export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean 
             Panel de administración
           </Link>
         )}
+        {/* En celular la barra superior no tiene espacio para esto. */}
+        <Link href="/cambiar-contrasena" className="mx-2 mt-5 rounded-md px-3 py-2 text-sm text-ink hover:bg-gray-50 md:hidden">
+          Mi contraseña
+        </Link>
       </nav>
     </aside>
+    </>
   );
 }

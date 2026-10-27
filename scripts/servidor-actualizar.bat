@@ -38,26 +38,15 @@ git checkout -- package-lock.json >nul 2>&1
 git pull
 if errorlevel 1 goto :error
 
-echo [4/6] Revisando dependencias...
-call npm install
-if errorlevel 1 goto :error
-
-echo [5/6] Aplicando cambios a la base de datos...
-call npx prisma migrate deploy
-if errorlevel 1 goto :error
-call npx prisma generate
-if errorlevel 1 goto :error
-
-echo [6/6] Compilando la aplicacion...
-call npm run build
-if errorlevel 1 goto :error
-
-echo.
-echo ==========================================
-echo   Listo. Iniciando el servidor...
-echo ==========================================
-echo.
-call npx next start -H 0.0.0.0 -p 3000
+REM ===================================================================
+REM  OJO, para quien edite este archivo: NO cambies NADA de lo que esta
+REM  ARRIBA de "git pull". Al hacer pull este mismo archivo se reemplaza
+REM  mientras se ejecuta, y Windows sigue leyendolo por posicion: si cambia
+REM  el largo de lo de arriba, la version vieja que esta corriendo ejecuta
+REM  renglones cortados. Lo que haya que cambiar va en
+REM  servidor-actualizar-pasos.bat, que se lee completo despues del pull.
+REM ===================================================================
+call "%~dp0servidor-actualizar-pasos.bat"
 goto :fin
 
 :error

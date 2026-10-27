@@ -13,7 +13,7 @@ import { parseElevatedAccessSchedule, isWithinElevatedAccessWindow } from "./ele
 // al login con un aviso.
 const RUTA_SESION_INVALIDA = "/sesion-invalida";
 
-export type MotivoSesionPerdida = "inactividad" | "expirada";
+export type MotivoSesionPerdida = "inactividad" | "expirada" | "cuenta-eliminada";
 
 // ¿Sigue existiendo la sesión en la base? Cerrar sesión, cambiar la contraseña
 // o eliminar la cuenta borran la fila, y con ella dejan de servir las copias
@@ -24,6 +24,17 @@ const sesionExiste = cache(async (sesionId: string, userId: string) => {
     select: { userId: true },
   });
   return fila?.userId === userId;
+});
+
+// La cookie solo guarda el userId; el usuario pudo haber sido eliminado o
+// haber cambiado de rol después de iniciar sesión. Se relee de la base en
+// cada request. cache() lo deduplica: aunque el layout, la página y varios
+// actions llamen a requireUser, es una sola consulta por request.
+const cargarUsuarioDeSesion = cache(async (userId: string) => {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, username: true, role: true, puesto: true, debeCambiarContrasena: true },
+  });
 });
 
 // Lee la sesión y la valida. Si no es vigente (inactividad > 20 min, más de
@@ -45,6 +56,19 @@ export async function leerSesion(): Promise<{
     return { session, perdida: estado === "inactividad" ? "inactividad" : "expirada" };
   }
 
+  // El rol y el nombre de la cookie son los del momento del login. Muchas
+  // páginas arman el usuario con `session.role` para revisar el acceso a la
+  // ciudad: si a alguien le quitan el rol de ADMIN, la cookie seguiría
+  // diciendo ADMIN. Por eso aquí se pisan EN MEMORIA con los de la base.
+  const usuario = await cargarUsuarioDeSesion(session.userId);
+  if (!usuario) {
+    (session as Partial<SessionData>).userId = undefined;
+    return { session, perdida: "cuenta-eliminada" };
+  }
+  const rol = roleSchema.safeParse(usuario.role);
+  session.role = rol.success ? rol.data : "LECTOR";
+  session.username = usuario.username;
+
   // Cuenta como actividad: si esta petición guarda la sesión (los avisos de
   // inicio de sesión), la marca nueva viaja en esa cookie.
   session.ultimaActividad = Date.now();
@@ -55,18 +79,11 @@ export async function getSession(): Promise<IronSession<SessionData>> {
   return (await leerSesion()).session;
 }
 
-// La cookie solo guarda el userId; el usuario pudo haber sido eliminado o
-// haber cambiado de rol después de iniciar sesión. Se relee de la base en
-// cada request. cache() lo deduplica: aunque el layout, la página y varios
-// actions llamen a requireUser, es una sola consulta por request.
-const cargarUsuarioDeSesion = cache(async (userId: string) => {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, username: true, role: true, puesto: true },
-  });
-});
-
-export async function requireUser(): Promise<UsuarioSesion> {
+// `aunqueDebaCambiarContrasena`: solo para la página y la acción de cambiar la
+// contraseña, que son lo único que se puede usar mientras está pendiente.
+export async function requireUser(
+  opciones: { aunqueDebaCambiarContrasena?: boolean } = {}
+): Promise<UsuarioSesion> {
   const { session, perdida } = await leerSesion();
   if (perdida) {
     redirect(`${RUTA_SESION_INVALIDA}?motivo=${perdida}`);
@@ -81,6 +98,9 @@ export async function requireUser(): Promise<UsuarioSesion> {
     // navegador. Sin esto, la cookie firmada seguiría dando acceso completo
     // hasta que expirara.
     redirect(`${RUTA_SESION_INVALIDA}?motivo=cuenta-eliminada`);
+  }
+  if (user.debeCambiarContrasena && !opciones.aunqueDebaCambiarContrasena) {
+    redirect("/cambiar-contrasena");
   }
 
   // La base manda sobre la cookie: si a alguien le cambian el rol, el cambio
@@ -123,20 +143,21 @@ export async function requireEditor(): Promise<UsuarioSesion> {
 // importar la hora.
 export async function requireElevatedEditor(): Promise<UsuarioSesion> {
   const user = await requireUser();
-  if (user.role === "ADMIN") return user;
-
-  if (user.role === "USUARIO") {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.userId },
-      select: { accesoAmpliadoDias: true, accesoAmpliadoHoraInicio: true, accesoAmpliadoHoraFin: true },
-    });
-    const schedule = dbUser ? parseElevatedAccessSchedule(dbUser) : null;
-    if (schedule && isWithinElevatedAccessWindow(schedule)) {
-      return user;
-    }
-  }
-
+  if (await tieneEdicionAmpliada(user)) return user;
   redirect("/dashboard");
+}
+
+// Lo mismo que decide requireElevatedEditor, sin redirigir: para que una
+// página pueda mostrar un aviso en vez de sacar a la persona.
+export async function tieneEdicionAmpliada(user: UsuarioSesion): Promise<boolean> {
+  if (user.role === "ADMIN") return true;
+  if (user.role !== "USUARIO") return false;
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { accesoAmpliadoDias: true, accesoAmpliadoHoraInicio: true, accesoAmpliadoHoraFin: true },
+  });
+  const schedule = dbUser ? parseElevatedAccessSchedule(dbUser) : null;
+  return !!schedule && isWithinElevatedAccessWindow(schedule);
 }
 
 // Red de seguridad para los actions que escriben usando session.userId como

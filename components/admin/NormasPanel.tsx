@@ -3,7 +3,7 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { guardarRequisito, restablecerRequisito } from "@/actions/requisitos-actions";
 import type { ActionState } from "@/actions/user-actions";
-import { NORMAS_VIGENTES, type RequisitoVigente } from "@/lib/requisitos-normativos";
+import { NORMAS_VIGENTES, type RequisitoVigente, type avisosDeVigencia } from "@/lib/requisitos-normativos";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -146,7 +146,17 @@ function Tarjeta({ r }: { r: RequisitoVigente }) {
   );
 }
 
-export function NormasPanel({ requisitos }: { requisitos: RequisitoVigente[] }) {
+export type CambioDeCatalogo = { id: string; fecha: string; usuario: string; requisito: string; detalle: string | null };
+
+export function NormasPanel({
+  requisitos,
+  historial,
+  avisos,
+}: {
+  requisitos: RequisitoVigente[];
+  historial: CambioDeCatalogo[];
+  avisos: ReturnType<typeof avisosDeVigencia>;
+}) {
   const conAlerta = requisitos.filter((r) => r.plazoClave);
   const referencia = requisitos.filter((r) => !r.plazoClave);
 
@@ -169,6 +179,23 @@ export function NormasPanel({ requisitos }: { requisitos: RequisitoVigente[] }) 
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase text-primary-bright">Normas que rigen hoy</h2>
+        {avisos.map((a) => (
+          <p
+            key={a.norma}
+            className={`rounded-md border px-3 py-2 text-sm ${
+              a.nivel === "rojo" ? "border-red-300 bg-red-50 text-red-800" : "border-amber-300 bg-amber-50 text-amber-900"
+            }`}
+          >
+            <strong>{a.norma}</strong>{" "}
+            {a.dias < 0
+              ? `venció hace ${-a.dias} día(s)`
+              : a.dias === 0
+                ? "vence hoy"
+                : `vence en ${a.dias} día(s)`}{" "}
+            ({a.vigenteHasta}). Revisa el DOF: si salió la prórroga, la norma definitiva o una de emergencia nueva, y
+            actualiza las citas de este catálogo.
+          </p>
+        ))}
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="w-full text-left text-sm">
             <tbody>
@@ -176,15 +203,20 @@ export function NormasPanel({ requisitos }: { requisitos: RequisitoVigente[] }) 
                 <tr key={n.area} className="border-b border-gray-100 align-top last:border-0">
                   <td className="px-4 py-2 font-medium text-ink">{n.area}</td>
                   <td className="whitespace-nowrap px-4 py-2 font-semibold text-primary">{n.norma}</td>
-                  <td className="px-4 py-2 text-xs text-gray-600">{n.detalle}</td>
+                  <td className="px-4 py-2 text-xs text-gray-600">
+                    {n.detalle}
+                    {n.vigenteHasta && (
+                      <span className="mt-1 block font-medium text-primary">Vigente hasta el {n.vigenteHasta}, salvo prórroga.</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="text-xs text-gray-500">
-          Cotejadas con el texto publicado en el DOF (21-oct-2026). De las estaciones de carburación falta confirmar si
-          la NOM-012-ASEA-2021 ya sustituyó a la NOM-003-SEDG-2004.
+          Cotejadas con el texto publicado en el DOF (21-oct-2026). Estaciones de carburación revisado el 27-oct-2026: la
+          NOM-012-ASEA-2021 sigue siendo proyecto, por eso rige la NOM-003-SEDG-2004.
         </p>
       </section>
 
@@ -200,6 +232,33 @@ export function NormasPanel({ requisitos }: { requisitos: RequisitoVigente[] }) 
         {referencia.map((r) => (
           <Tarjeta key={r.clave} r={r} />
         ))}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase text-primary-bright">Historial de cambios del catálogo</h2>
+        <p className="text-xs text-gray-500">
+          Cada cambio de plazo, norma, numeral o cita, con fecha y quién lo hizo: sirve para saber con qué criterio calculaba
+          el sistema en una fecha dada (por ejemplo, ante una auditoría).
+        </p>
+        {historial.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-ink">
+            Sin cambios: el catálogo está con sus valores base.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white text-sm">
+            {historial.map((h) => (
+              <li key={h.id} className="px-4 py-2">
+                <p className="text-ink">
+                  <span className="font-medium text-primary">{new Date(h.fecha).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</span>
+                  {" · "}
+                  <span className="font-medium">{h.requisito}</span>
+                  <span className="text-gray-500"> · {h.usuario}</span>
+                </p>
+                {h.detalle && <p className="text-xs text-gray-600">{h.detalle}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

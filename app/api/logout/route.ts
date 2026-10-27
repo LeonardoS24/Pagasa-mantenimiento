@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { registrarAcceso } from "@/lib/registro-acceso";
 
 // El cierre de sesión es un Route Handler y NO un Server Action a propósito.
 // Como el botón vive en el Header (dentro de ProtectedLayout), un Server
@@ -19,7 +20,10 @@ export async function POST(request: NextRequest) {
   // Se borra también la sesión de la base: así una copia de la cookie ya no
   // sirve después de cerrar sesión.
   if (session.sesionId) {
-    await prisma.sesionActiva.deleteMany({ where: { id: session.sesionId } });
+    const { count } = await prisma.sesionActiva.deleteMany({ where: { id: session.sesionId } });
+    if (count > 0 && session.userId) {
+      await registrarAcceso({ evento: "CIERRE_SESION", username: session.username ?? "?", userId: session.userId });
+    }
   }
   session.destroy();
   return response;

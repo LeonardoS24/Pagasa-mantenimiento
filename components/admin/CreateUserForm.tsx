@@ -4,6 +4,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import { createUser, type ActionState } from "@/actions/user-actions";
 import { roleLabels } from "@/lib/roles";
 import { PasswordInput } from "@/components/PasswordInput";
+import { LARGO_MINIMO } from "@/lib/politica-contrasena";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -56,7 +57,7 @@ export function CreateUserForm() {
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="password">
-            Contraseña
+            Contraseña temporal
           </label>
           <PasswordInput
             id="password"
@@ -64,6 +65,9 @@ export function CreateUserForm() {
             required
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
+          <p className="mt-1 text-xs text-gray-500">
+            Mínimo {LARGO_MINIMO} caracteres con letras y números. Al entrar por primera vez, la persona la cambia por una suya.
+          </p>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-ink" htmlFor="role">

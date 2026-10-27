@@ -41,6 +41,12 @@ model User {
   // correcto también reinicia el contador.
   intentosFallidosLogin      Int       @default(0)
   bloqueadoHasta             DateTime?
+  // La persona tiene que poner una contraseña nueva antes de usar el sistema
+  // (ver app/cambiar-contrasena): cuenta recién creada, contraseña
+  // restablecida por el ADMIN, o una que ya no cumple la política
+  // (lib/politica-contrasena.ts), que se detecta al iniciar sesión.
+  debeCambiarContrasena      Boolean   @default(false)
+  contrasenaCambiadaEl       DateTime?
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt
 
@@ -49,6 +55,9 @@ model User {
   // registro se conserva y solo pierde el nombre de quien lo capturó.
   cityAccess                     UserCityAccess[]
   sesionesActivas                SesionActiva[]
+  registrosAcceso                RegistroAcceso[]
+  mensajesEnviados               Mensaje[]
+  lecturasCanal                  LecturaCanal[]
   documents                      Document[]
   maintenanceLogs                MaintenanceLog[]
   ultrasoundLogs                 UltrasoundLog[]
@@ -434,6 +443,14 @@ model VehicleTechnicalSheet {
   // Conector flexible (el más antiguo, si hay varios): se sustituye a los 5
   // años de su fabricación. Su alerta sale junto con la de mangueras.
   fechaFabricacionConectorFlexible DateTime?
+
+  // Acoplamiento de llenado de desconexión seca (solo Auto-Tanques): lo
+  // exige la NOM-EM-009-ASEA-2026 (Tabla 4 d iv) a los que cargan en plantas
+  // de las zonas metropolitanas del Apéndice C, y lleva el mismo plazo que la
+  // válvula de llenado (menos de 10 años desde su fabricación). Si se
+  // captura, entra a la alerta de válvulas.
+  fechaFabricacionAcoplamientoSeco DateTime?
+  codigoAcoplamientoSeco           String?
 
   // Dictámenes con vigencia de 1 año: aquí va la fecha de emisión del último
   // (el vencimiento se calcula sumando un año, ver lib/dictamen-alerts.ts); el
@@ -1733,6 +1750,15 @@ model ConfiguracionReportes {
   ultimoError   String?
   ultimoResumen String?
 
+  // Aviso por correo cuando algo pasa a rojo (7 días o menos, o vencido):
+  // una vez al día, a la misma hora del reporte, solo con lo NUEVO en rojo
+  // desde el último aviso (ver lib/aviso-rojo.ts). avisoRojoNotificados es un
+  // JSON con las claves ya avisadas, para no repetirlas cada día.
+  avisoRojoActivo        Boolean @default(false)
+  avisoRojoUltimoDia     String?
+  avisoRojoNotificados   String  @default("[]")
+  avisoRojoUltimoResumen String?
+
   actualizadoPor String?
   updatedAt      DateTime @updatedAt
 
@@ -1760,6 +1786,65 @@ model SesionActiva {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   creadaEl  DateTime @default(now())
+  // De dónde se inició, para la lista de sesiones abiertas en
+  // /admin/accesos.
+  ip        String?
+  navegador String?
+  // Último latido del navegador (/api/sesion/ping, solo mientras la persona
+  // usa la pantalla): con esto "Sesiones abiertas" muestra las que de verdad
+  // siguen vivas y no las de un navegador que se cerró.
+  ultimaActividad DateTime?
 
   @@index([userId])
+}
+
+// Bitácora de acceso (ver lib/registro-acceso.ts y /admin/accesos): inicios
+// de sesión, intentos fallidos, bloqueos, cierres (a mano, por inactividad,
+// por vencimiento) y cambios a las cuentas (alta, baja, rol, contraseña,
+// ciudades). Es aparte de ActivityLog, que registra cambios a los datos de
+// negocio. `username` se guarda como texto: en un intento fallido puede ser
+// un usuario que no existe, y si la cuenta se elimina el registro se queda.
+model RegistroAcceso {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  evento    String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username  String
+  // Quién hizo el cambio cuando no es la propia persona (el ADMIN que
+  // restableció la contraseña, cambió el rol, etc.).
+  actorUsername String?
+  ip        String?
+  navegador String?
+  detalle   String?
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([ip, createdAt])
+}
+
+// Mensajes entre usuarios (ver lib/mensajes.ts y /mensajes). `canal` es
+// "general" (todos) o "dm:<id>:<id>" (conversación entre dos, ids en orden).
+// Nada se borra: es comunicación de trabajo. Si la cuenta se elimina, el
+// mensaje se queda con el nombre.
+model Mensaje {
+  id         String   @id @default(cuid())
+  canal      String
+  deUserId   String?
+  deUser     User?    @relation(fields: [deUserId], references: [id], onDelete: SetNull)
+  deUsername String
+  texto      String
+  createdAt  DateTime @default(now())
+
+  @@index([canal, createdAt])
+}
+
+// Hasta dónde leyó cada persona cada conversación (para los no leídos).
+model LecturaCanal {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  canal      String
+  leidoHasta DateTime
+
+  @@id([userId, canal])
 }

@@ -48,6 +48,17 @@ export const VALVULAS_TANQUE_CARGA: ValvulaDef[] = [
   { fecha: "fechaFabricacionValvulaDescargaEmergencia", codigo: "codigoValvulaDescargaEmergencia", etiqueta: "Válvula de descarga de emergencia", entraEnAlerta: true },
 ];
 
+// Solo Auto-Tanques (NOM-EM-009-ASEA-2026, Tabla 4 inciso d): va junto con
+// la válvula de llenado y con su mismo plazo. Opcional: solo lo exige a los
+// que cargan en las zonas metropolitanas del Apéndice C, y ninguna ciudad de
+// Pagasa está en esa lista.
+export const ACOPLAMIENTO_DESCONEXION_SECA: ValvulaDef = {
+  fecha: "fechaFabricacionAcoplamientoSeco",
+  codigo: "codigoAcoplamientoSeco",
+  etiqueta: "Acoplamiento de llenado de desconexión seca",
+  entraEnAlerta: true,
+};
+
 export const VALVULA_MAXIMO_LLENADO_85: ValvulaDef = {
   fecha: "fechaFabricacionValvulaMaximoLlenado85",
   codigo: "codigoValvulaMaximoLlenado85",
@@ -142,6 +153,7 @@ export const CAMPOS_TEXTO_CONSERVABLES: CampoTexto[] = [
   ...new Set<CampoTexto>([
     ...VALVULAS_TANQUE_CARGA.map((v) => v.codigo),
     VALVULA_MAXIMO_LLENADO_85.codigo,
+    ACOPLAMIENTO_DESCONEXION_SECA.codigo,
     ...CAMPOS_TRACTOCAMION.flatMap((g) => g.campos.map((c) => c.campo)),
     ...CAMPOS_SEMIRREMOLQUE.flatMap((g) => g.campos.map((c) => c.campo)),
     "medidaMangueraSurtir",
@@ -158,6 +170,7 @@ export const CAMPOS_FECHA_CONSERVABLES: CampoFecha[] = [
   "fechaFabricacionMangueraSurtir",
   "fechaFabricacionManometro",
   "fechaFabricacionConectorFlexible",
+  "fechaFabricacionAcoplamientoSeco",
   "fechaDictamenOperacion",
   "fechaDictamenNom068",
   "fechaDictamenInstalacion",

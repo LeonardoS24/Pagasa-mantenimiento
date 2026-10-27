@@ -15,6 +15,8 @@ import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAler
 import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstrumentAlertsPanel";
 import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPanel";
 import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
+import { AvisoCopiaExterna } from "@/components/dashboard/AvisoCopiaExterna";
+import { AvisoNormasPorVencer } from "@/components/dashboard/AvisoNormasPorVencer";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -39,6 +41,8 @@ export default async function DashboardPage() {
 
   return (
     <div>
+      {user.role === "ADMIN" && <AvisoCopiaExterna />}
+      {user.role === "ADMIN" && <AvisoNormasPorVencer />}
       <UltrasoundAlertsPanel vehicles={alertVehicles} />
       <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
       <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} />

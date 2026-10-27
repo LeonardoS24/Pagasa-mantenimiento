@@ -26,6 +26,7 @@ import {
   VALVULAS_TANQUE_CARGA,
   VALVULAS_CARBURACION,
   VALVULA_MAXIMO_LLENADO_85,
+  ACOPLAMIENTO_DESCONEXION_SECA,
   CAMPOS_TRACTOCAMION,
   CAMPOS_SEMIRREMOLQUE,
   type ValvulaDef,
@@ -1032,6 +1033,18 @@ export function TechnicalSheetForm({
                   <ValvulaInputs key={valvula.fecha} valvula={valvula} sheet={sheet} />
                 ))}
               </div>
+              {sectionSlug === "auto-tanques" && (
+                <div className="mt-3 rounded-md border border-dashed border-gray-300 p-3">
+                  <p className="mb-1 text-sm font-medium text-ink">Acoplamiento de llenado de desconexión seca (si tiene)</p>
+                  <p className="mb-2 text-xs text-gray-500">
+                    Solo lo exige la norma si la unidad carga en plantas de las zonas metropolitanas del Apéndice C de la
+                    NOM-EM-009 (ninguna ciudad de Sonora ni de Baja California está ahí). Si se captura, entra al aviso de válvulas.
+                  </p>
+                  <div className="max-w-md">
+                    <ValvulaInputs valvula={ACOPLAMIENTO_DESCONEXION_SECA} sheet={sheet} />
+                  </div>
+                </div>
+              )}
               <div className="mt-3 rounded-md border border-dashed border-gray-300 p-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneValvulaMaximoLlenado85">
                   <input

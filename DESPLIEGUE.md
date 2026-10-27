@@ -59,12 +59,15 @@ trae el código, aplica los cambios de estructura, compila y vuelve a
 levantar el servidor. Toma un par de minutos, y **durante ese rato nadie
 puede entrar** — conviene hacerlo fuera de horario o avisando antes.
 
-Las sesiones abiertas **no se pierden** con el reinicio: nadie tiene que
-volver a iniciar sesión.
+Las sesiones abiertas **no se pierden** con el reinicio (salvo que la
+actualización lo diga). Si la compilación falla, el `.bat` muestra el error y lo
+deja en `backups\ultimo-build.log`; `scripts\servidor-diagnostico.bat` junta lo
+demás.
 
 **Para probar un cambio en la laptop antes de mandarlo:**
 
 ```bash
+npm test       # las reglas que no deben romperse (sesión, plazos, fechas...)
 npm run dev
 ```
 

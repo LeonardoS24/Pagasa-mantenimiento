@@ -3,6 +3,7 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { changeUserPassword, type ActionState } from "@/actions/user-actions";
 import { PasswordInput } from "@/components/PasswordInput";
+import { LARGO_MINIMO } from "@/lib/politica-contrasena";
 import { FormMessage } from "./FormMessage";
 
 const initialState: ActionState = {};
@@ -36,6 +37,10 @@ export function ChangePasswordForm({ userId }: { userId: string }) {
           required
           className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
+        <p className="mt-1 text-xs text-gray-500">
+          Mínimo {LARGO_MINIMO} caracteres con letras y números. Al entrar, la persona tendrá que poner una suya; también se
+          cierran sus sesiones abiertas y se le quita el bloqueo por intentos. (La tuya cámbiala en «Mi contraseña».)
+        </p>
       </div>
 
       <FormMessage state={state} />

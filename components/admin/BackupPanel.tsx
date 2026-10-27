@@ -18,12 +18,14 @@ export function BackupPanel({ backups }: { backups: BackupEntry[] }) {
     <div className="space-y-6">
       <div className="rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="mb-2 text-sm font-semibold uppercase text-primary-bright">
-          Respaldar ahora
+          Respaldo en este equipo
         </h2>
         <p className="mb-4 text-xs text-gray-500">
-          Copia completa de la base de datos y de todos los archivos subidos (uploads/). Se hace
-          sola una vez al día; usa este botón si necesitas uno de inmediato, por ejemplo antes de
-          un cambio grande. Se conservan los últimos 5 respaldos, los más viejos se borran solos.
+          Copia completa de la base de datos y de todos los archivos subidos (uploads/) en la
+          carpeta backups/ de ESTE equipo. Sirve para deshacer un error, no para un disco dañado:
+          para eso está la copia de seguridad servidor de arriba. Se hace sola una vez al día; usa
+          este botón si necesitas uno de inmediato, por ejemplo antes de un cambio grande. Se
+          conservan los últimos 5 respaldos, los más viejos se borran solos.
         </p>
         <button
           type="button"

@@ -61,8 +61,11 @@ Crea `C:\Users\Leonardo Silvas\Documents\Claude\iniciar-servidor.bat` con:
 ```bat
 @echo off
 cd /d "C:\Users\Leonardo Silvas\Documents\Claude"
-"C:\Program Files\nodejs\node.exe" node_modules\next\dist\bin\next start -p 3000
+"C:\Program Files\nodejs\node.exe" scripts\servidor.mjs
 ```
+
+(O apunta la tarea directo a `scripts\servidor-iniciar.bat`, que hace lo
+mismo.)
 
 ### Paso 3 — Programar la tarea
 
@@ -118,22 +121,95 @@ netstat -ano | findstr :3000
 
 ## Respaldos
 
-Corren solos: uno al día, al arrancar el servidor y cada 24 horas
-(`lib/backup.ts`). Guardan la base **y** los archivos subidos en `backups\`, y
-conservan los **últimos 5**.
+Hay dos, y hacen cosas distintas:
 
-**Ojo con el espacio.** `uploads\` pesa ~507 MB, así que cada respaldo pesa
-parecido: `backups\` ya va en ~1 GB y el disco tiene 44 GB libres. Vigílalo, y
-si aprieta, lo mejor es **mandar los respaldos a otro disco o a la nube** — hoy
-viven en la misma computadora que el sistema, así que si ese disco falla se
-pierden los dos a la vez.
+1. **Respaldo en este equipo** (`backups\`): uno al día, base y archivos, se
+   conservan los últimos 5. Sirve para deshacer un error, no para un disco
+   dañado (vive en el mismo disco).
+2. **Copia de seguridad servidor** (memoria USB): es la que protege si el disco
+   del servidor falla.
+
+### Configurar la Copia de seguridad servidor (una sola vez)
+
+1. Conecta la memoria USB al servidor y déjala conectada.
+2. Entra al sistema como administrador → **Panel de administración →
+   Respaldos**.
+3. En "Copia de seguridad servidor" aparece la lista de unidades: elige la
+   memoria (por ejemplo `E:\`) y pulsa **Guardar unidad**.
+4. Pulsa **Copiar ahora**. La primera vez copia todos los archivos (~500 MB,
+   unos minutos). Después tarda segundos, porque solo copia lo nuevo.
+5. Pulsa **Probar restauración**: debe decir "se puede restaurar".
+
+Desde ahí se hace sola cada día. En la memoria queda la carpeta
+`Copia de seguridad servidor` con `base\` (una copia de la base por día, las
+últimas 30), `uploads\` (todos los archivos; ahí no se borra nada) y un
+`LEEME.txt` con cómo restaurar. Si la memoria se desconecta, en Inicio el
+administrador ve un aviso rojo a las 48 h.
+
+**Restaurar** (solo si se perdió la base): doble clic en
+`scripts\servidor-restaurar.bat`, arrastra el `.db` más reciente de la memoria y
+escribe SI. Guarda la base actual en `backups\antes-de-restaurar\` antes de
+tocar nada.
+
+Recomendación: cada mes, cambia la memoria por otra y guarda la anterior fuera
+de la oficina. Así un robo o un incendio no se lleva las dos.
+
+**Lo que la copia NO lleva, a propósito:** el `.env` (tiene `SESSION_SECRET`,
+la llave con la que se cifra la contraseña del correo) y `certificados\` (la
+llave de HTTPS). Son llaves: no deben ir en una memoria que se puede perder.
+Guarda una copia del `.env` en un lugar seguro aparte (una USB guardada bajo
+llave, o impreso en sobre cerrado). Si se pierde, el sistema se recupera igual
+pero hay que volver a capturar la contraseña del correo y todos inician sesión
+de nuevo.
+
+## HTTPS (cifrar las contraseñas en la red)
+
+Por HTTP, el usuario y la contraseña viajan legibles por la red local. Con
+HTTPS viajan cifrados. Es opcional y se activa así:
+
+1. En el servidor: doble clic en `scripts\servidor-activar-https.bat`. Crea la
+   carpeta `certificados\` (no se sube a git: tiene llaves privadas).
+2. **En cada computadora y celular** hay que instalar una vez
+   `certificados\pagasa-ca.crt` (cópialo por USB o compártelo):
+   - **Windows**: doble clic en el archivo → Instalar certificado → Equipo
+     local → "Colocar todos los certificados en el siguiente almacén" →
+     **Entidades de certificación raíz de confianza** → Finalizar. Cierra y
+     abre el navegador.
+   - **Android**: Ajustes → Seguridad → Cifrado y credenciales → Instalar un
+     certificado → Certificado de CA → elige el archivo.
+   - **iPhone**: abre el archivo → Ajustes → Perfil descargado → Instalar;
+     luego Ajustes → General → Información → Ajustes de confianza de
+     certificados → activar "Pagasa Sistema de Mantenimiento CA".
+3. Reinicia el servidor (`servidor-iniciar.bat`). Ahora la dirección es
+   `https://IP:3443`; quien entre por `http://IP:3000` (o con un QR viejo) es
+   redirigido solo.
+4. En **Administración → Reportes por correo**, cambia la "Dirección del
+   sistema" a `https://IP:3443` (para los correos y los QR nuevos).
+5. Abre el puerto 3443 en el firewall, igual que el 3000.
+
+Si cambia la IP del servidor, vuelve a correr el paso 1: el certificado se
+rehace, pero la autoridad (`pagasa-ca.crt`) es la misma y no hay que
+reinstalar nada en los equipos. Para quitar HTTPS: borra `certificados\` y
+reinicia.
+
+Equipos que todavía no tienen el certificado instalado ven "la conexión no es
+privada": pueden entrar con "Avanzado → Continuar", pero lo correcto es
+instalarlo.
+
+## Si algo falla
+
+Doble clic en `scripts\servidor-diagnostico.bat`: crea `backups\diagnostico.txt`
+con versiones, estado de git, migraciones, puertos, espacio y el final del
+último build (sin contraseñas ni el contenido de `.env`). Ese archivo es lo que
+hay que mandar. Si la actualización falla al compilar, el `.bat` ya reintenta
+una vez borrando `.next` y deja el error completo en `backups\ultimo-build.log`.
 
 ## Seguridad
 
-- La cookie de sesión va **sin `secure`** a propósito, porque el sistema se
-  sirve por HTTP en la red local. Si algún día se pone detrás de HTTPS, hay que
-  prender `COOKIE_SECURE=true` en `.env` (si se prende antes, **nadie podrá
-  iniciar sesión**).
+- La cookie de sesión va cifrada (`secure`) solo cuando el sistema se sirve
+  por HTTPS; `scripts\servidor.mjs` lo hace solo. No pongas
+  `COOKIE_SECURE=true` a mano sirviendo por HTTP: **nadie podría iniciar
+  sesión**.
 - `SESSION_SECRET` del `.env` es lo que firma las sesiones: no se comparte y no
   se sube a ningún lado. Si se cambia, se cierran todas las sesiones abiertas.
 - No expongas el puerto 3000 a internet. Para entrar desde fuera, lo correcto

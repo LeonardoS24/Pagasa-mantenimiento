@@ -33,6 +33,9 @@ prisma/dev.db.backup-*
 # son datos reales, no código, y ya duplican lo de arriba
 /backups
 
+# certificados HTTPS (llaves privadas, ver scripts/crear-certificado-https.mjs)
+/certificados
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

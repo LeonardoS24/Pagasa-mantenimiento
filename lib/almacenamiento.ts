@@ -1,25 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
-import { BACKUP_DIR } from "@/lib/backup";
+import { BACKUP_DIR, PROJECT_ROOT, UPLOADS_DIR, rutaDeLaBase } from "@/lib/rutas-datos";
 
 // Cuánto pesa lo que el sistema guarda en el servidor: la base de datos, los
 // archivos subidos (uploads/) y los respaldos (backups/). Se mide en vivo
 // recorriendo las carpetas, así que se usa solo en la página de respaldos.
-const PROJECT_ROOT = process.cwd();
-
-// La base que de verdad usa el sistema: DATABASE_URL ("file:./dev.db" es
-// relativo a la carpeta prisma/, como lo resuelve Prisma). Sin ella, la de
-// siempre.
-function rutaDeLaBase(): string {
-  const url = process.env.DATABASE_URL ?? "";
-  if (url.startsWith("file:")) {
-    const ruta = url.slice("file:".length).split("?")[0];
-    if (ruta) return path.isAbsolute(ruta) ? ruta : path.join(PROJECT_ROOT, "prisma", ruta);
-  }
-  return path.join(PROJECT_ROOT, "prisma", "dev.db");
-}
 const DB_PATH = rutaDeLaBase();
-const UPLOADS_DIR = path.join(PROJECT_ROOT, "uploads");
 
 type Medida = { bytes: number; archivos: number };
 
@@ -92,7 +78,7 @@ export async function getAlmacenamiento(): Promise<Almacenamiento> {
   const backups = await medirCarpeta(BACKUP_DIR);
   let backupsCantidad = 0;
   try {
-    backupsCantidad = (await fs.readdir(BACKUP_DIR, { withFileTypes: true })).filter((e) => e.isDirectory()).length;
+    backupsCantidad = (await fs.readdir(BACKUP_DIR, { withFileTypes: true })).filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}T/.test(e.name)).length;
   } catch {
     // Sin carpeta backups/ todavía.
   }

@@ -32,6 +32,8 @@ export type ConfigReportesVista = {
   ultimoError: string | null;
   ultimoResumen: string | null;
   proximoEnvio: string | null;
+  avisoRojoActivo: boolean;
+  avisoRojoUltimoResumen: string | null;
 };
 
 function Boton({ texto, enCurso, className }: { texto: string; enCurso: string; className: string }) {
@@ -145,6 +147,17 @@ export function ReportesPanel({ config }: { config: ConfigReportesVista }) {
             </div>
           </div>
           <p className="text-xs text-gray-500">La hora es la del servidor. Los vencidos siempre se incluyen.</p>
+          <div className="rounded-md border border-red-200 bg-red-50/50 p-3">
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" name="avisoRojoActivo" defaultChecked={config.avisoRojoActivo} className="h-4 w-4" />
+              Además, avisar cada día cuando algo pase a rojo (7 días o menos, o vencido)
+            </label>
+            <p className="mt-1 text-xs text-gray-600">
+              Un correo al día, a la misma hora, a los mismos destinatarios y solo con lo nuevo en rojo desde el aviso anterior.
+              Si no hay nada nuevo, no se manda nada.
+            </p>
+            {config.avisoRojoUltimoResumen && <p className="mt-1 text-xs text-gray-500">Último: {config.avisoRojoUltimoResumen}</p>}
+          </div>
         </section>
 
         <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-5">

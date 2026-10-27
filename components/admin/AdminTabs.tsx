@@ -13,6 +13,7 @@ const TABS = [
   { href: "/admin/campos", label: "Recuadros de fichas" },
   { href: "/admin/respaldos", label: "Respaldos" },
   { href: "/admin/actividad", label: "Actividad del sistema" },
+  { href: "/admin/accesos", label: "Bitácora de acceso" },
 ];
 
 export function AdminTabs() {

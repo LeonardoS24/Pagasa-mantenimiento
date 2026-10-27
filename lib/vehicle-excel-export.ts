@@ -24,6 +24,7 @@ import {
 import { getAllRealCityIds } from "./aggregate-city";
 import {
   VALVULAS_TANQUE_CARGA,
+  ACOPLAMIENTO_DESCONEXION_SECA,
   VALVULAS_CARBURACION,
   VALVULA_MAXIMO_LLENADO_85,
   CAMPOS_TRACTOCAMION,
@@ -233,6 +234,8 @@ function valvulasColumns(v: VehicleWithSheet, carburacion = false) {
     out["Manguera de surtir — Fecha de fabricación"] = d(s?.fechaFabricacionMangueraSurtir ?? null);
     out["Manguera de surtir — Medida"] = t(s?.medidaMangueraSurtir);
     out["Conector flexible — Fecha de fabricación"] = d(s?.fechaFabricacionConectorFlexible ?? null);
+    out[`${ACOPLAMIENTO_DESCONEXION_SECA.etiqueta} — Fecha de fabricación`] = d(s?.fechaFabricacionAcoplamientoSeco ?? null);
+    out[`${ACOPLAMIENTO_DESCONEXION_SECA.etiqueta} — Número de serie`] = t(s?.codigoAcoplamientoSeco);
   }
   return out;
 }

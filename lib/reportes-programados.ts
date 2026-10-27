@@ -74,7 +74,7 @@ export function debeEnviarse(config: Programacion | null, ahora: Date): boolean 
 
 // ----- Servidor de correo -------------------------------------------------
 
-type Smtp = { host: string; puerto: number; seguro: boolean; usuario: string | null; clave: string | null; remitente: string | null };
+export type Smtp = { host: string; puerto: number; seguro: boolean; usuario: string | null; clave: string | null; remitente: string | null };
 
 // Lo capturado en el panel manda; si no hay servidor ahí, se usan las
 // variables SMTP_* del .env del servidor.
@@ -103,7 +103,23 @@ export function smtpEfectivo(config: ConfiguracionReportes | null): Smtp | null 
   return null;
 }
 
-function explicarError(error: unknown): string {
+// El transporte de nodemailer con las reglas del sistema (lo usa también el
+// aviso de lo que pasa a rojo, lib/aviso-rojo.ts).
+export function crearTransporte(smtp: Smtp) {
+  return nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.puerto,
+    secure: smtp.seguro,
+    // Con STARTTLS, no mandar la contraseña si el servidor no cifra.
+    requireTLS: !smtp.seguro && !!smtp.usuario,
+    auth: smtp.usuario ? { user: smtp.usuario, pass: smtp.clave! } : undefined,
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 30_000,
+  });
+}
+
+export function explicarError(error: unknown): string {
   const e = error as { code?: string; responseCode?: number; message?: string };
   if (e.code === "EAUTH" || e.responseCode === 535) {
     return "El servidor rechazó el usuario o la contraseña. En Gmail hay que usar una contraseña de aplicación (no la contraseña normal de la cuenta).";
@@ -151,17 +167,7 @@ export async function enviarReporte(motivo: "programado" | "manual"): Promise<Re
       dias: config?.diasAnticipacion ?? 30,
       urlBase: await getUrlBase(),
     });
-    const transporte = nodemailer.createTransport({
-      host: smtp.host,
-      port: smtp.puerto,
-      secure: smtp.seguro,
-      // Con STARTTLS, no mandar la contraseña si el servidor no cifra.
-      requireTLS: !smtp.seguro && !!smtp.usuario,
-      auth: smtp.usuario ? { user: smtp.usuario, pass: smtp.clave! } : undefined,
-      connectionTimeout: 15_000,
-      greetingTimeout: 15_000,
-      socketTimeout: 30_000,
-    });
+    const transporte = crearTransporte(smtp);
     await transporte.sendMail({
       from: smtp.remitente || smtp.usuario || "pagasa@localhost",
       to: validos,
@@ -196,6 +202,9 @@ export async function revisarReporteProgramado(ahora: Date = new Date()): Promis
       const resultado = await enviarReporte("programado");
       console.log(`[reportes] ${resultado.ok ? "Enviado" : "Falló"}: ${resultado.mensaje}`);
     }
+    // Aviso diario de lo que pasó a rojo (ver lib/aviso-rojo.ts).
+    const { revisarAvisoRojo } = await import("./aviso-rojo");
+    await revisarAvisoRojo(ahora);
   } catch (error) {
     console.error("[reportes] Falló la revisión del reporte programado:", error);
   } finally {

@@ -120,9 +120,14 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    máx. 1 m): campo `fechaFabricacionConectorFlexible`, alerta junto con las
    mangueras (`conectorParaAlerta`, cada elemento con su propia fila y
    `elemento` para distinguirlos). **Dictámenes anuales**: ver su sección.
-   **Pendiente, sin alerta todavía**: acoplamiento de desconexión seca (10 años,
-   solo Auto-Tanques que cargan en zonas metropolitanas). Válvula interna: sin
-   plazo fijo (se guarda, no entra a la alerta).
+   **Acoplamiento de llenado de desconexión seca** (EM-009 Tabla 4 d, mismo
+   plazo que la válvula de llenado): campo opcional
+   `fechaFabricacionAcoplamientoSeco` solo en Auto-Tanques
+   (`ACOPLAMIENTO_DESCONEXION_SECA` en `lib/ficha-campos.ts`); si se captura
+   entra a la alerta de válvulas. Solo es obligatorio para quien carga en las
+   zonas metropolitanas del Apéndice C, y **ninguna ciudad de Sonora ni Baja
+   California está ahí** (cotejado). Válvula interna: sin plazo fijo (se
+   guarda, no entra a la alerta).
    **Manguera de trasiego: solo Auto-Tanques** (la EM-008 no la fija para
    Semirremolques, que ya no alertan por ella).
 2. **Estaciones de carburación** (`StationTankTechnicalSheet`,
@@ -182,9 +187,19 @@ y cita de cada requisito.
   EM-008 (esta solo tiene Tablas 1 a 3); plantas **NOM-018-ASEA-2023**;
   carburación de vehículos **NOM-005-SESH-2010** (9.6.x y 13). Un requisito
   puede citar dos normas cuando cada una rige un tipo de unidad. Estaciones de
-  carburación: **NOM-003-SEDG-2004** (cotejada; ver arriba), aunque la
-  NOM-012-ASEA-2021 se menciona como su sustituta y solo se confirmó su
-  proyecto: **falta confirmar cuál rige hoy**. **Instrumentos de planta**: la NOM-018 (7.2.17.4 VII) los manda reemplazar
+  carburación: **NOM-003-SEDG-2004** (cotejada; ver arriba). Su sustituta solo
+  existe como proyecto (PROY-NOM-012-ASEA-2021, DOF 29-abr-2021) y la
+  Secretaría de Economía la marca vigente (revisado el 27-oct-2026).
+  **Las de emergencia vencen el 5-abr-2027** (6 meses desde el 6-oct-2026,
+  prorrogables una vez por la LICal art. 31): `NORMAS_VIGENTES[].vigenteHasta`
+  y `avisosDeVigencia()` avisan al ADMIN 60 días antes en `/admin/normas` y en
+  Inicio. Proyectos definitivos: PROY-NOM-029-ASEA-2026 (transporte) y
+  PROY-NOM-030-ASEA-2026 (distribución). Cuando salga la norma nueva hay que
+  actualizar citas, numerales y esa fecha.
+- **Historial del catálogo**: cada guardado en `/admin/normas` anota en
+  `ActivityLog` (entidad "Requisito normativo") qué cambió, antes → después; la
+  página lo muestra abajo. Sirve para saber con qué criterio calculaba el
+  sistema en una fecha. **Instrumentos de planta**: la NOM-018 (7.2.17.4 VII) los manda reemplazar
   según la vida útil del fabricante y 7.2.17.1 XII fija 10 años a exceso de
   flujo/no retroceso/relevo; los 5 años del sistema son criterio interno.
   **Diferencia conocida**: la prueba hidrostática la norma la pide cada 10
@@ -279,10 +294,25 @@ SVG generados en el servidor con `qrcode`.
 
 - **`/admin/respaldos` muestra cuánto pesa el sistema en vivo**
   (`lib/almacenamiento.ts`): base (la de `DATABASE_URL`), `uploads/`, `backups/`
-  y espacio libre del disco (`fs.statfs`), con aviso si queda poco. Recuerda
-  que los respaldos viven **en el mismo equipo**: la tarjeta recomienda copiar
-  `uploads/` y `prisma\dev.db` a un disco externo (los respaldos locales no
-  hace falta copiarlos).
+  y espacio libre del disco (`fs.statfs`), con aviso si queda poco.
+- **"Copia de seguridad servidor"** (`lib/respaldo-externo.ts`, mismo panel):
+  copia diaria a la memoria USB o disco que elige el ADMIN (lista las unidades
+  con PowerShell en Windows; ruta en `AjusteSistema.respaldoExternoRuta`),
+  dentro de la carpeta `Copia de seguridad servidor`: `base/pagasa-*.db`
+  (últimas 30) y `uploads/` como espejo que **solo agrega** (nunca borra; solo
+  copia lo nuevo o cambiado). Revisa cada hora y copia si la última buena
+  tiene más de 20 h, así que si la memoria estaba desconectada copia en cuanto
+  vuelve. "Probar restauración" abre la última copia, corre `integrity_check`,
+  compara conteos con la base viva y 25 archivos por sha256. Inicio avisa al
+  ADMIN si no hay copia o tiene más de 48 h. Restaurar:
+  `scripts\servidor-restaurar.bat` (guarda la base actual antes, recupera solo
+  los archivos que falten).
+- **Las copias de la base son con `VACUUM INTO`** (`lib/copia-base.ts`), también
+  la del respaldo local: copiar `dev.db` con el sistema en uso puede dar un
+  archivo dañado. `verificarCopia` abre la copia con su propio PrismaClient
+  desde una ruta **relativa** a `prisma/` (la carpeta del servidor tiene
+  espacios). Las carpetas `antes-de-*` y `.verificacion` de `backups/` ya no
+  cuentan entre los 5 respaldos diarios.
 - **pdfjs-dist 6 necesita `Map.prototype.getOrInsertComputed`**, que los
   navegadores traen desde Chrome/Edge 145. En uno más viejo el visor de PDF, la
   impresión de adjuntos de la hoja de la unidad y la carga de escaneos
@@ -408,19 +438,67 @@ tiempo va `requireUser()` + acceso a la ciudad, sin exigir rol de editor.
 - Las páginas protegidas salen con `Cache-Control: no-store` (el botón "atrás"
   tras cerrar sesión no muestra pantallas) y `next.config.mjs` agrega
   `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` y quita
-  `X-Powered-By`; HSTS solo con `COOKIE_SECURE=true`.
-- **Límites que conviene decir**: el sistema va por HTTP en la red local, así
-  que usuario y contraseña viajan sin cifrar hasta que haya HTTPS (entonces
-  `COOKIE_SECURE=true`). Y la opción "continuar donde lo dejé" de algunos
-  navegadores restaura las cookies de sesión; el tope de 20 min / 12 h sigue
-  aplicando, pero antes de eso la sesión puede reaparecer.
+  `X-Powered-By`. Sin HSTS a propósito (la CA es propia, ver HTTPS abajo).
+- **`getSession()` relee rol y nombre de la base** (en memoria): muchas páginas
+  arman el usuario con `session.role` para `assertCityAccess`, y un ADMIN al
+  que le quitaban el rol seguía viendo todas las ciudades hasta reentrar.
+- **Rutas pasivas** (`RUTAS_PASIVAS` en `middleware.ts`: `/api/avisos`,
+  `/api/mensajes`): las consultas automáticas del navegador no renuevan la
+  actividad. Si agregas otra consulta periódica, ponla ahí o la sesión nunca
+  se cerrará por inactividad.
+- Límite: la opción "continuar donde lo dejé" de algunos navegadores restaura
+  las cookies de sesión; el tope de 20 min / 12 h sigue aplicando.
+
+**Bitácora de acceso** (`RegistroAcceso`, `lib/registro-acceso.ts`, pestaña
+`/admin/accesos`): inicios, intentos fallidos (también con usuario que no
+existe), bloqueos, cierres (a mano, inactividad, 12 h, por el ADMIN) y cambios
+a cuentas (alta, baja, rol, contraseña, ciudades, acceso ampliado), con IP y
+navegador. Filtros, Excel (`/api/admin/accesos`), sesiones abiertas que el
+ADMIN cierra y cuentas bloqueadas que desbloquea. `registrarAcceso` nunca
+lanza. El login además tarda lo mismo con usuario inexistente (hash señuelo,
+no delata qué usuarios hay). **Frenos** (`lib/freno-intentos.ts`): 5 fallos
+bloquean la cuenta 15 min (en la base, con `increment` atómico) y 20 intentos
+desde una IP en 15 min la frenan (en memoria). Los dos **apartan el intento
+antes de comparar**: contando después, intentos simultáneos leían el contador
+en cero y nunca bloqueaban (se comprobó: de 12 simultáneos solo 5 se
+comparan). "Mi contraseña" usa el mismo freno; el ADMIN no cambia la suya
+desde la ficha de usuarios (sin la actual, cualquiera con su sesión abierta
+lo dejaría fuera). "Sesiones abiertas" = actividad en los últimos 20 min
+(`SesionActiva.ultimaActividad`, la anota `/api/sesion/ping`).
+
+**Contraseñas** (`lib/politica-contrasena.ts`, sin Node: la usa también el
+formulario): 10+ caracteres, letra y número, sin el usuario, sin "Pagasa",
+fuera de una lista de comunes. `User.debeCambiarContrasena`: cuenta nueva,
+contraseña restablecida por el ADMIN o una que ya no cumple (se detecta al
+iniciar sesión, incluida la temporal del seed). Con eso la cookie lleva
+`debeCambiarContrasena` y el middleware solo deja `/cambiar-contrasena`,
+`/api/logout` y el latido; `requireUser` lo vuelve a revisar contra la base
+(`requireUser({ aunqueDebaCambiarContrasena: true })` solo en esa página y su
+acción). Cambiar la propia cierra las demás sesiones de la cuenta.
+
+**HTTPS y arranque** (`scripts/servidor.mjs`): los `.bat` arrancan con él en
+vez de `next start`. Escribe la IP del socket en `X-Forwarded-For` (`next
+start` respetaba la que mandara el navegador: se podía falsear la IP de la
+bitácora y saltarse el freno por equipo). Si existen
+`certificados/servidor.crt` y `.key` sirve HTTPS en 3443, el 3000 redirige, y
+pone `COOKIE_SECURE=true` solo. Los certificados los crea
+`scripts/crear-certificado-https.mjs` (X.509 armado a mano con `crypto`, sin
+OpenSSL; CA propia que se reutiliza) vía `servidor-activar-https.bat`.
+`certificados/` está en `.gitignore` (llaves privadas). La CA lleva **Name
+Constraints** (solo redes privadas 10/172.16/192.168/127 y los nombres de
+este equipo): instalada como raíz en todos los equipos, sin eso su llave
+serviría para suplantar cualquier sitio (se comprobó con OpenSSL que rechaza
+un certificado para www.google.com firmado con ella). Si el equipo cambia de
+nombre hay que rehacer la CA. El .bat restringe las llaves con `icacls`. Los
+avisos del navegador (Notification API) solo funcionan con HTTPS o en
+localhost. `servidor.mjs` hace `chdir` a la raíz del proyecto.
 
 Otros puntos: borrar registros pide la contraseña del admin
 (`lib/reauth.ts`) y queda en la bitácora de auditoría (`lib/activity-log.ts`,
 solo acepta `"ELIMINAR"` o `"EDITAR"`). Las subidas se validan por lista blanca
-de MIME y se sirven con `nosniff`. La cookie va **sin `secure`** a propósito
-porque el sistema se sirve por HTTP en la red local; se activa con
-`COOKIE_SECURE=true` el día que haya HTTPS.
+de MIME y se sirven con `nosniff`. La cookie va **sin `secure`** mientras el
+sistema se sirva por HTTP; con HTTPS (`scripts/servidor.mjs` con certificados)
+se marca `secure` sola.
 
 ## Convenciones de trabajo
 
@@ -432,11 +510,21 @@ porque el sistema se sirve por HTTP en la red local; se activa con
 - **Verificar contra datos reales**: el navegador integrado se cae con
   frecuencia; lo confiable es un script `scripts/_test-*.mts` que importe de
   `../lib/*` y llame las mismas consultas, correrlo con `npx tsx`, y borrarlo.
-- **Antes de dar algo por terminado**: `npx tsc --noEmit` y `npm run build`.
+- **Antes de dar algo por terminado**: `npx tsc --noEmit`, `npm test` y
+  `npm run build`. `npm test` corre `tests/*.test.ts` con el corredor de Node
+  (`tsx --test`, sin dependencias): reglas de sesión, contraseñas, plazos,
+  plantilla de fechas, aviso a rojo. Si cambias una regla a propósito, cambia
+  su prueba; si una prueba falla sin querer, algo se rompió.
 - **Listas extensibles** (checklists, catálogo de piezas, campos de ficha): el
   patrón es lista fija en el código + tabla de "extras" que el ADMIN agrega,
   unidas por una función `*-runtime.ts`. Nunca leer la constante directo.
 - **Commits**: mensaje en español, en presente, explicando el *porqué*.
+- **`scripts/servidor-actualizar.bat`: no cambies nada ARRIBA de `git pull`.**
+  El pull reemplaza el .bat mientras corre y cmd sigue leyendo por posición
+  de bytes: si cambia el largo de esa parte, la versión vieja ejecuta renglones
+  cortados (probable causa de actualizaciones que "fallaban raro"). Los pasos
+  que cambian van en `servidor-actualizar-pasos.bat`, que se lee completo
+  después del pull.
 
 ## Dar de baja = fuera de servicio
 
@@ -554,5 +642,45 @@ alta** en vez de ignorarlo:
   planta. La base hoy es "Limpieza" e "Inspección de equipos" para las 15 áreas;
   ya está hecho para recibir ítems por área sin tocar código
   (`lib/plant-area-checklist-runtime.ts` + tabla `PlantAreaChecklistItem`).
-- **En la lista, sin empezar:** chat entre usuarios con avisos, y notificaciones
-  del navegador para las alertas.
+- **Hecho el 27-oct-2026** (ver sus secciones): copia a USB, bitácora de
+  acceso, contraseñas, HTTPS opcional, mensajes y avisos, carga de fechas desde
+  Excel, menú en celular, pruebas automáticas. **Falta en el servidor**: elegir
+  la memoria en `/admin/respaldos`, y si se quiere HTTPS, correr
+  `servidor-activar-https.bat` e instalar `pagasa-ca.crt` en cada equipo.
+
+## Mensajes y avisos
+
+- **`/mensajes`** (`lib/mensajes.ts`): canal `general` y conversaciones
+  directas `dm:<id>:<id>` (ids en orden). `puedeVerCanal` decide en el
+  servidor; el texto se pinta como texto y solo las rutas internas
+  (`/ciudades/...`) salen como enlace. Nada se borra. `LecturaCanal` guarda
+  hasta dónde leyó cada quien. En celular se ve lista o conversación.
+- **Centro de avisos** (`components/layout/CentroDeAvisos.tsx`, en la barra):
+  cada 30 s pide `/api/avisos` (no leídos, último mensaje, vencimientos en rojo
+  de sus ciudades, cacheado 5 min en `lib/avisos-rojos.ts`) y avisa de lo nuevo
+  (recuadro en la página o notificación del navegador si la activó y hay
+  HTTPS). Lo ya avisado se recuerda en localStorage.
+- **Correo "pasaron a rojo"** (`lib/aviso-rojo.ts`): casilla en Reportes por
+  correo. Una vez al día a la hora del reporte, mismos destinatarios, solo lo
+  nuevo en rojo (clave + fecha en `avisoRojoNotificados`). Lo revisa el mismo
+  programador del reporte semanal.
+
+## Carga de fechas desde Excel
+
+`/ciudades/[citySlug]/carga-de-fechas` (botón "Fechas desde Excel"): plantilla
+(`/api/ciudades/[citySlug]/plantilla-fechas`) con una hoja por tipo de unidad
+y las fechas actuales; al subirla, vista previa antes → después y nada se guarda
+sin confirmar (`actions/carga-fechas-actions.ts`). Columnas por apartado en
+`columnasDeApartado` (`lib/carga-fechas.ts`); estaciones y planta no entran (van
+por tanque). Celda vacía no borra, `BORRAR` sí. Al aplicar se revalida todo
+(ciudad, campo permitido, que no haya cambiado desde la vista previa) y queda
+en la bitácora de actividad. Mismo permiso que editar la ficha
+(`tieneEdicionAmpliada`). Ojo: la librería de Excel entrega las fechas a las
+23:59:59 del día anterior; `leerFecha` lo corrige (tiene prueba).
+
+## Celular
+
+El menú lateral se esconde en pantallas chicas y se abre con ☰
+(`components/layout/MenuMovil.tsx`, contexto compartido entre Header y
+Sidebar; se cierra solo al navegar). "Mi contraseña" pasa al menú. Se revisó a
+390 px que ninguna página se desborde a lo ancho.
