@@ -143,20 +143,21 @@ export async function requireEditor(): Promise<UsuarioSesion> {
 // importar la hora.
 export async function requireElevatedEditor(): Promise<UsuarioSesion> {
   const user = await requireUser();
-  if (user.role === "ADMIN") return user;
-
-  if (user.role === "USUARIO") {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.userId },
-      select: { accesoAmpliadoDias: true, accesoAmpliadoHoraInicio: true, accesoAmpliadoHoraFin: true },
-    });
-    const schedule = dbUser ? parseElevatedAccessSchedule(dbUser) : null;
-    if (schedule && isWithinElevatedAccessWindow(schedule)) {
-      return user;
-    }
-  }
-
+  if (await tieneEdicionAmpliada(user)) return user;
   redirect("/dashboard");
+}
+
+// Lo mismo que decide requireElevatedEditor, sin redirigir: para que una
+// página pueda mostrar un aviso en vez de sacar a la persona.
+export async function tieneEdicionAmpliada(user: UsuarioSesion): Promise<boolean> {
+  if (user.role === "ADMIN") return true;
+  if (user.role !== "USUARIO") return false;
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { accesoAmpliadoDias: true, accesoAmpliadoHoraInicio: true, accesoAmpliadoHoraFin: true },
+  });
+  const schedule = dbUser ? parseElevatedAccessSchedule(dbUser) : null;
+  return !!schedule && isWithinElevatedAccessWindow(schedule);
 }
 
 // Red de seguridad para los actions que escriben usando session.userId como

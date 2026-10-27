@@ -75,10 +75,14 @@ export function ChatPanel({
   userId,
   conversaciones,
   canalInicial,
+  abrirConversacion,
 }: {
   userId: string;
   conversaciones: Conversacion[];
   canalInicial: string;
+  // En celular se ve la lista o la conversación, no las dos: si la página se
+  // abrió con ?con= (desde un aviso), directo a la conversación.
+  abrirConversacion: boolean;
 }) {
   const router = useRouter();
   const [canal, setCanal] = useState(canalInicial);
@@ -87,6 +91,7 @@ export function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   const [enviando, startEnviar] = useTransition();
   const [filtro, setFiltro] = useState("");
+  const [vistaMovil, setVistaMovil] = useState<"lista" | "chat">(abrirConversacion ? "chat" : "lista");
   const final = useRef<HTMLDivElement>(null);
   const actual = conversaciones.find((c) => c.canal === canal) ?? conversaciones[0];
 
@@ -116,6 +121,7 @@ export function ChatPanel({
 
   const elegir = (c: string) => {
     setCanal(c);
+    setVistaMovil("chat");
     setError(null);
     window.history.replaceState(null, "", `/mensajes?con=${encodeURIComponent(c)}`);
     // La lista de la izquierda (no leídos) se refresca del servidor.
@@ -143,7 +149,7 @@ export function ChatPanel({
   return (
     <div className="flex h-[calc(100vh-9rem)] min-h-[420px] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white md:flex-row">
       {/* Conversaciones */}
-      <aside className="flex max-h-48 flex-col border-b border-gray-200 md:max-h-none md:w-72 md:border-b-0 md:border-r">
+      <aside className={`min-h-0 flex-1 flex-col md:flex md:w-72 md:flex-none md:border-r md:border-gray-200 ${vistaMovil === "lista" ? "flex" : "hidden"}`}>
         <div className="space-y-2 border-b border-gray-100 p-3">
           <h1 className="text-lg font-semibold text-primary">Mensajes</h1>
           <input
@@ -181,8 +187,11 @@ export function ChatPanel({
       </aside>
 
       {/* Conversación */}
-      <section className="flex min-h-0 flex-1 flex-col">
+      <section className={`min-h-0 flex-1 flex-col md:flex ${vistaMovil === "chat" ? "flex" : "hidden"}`}>
         <header className="border-b border-gray-100 px-4 py-2">
+          <button type="button" onClick={() => setVistaMovil("lista")} className="mb-1 text-xs text-primary hover:underline md:hidden">
+            ← Conversaciones
+          </button>
           <p className="font-semibold text-primary">{actual?.titulo}</p>
           {actual?.subtitulo && <p className="text-xs text-gray-500">{actual.subtitulo}</p>}
         </header>

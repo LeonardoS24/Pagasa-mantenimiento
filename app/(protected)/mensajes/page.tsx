@@ -9,5 +9,7 @@ export default async function MensajesPage({ searchParams }: { searchParams?: { 
   const conversaciones = await getConversaciones(user.userId);
   const pedido = searchParams?.con ?? CANAL_GENERAL;
   const canal = puedeVerCanal(user.userId, pedido) ? pedido : CANAL_GENERAL;
-  return <ChatPanel userId={user.userId} conversaciones={conversaciones} canalInicial={canal} />;
+  return (
+    <ChatPanel userId={user.userId} conversaciones={conversaciones} canalInicial={canal} abrirConversacion={!!searchParams?.con} />
+  );
 }
