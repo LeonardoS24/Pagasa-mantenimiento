@@ -46,7 +46,7 @@ if /i not "%CONFIRMA%"=="SI" (
 
 echo.
 echo [1/5] Deteniendo el servidor...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do taskkill /F /PID %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 :3443" ^| findstr "LISTENING"') do taskkill /F /PID %%a >nul 2>&1
 timeout /t 3 /nobreak >nul
 
 echo [2/5] Guardando la base actual...
@@ -82,7 +82,7 @@ echo   Base anterior guardada en:
 echo   backups\antes-de-restaurar\%MARCA%\dev.db
 echo ==========================================
 echo.
-call npx next start -H 0.0.0.0 -p 3000
+node scripts\servidor.mjs
 goto :fin
 
 :error

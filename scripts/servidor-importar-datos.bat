@@ -55,7 +55,7 @@ if not exist "node_modules" (
 
 REM ---- 2. Detener el servidor y respaldar ----------------------------
 echo [1/5] Deteniendo el servidor...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do taskkill /F /PID %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 :3443" ^| findstr "LISTENING"') do taskkill /F /PID %%a >nul 2>&1
 timeout /t 3 /nobreak >nul
 
 echo [2/5] Respaldando la base de datos...

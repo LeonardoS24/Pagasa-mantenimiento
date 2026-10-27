@@ -5,8 +5,11 @@ REM
 REM  Para la computadora que hace de servidor (la que siempre esta
 REM  prendida). Doble clic aqui y dejar la ventana abierta/minimizada.
 REM
-REM  -H 0.0.0.0 hace que escuche en toda la red local, no solo en esta
-REM  computadora: asi los demas entran con http://IP-DE-ESTA-PC:3000
+REM  Arranca con scripts\servidor.mjs (igual que "next start", mas la IP
+REM  real de cada equipo en la bitacora de acceso). Escucha en toda la red
+REM  local. Si hay certificados en certificados\ (ver
+REM  servidor-activar-https.bat) sirve por HTTPS en el 3443 y el 3000 solo
+REM  redirige; si no, HTTP en el 3000 como siempre.
 REM ===================================================================
 
 cd /d "%~dp0.."
@@ -18,19 +21,11 @@ echo ==========================================
 echo.
 echo Iniciando el servidor...
 echo.
-echo Los demas se conectan desde su navegador a:
-REM Se parte el renglon de ipconfig por los dos puntos y se recortan los
-REM espacios: contar palabras no sirve porque el ipconfig en espanol trae
-REM una hilera de puntos antes de la direccion.
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
-  for /f "tokens=* delims= " %%b in ("%%a") do echo    http://%%b:3000
-)
-echo.
 echo NO CIERRES ESTA VENTANA mientras el sistema este en uso.
 echo Para apagarlo: cierra esta ventana o presiona Ctrl+C.
 echo.
 
-call npx next start -H 0.0.0.0 -p 3000
+node scripts\servidor.mjs
 
 echo.
 echo El servidor se detuvo.
