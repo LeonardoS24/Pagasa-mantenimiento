@@ -22,7 +22,7 @@ echo.
 echo [1/6] Deteniendo el servidor...
 REM Hay que detenerlo si o si: SQLite bloquea el archivo de la base y
 REM las migraciones no corren con el servidor encima.
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 :3443" ^| findstr "LISTENING"') do taskkill /F /PID %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do taskkill /F /PID %%a >nul 2>&1
 timeout /t 3 /nobreak >nul
 
 echo [2/6] Respaldando la base de datos...
@@ -38,46 +38,16 @@ git checkout -- package-lock.json >nul 2>&1
 git pull
 if errorlevel 1 goto :error
 
-echo [4/6] Revisando dependencias...
-call npm install
-if errorlevel 1 goto :error
-
-echo [5/6] Aplicando cambios a la base de datos...
-call npx prisma migrate deploy
-if errorlevel 1 goto :error
-call npx prisma generate
-if errorlevel 1 goto :error
-
-echo [6/6] Compilando la aplicacion (tarda de 1 a 3 minutos)...
-REM La salida va a backups\ultimo-build.log para poder mandarla si falla.
-REM En Windows el build a veces falla por archivos viejos o bloqueados de
-REM .next (antivirus, OneDrive, un servidor que no se cerro): si falla, se
-REM borra .next y se intenta una vez mas desde cero.
-call npm run build > "backups\ultimo-build.log" 2>&1
-if not errorlevel 1 goto :build_ok
-echo   El primer intento fallo. Limpiando y volviendo a compilar...
-if exist ".next" rmdir /s /q ".next"
-call npm run build > "backups\ultimo-build.log" 2>&1
-if errorlevel 1 goto :error_build
-:build_ok
-echo   Compilado.
-
-echo.
-echo ==========================================
-echo   Listo. Iniciando el servidor...
-echo ==========================================
-echo.
-node scripts\servidor.mjs
+REM ===================================================================
+REM  OJO, para quien edite este archivo: NO cambies NADA de lo que esta
+REM  ARRIBA de "git pull". Al hacer pull este mismo archivo se reemplaza
+REM  mientras se ejecuta, y Windows sigue leyendolo por posicion: si cambia
+REM  el largo de lo de arriba, la version vieja que esta corriendo ejecuta
+REM  renglones cortados. Lo que haya que cambiar va en
+REM  servidor-actualizar-pasos.bat, que se lee completo despues del pull.
+REM ===================================================================
+call "%~dp0servidor-actualizar-pasos.bat"
 goto :fin
-
-:error_build
-echo.
-echo ----- Ultimas lineas del error de compilacion -----
-powershell -NoProfile -Command "Get-Content 'backups\ultimo-build.log' -Tail 40"
-echo ---------------------------------------------------
-echo   El registro completo esta en backups\ultimo-build.log
-echo   Mandaselo a Leonardo junto con backups\diagnostico.txt
-echo   (doble clic en scripts\servidor-diagnostico.bat para crearlo).
 
 :error
 echo.

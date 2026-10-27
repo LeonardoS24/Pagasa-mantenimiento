@@ -505,6 +505,12 @@ se marca `secure` sola.
   patrón es lista fija en el código + tabla de "extras" que el ADMIN agrega,
   unidas por una función `*-runtime.ts`. Nunca leer la constante directo.
 - **Commits**: mensaje en español, en presente, explicando el *porqué*.
+- **`scripts/servidor-actualizar.bat`: no cambies nada ARRIBA de `git pull`.**
+  El pull reemplaza el .bat mientras corre y cmd sigue leyendo por posición
+  de bytes: si cambia el largo de esa parte, la versión vieja ejecuta renglones
+  cortados (probable causa de actualizaciones que "fallaban raro"). Los pasos
+  que cambian van en `servidor-actualizar-pasos.bat`, que se lee completo
+  después del pull.
 
 ## Dar de baja = fuera de servicio
 
