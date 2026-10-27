@@ -96,15 +96,3 @@ export async function registrarAcceso(params: {
     console.error("[bitácora de acceso] No se pudo registrar:", error);
   }
 }
-
-// Intentos fallidos recientes desde una misma IP (para cortar a quien prueba
-// muchos usuarios distintos, que el bloqueo por cuenta no detiene).
-export async function intentosFallidosDesdeIp(ip: string, minutos: number): Promise<number> {
-  return prisma.registroAcceso.count({
-    where: {
-      ip,
-      evento: { in: ["INTENTO_FALLIDO", "INTENTO_CUENTA_BLOQUEADA"] },
-      createdAt: { gte: new Date(Date.now() - minutos * 60 * 1000) },
-    },
-  });
-}

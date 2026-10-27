@@ -455,8 +455,16 @@ existe), bloqueos, cierres (a mano, inactividad, 12 h, por el ADMIN) y cambios
 a cuentas (alta, baja, rol, contraseña, ciudades, acceso ampliado), con IP y
 navegador. Filtros, Excel (`/api/admin/accesos`), sesiones abiertas que el
 ADMIN cierra y cuentas bloqueadas que desbloquea. `registrarAcceso` nunca
-lanza. El login además: tarda lo mismo con usuario inexistente (hash señuelo,
-no delata qué usuarios hay) y 20 fallos desde una IP en 15 min la frenan.
+lanza. El login además tarda lo mismo con usuario inexistente (hash señuelo,
+no delata qué usuarios hay). **Frenos** (`lib/freno-intentos.ts`): 5 fallos
+bloquean la cuenta 15 min (en la base, con `increment` atómico) y 20 intentos
+desde una IP en 15 min la frenan (en memoria). Los dos **apartan el intento
+antes de comparar**: contando después, intentos simultáneos leían el contador
+en cero y nunca bloqueaban (se comprobó: de 12 simultáneos solo 5 se
+comparan). "Mi contraseña" usa el mismo freno; el ADMIN no cambia la suya
+desde la ficha de usuarios (sin la actual, cualquiera con su sesión abierta
+lo dejaría fuera). "Sesiones abiertas" = actividad en los últimos 20 min
+(`SesionActiva.ultimaActividad`, la anota `/api/sesion/ping`).
 
 **Contraseñas** (`lib/politica-contrasena.ts`, sin Node: la usa también el
 formulario): 10+ caracteres, letra y número, sin el usuario, sin "Pagasa",
@@ -476,8 +484,14 @@ bitácora y saltarse el freno por equipo). Si existen
 pone `COOKIE_SECURE=true` solo. Los certificados los crea
 `scripts/crear-certificado-https.mjs` (X.509 armado a mano con `crypto`, sin
 OpenSSL; CA propia que se reutiliza) vía `servidor-activar-https.bat`.
-`certificados/` está en `.gitignore` (llaves privadas). Los avisos del
-navegador (Notification API) solo funcionan con HTTPS o en localhost.
+`certificados/` está en `.gitignore` (llaves privadas). La CA lleva **Name
+Constraints** (solo redes privadas 10/172.16/192.168/127 y los nombres de
+este equipo): instalada como raíz en todos los equipos, sin eso su llave
+serviría para suplantar cualquier sitio (se comprobó con OpenSSL que rechaza
+un certificado para www.google.com firmado con ella). Si el equipo cambia de
+nombre hay que rehacer la CA. El .bat restringe las llaves con `icacls`. Los
+avisos del navegador (Notification API) solo funcionan con HTTPS o en
+localhost. `servidor.mjs` hace `chdir` a la raíz del proyecto.
 
 Otros puntos: borrar registros pide la contraseña del admin
 (`lib/reauth.ts`) y queda en la bitácora de auditoría (`lib/activity-log.ts`,

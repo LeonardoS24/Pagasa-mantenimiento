@@ -299,6 +299,15 @@ COMO RESTAURAR (solo si se perdio la base o el disco del servidor):
      los archivos de uploads\\ que falten.
   3. Si el disco del servidor se perdio completo: instala el sistema de nuevo
      (DESPLIEGUE.md) y luego haz el paso 1.
+
+LO QUE ESTA COPIA NO LLEVA (a proposito, son llaves):
+  - El archivo .env del servidor (SESSION_SECRET). Sin el mismo, la
+    contrasena del correo guardada en el sistema hay que volver a escribirla
+    y todos vuelven a iniciar sesion. Guarda una copia de .env aparte, en un
+    lugar seguro (no en esta memoria).
+  - La carpeta certificados\\ (HTTPS). Si se pierde, se vuelve a crear con
+    servidor-activar-https.bat y hay que reinstalar pagasa-ca.crt en los
+    equipos.
 `;
 
 // Hace la copia completa a la unidad configurada. Nunca lanza: el resultado
@@ -326,11 +335,13 @@ export async function copiarAExterno(): Promise<ResultadoCopiaExterna> {
     return resultado;
   };
 
-  const ruta = await getRutaExterna();
-  if (!ruta) return fin({ ok: false, mensaje: "No hay una unidad elegida para la copia.", destino: "" });
-  const destino = path.join(ruta, NOMBRE_CARPETA_EXTERNA);
-
+  // Todo dentro del try: si algo lanzara fuera, enCurso se quedaría en true y
+  // no habría más copias hasta reiniciar el servidor.
+  let destino = "";
   try {
+    const ruta = await getRutaExterna();
+    if (!ruta) return fin({ ok: false, mensaje: "No hay una unidad elegida para la copia.", destino: "" });
+    destino = path.join(ruta, NOMBRE_CARPETA_EXTERNA);
     try {
       await fs.access(ruta);
     } catch {
@@ -361,7 +372,9 @@ export async function copiarAExterno(): Promise<ResultadoCopiaExterna> {
       await fs.rename(temporal, final);
       base = { archivo: nombreBase, bytes: (await fs.stat(final)).size, integridad: verificacion.integridad, conteos: verificacion.conteos };
     } finally {
-      await fs.rm(local, { force: true });
+      // En Windows el archivo puede seguir ocupado un instante: que no tumbe
+      // una copia que salió bien (lo que quede se limpia en la siguiente).
+      await fs.rm(local, { force: true }).catch(() => undefined);
     }
 
     // Se conservan las últimas BASES_A_CONSERVAR.

@@ -47,6 +47,8 @@ test("mensajes: cada quien ve el general y solo sus conversaciones", () => {
   assert.ok(puedeVerCanal("a", ab) && puedeVerCanal("b", ab));
   assert.ok(!puedeVerCanal("c", ab));
   assert.ok(!puedeVerCanal("a", "dm:a:a"));
+  // Los ids en desorden serían una segunda conversación con la misma persona.
+  assert.ok(!puedeVerCanal("a", "dm:b:a"));
   assert.ok(!puedeVerCanal("a", "dm:a"));
   assert.ok(!puedeVerCanal("a", "otro"));
 });

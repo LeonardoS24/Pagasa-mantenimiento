@@ -13,11 +13,17 @@ import { countPendingHighPriorityOrders, countValveRedAlerts } from "@/lib/login
 import { rutaInternaSegura } from "@/lib/ruta-segura";
 import { DURACION_MAXIMA_MS } from "@/lib/sesion-vigencia";
 import { problemaDeContrasena } from "@/lib/politica-contrasena";
+import { datosDelCliente, registrarAcceso } from "@/lib/registro-acceso";
 import {
-  datosDelCliente,
-  intentosFallidosDesdeIp,
-  registrarAcceso,
-} from "@/lib/registro-acceso";
+  BLOQUEO_MINUTOS,
+  MAX_INTENTOS_FALLIDOS,
+  VENTANA_EQUIPO_MINUTOS,
+  acierto,
+  fallo,
+  liberarIntentoDeEquipo,
+  reservarIntentoDeCuenta,
+  reservarIntentoDeEquipo,
+} from "@/lib/freno-intentos";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Ingresa tu usuario"),
@@ -29,16 +35,8 @@ export interface LoginState {
 }
 
 // Protección contra fuerza bruta: 5 intentos fallidos seguidos bloquean la
-// cuenta 15 minutos. Un intento correcto reinicia el contador; un bloqueo
-// vencido también se limpia solo al siguiente intento.
-const MAX_INTENTOS_FALLIDOS = 5;
-const BLOQUEO_MINUTOS = 15;
-
-// Además del bloqueo por cuenta: muchos intentos fallidos desde un mismo
-// equipo (probando usuarios distintos, que el bloqueo por cuenta no frena)
-// cortan los intentos de ese equipo un rato.
-const MAX_FALLIDOS_POR_EQUIPO = 20;
-const VENTANA_EQUIPO_MINUTOS = 15;
+// cuenta 15 minutos, y 20 desde un mismo equipo lo frenan 15 minutos (ver
+// lib/freno-intentos.ts, que aparta cada intento antes de comparar).
 
 // Hash de una contraseña cualquiera. Cuando el usuario no existe se compara
 // contra este para tardar lo mismo que con uno que sí existe: si no, el
@@ -69,7 +67,7 @@ export async function loginAction(
   const { username, password } = parsed.data;
   const cliente = datosDelCliente();
 
-  if (cliente.ip && (await intentosFallidosDesdeIp(cliente.ip, VENTANA_EQUIPO_MINUTOS)) >= MAX_FALLIDOS_POR_EQUIPO) {
+  if (!reservarIntentoDeEquipo(cliente.ip)) {
     const yaAnotado = await prisma.registroAcceso.count({
       where: { ip: cliente.ip, evento: "BLOQUEO_POR_EQUIPO", createdAt: { gte: new Date(Date.now() - VENTANA_EQUIPO_MINUTOS * 60 * 1000) } },
     });
@@ -84,26 +82,19 @@ export async function loginAction(
     return { error: "Usuario o contraseña incorrectos." };
   }
 
-  if (user.bloqueadoHasta && user.bloqueadoHasta.getTime() > Date.now()) {
+  // El intento se aparta ANTES de comparar (ver lib/freno-intentos.ts).
+  const reserva = await reservarIntentoDeCuenta(user.id);
+  if (!reserva.permitido) {
     await registrarAcceso({ evento: "INTENTO_CUENTA_BLOQUEADA", username, userId: user.id, cliente });
     return {
-      error: `Cuenta bloqueada temporalmente por varios intentos fallidos. Intenta de nuevo en ${minutosRestantes(user.bloqueadoHasta)} minuto(s).`,
+      error: `Cuenta bloqueada temporalmente por varios intentos fallidos. Intenta de nuevo en ${minutosRestantes(reserva.bloqueadoHasta)} minuto(s).`,
     };
   }
 
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
-    const intentos = user.intentosFallidosLogin + 1;
-    const bloquear = intentos >= MAX_INTENTOS_FALLIDOS;
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        intentosFallidosLogin: bloquear ? 0 : intentos,
-        bloqueadoHasta: bloquear ? new Date(Date.now() + BLOQUEO_MINUTOS * 60 * 1000) : null,
-      },
-    });
     await registrarAcceso({ evento: "INTENTO_FALLIDO", username, userId: user.id, detalle: "Contraseña incorrecta", cliente });
-    if (bloquear) {
+    if (await fallo(user.id, reserva.numero)) {
       await registrarAcceso({
         evento: "CUENTA_BLOQUEADA",
         username,
@@ -117,19 +108,14 @@ export async function loginAction(
     }
     return { error: "Usuario o contraseña incorrectos." };
   }
+  await acierto(user.id);
+  liberarIntentoDeEquipo(cliente.ip);
 
   // Una contraseña que ya no cumple la política (las de antes de que
   // existiera, o la temporal del alta) obliga a cambiarla antes de entrar.
   const debeCambiar = user.debeCambiarContrasena || problemaDeContrasena(password, user.username) !== null;
   if (debeCambiar && !user.debeCambiarContrasena) {
     await prisma.user.update({ where: { id: user.id }, data: { debeCambiarContrasena: true } });
-  }
-
-  if (user.intentosFallidosLogin > 0 || user.bloqueadoHasta) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { intentosFallidosLogin: 0, bloqueadoHasta: null },
-    });
   }
 
   const role = roleSchema.parse(user.role);
@@ -144,7 +130,7 @@ export async function loginAction(
     where: { creadaEl: { lt: new Date(Date.now() - DURACION_MAXIMA_MS) } },
   });
   const sesionActiva = await prisma.sesionActiva.create({
-    data: { userId: user.id, ip: cliente.ip, navegador: cliente.navegador },
+    data: { userId: user.id, ip: cliente.ip, navegador: cliente.navegador, ultimaActividad: new Date() },
   });
   const ahora = Date.now();
   session.userId = user.id;

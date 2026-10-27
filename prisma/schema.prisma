@@ -1790,6 +1790,10 @@ model SesionActiva {
   // /admin/accesos.
   ip        String?
   navegador String?
+  // Último latido del navegador (/api/sesion/ping, solo mientras la persona
+  // usa la pantalla): con esto "Sesiones abiertas" muestra las que de verdad
+  // siguen vivas y no las de un navegador que se cerró.
+  ultimaActividad DateTime?
 
   @@index([userId])
 }

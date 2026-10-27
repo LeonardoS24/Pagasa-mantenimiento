@@ -48,6 +48,25 @@ echo.
 echo [1/5] Deteniendo el servidor...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 :3443" ^| findstr "LISTENING"') do taskkill /F /PID %%a >nul 2>&1
 timeout /t 3 /nobreak >nul
+REM Si el servidor sigue arriba (por ejemplo lo arranco otra cuenta y no se
+REM pudo cerrar), copiar encima de la base la danaria: se detiene aqui.
+netstat -ano | findstr ":3000 :3443" | findstr "LISTENING" >nul
+if not errorlevel 1 (
+  echo.
+  echo   El servidor sigue encendido y no se pudo cerrar. Cierralo a mano
+  echo   ^(Administrador de tareas, proceso node.exe^) y vuelve a intentar.
+  goto :fin
+)
+REM Prueba de que nadie tiene abierta la base: renombrarla falla si esta en uso.
+if exist "prisma\dev.db" (
+  ren "prisma\dev.db" "dev.db.prueba-restaurar" 2>nul
+  if errorlevel 1 (
+    echo.
+    echo   La base esta abierta por otro programa. Cierralo y vuelve a intentar.
+    goto :fin
+  )
+  ren "prisma\dev.db.prueba-restaurar" "dev.db"
+)
 
 echo [2/5] Guardando la base actual...
 REM La fecha la da PowerShell: %date% cambia de formato segun la region.

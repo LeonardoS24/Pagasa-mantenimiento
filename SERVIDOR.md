@@ -154,6 +154,14 @@ tocar nada.
 Recomendación: cada mes, cambia la memoria por otra y guarda la anterior fuera
 de la oficina. Así un robo o un incendio no se lleva las dos.
 
+**Lo que la copia NO lleva, a propósito:** el `.env` (tiene `SESSION_SECRET`,
+la llave con la que se cifra la contraseña del correo) y `certificados\` (la
+llave de HTTPS). Son llaves: no deben ir en una memoria que se puede perder.
+Guarda una copia del `.env` en un lugar seguro aparte (una USB guardada bajo
+llave, o impreso en sobre cerrado). Si se pierde, el sistema se recupera igual
+pero hay que volver a capturar la contraseña del correo y todos inician sesión
+de nuevo.
+
 ## HTTPS (cifrar las contraseñas en la red)
 
 Por HTTP, el usuario y la contraseña viajan legibles por la red local. Con

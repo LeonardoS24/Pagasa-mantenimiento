@@ -25,6 +25,10 @@ import { fileURLToPath } from "url";
 import next from "next";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// uploads/, backups/ y la base se buscan desde la carpeta de trabajo: si se
+// arrancara desde otro lado (una tarea programada sin "Iniciar en"), irían a
+// parar a otra carpeta.
+process.chdir(RAIZ);
 const PUERTO = Number(process.env.PORT) || 3000;
 const PUERTO_HTTPS = Number(process.env.HTTPS_PORT) || 3443;
 const CRT = path.join(RAIZ, "certificados", "servidor.crt");

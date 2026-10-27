@@ -88,7 +88,24 @@ function idDeLlave(spkiDer) {
   return crypto.createHash("sha1").update(spkiDer).digest();
 }
 
-function firmarCertificado({ sujeto, emisor, llavePublica, llaveFirma, idEmisor, dias, esCA, nombresAlternos }) {
+// Restricción de nombres de la CA (RFC 5280 4.2.1.10). Esta CA se instala
+// como "raíz de confianza" en todos los equipos: sin restricción, quien se
+// llevara su llave podría fabricar certificados válidos para cualquier sitio
+// (un banco, el correo). Con esto solo vale para direcciones de red interna
+// (10.x, 172.16-31.x, 192.168.x, 127.x) y para los nombres de este equipo.
+function restriccionDeNombres(nombresPermitidos) {
+  const red = (ip, mascara) => tlv(0x87, Buffer.from([...ip, ...mascara]));
+  const subarboles = [
+    red([10, 0, 0, 0], [255, 0, 0, 0]),
+    red([172, 16, 0, 0], [255, 240, 0, 0]),
+    red([192, 168, 0, 0], [255, 255, 0, 0]),
+    red([127, 0, 0, 0], [255, 0, 0, 0]),
+    ...nombresPermitidos.map((n) => tlv(0x82, Buffer.from(n.toLowerCase(), "ascii"))),
+  ].map((nombre) => seq(nombre));
+  return seq(ctx(0, Buffer.concat(subarboles)));
+}
+
+function firmarCertificado({ sujeto, emisor, llavePublica, llaveFirma, idEmisor, dias, esCA, nombresAlternos, nombresPermitidos }) {
   const spki = llavePublica.export({ type: "spki", format: "der" });
   const idPropio = idDeLlave(spki);
   const serie = crypto.randomBytes(16);
@@ -104,6 +121,7 @@ function firmarCertificado({ sujeto, emisor, llavePublica, llaveFirma, idEmisor,
     extension("2.5.29.14", false, octetos(idPropio)),
     extension("2.5.29.35", false, seq(tlv(0x80, idEmisor ?? idPropio))),
   ];
+  if (esCA) extensiones.push(extension("2.5.29.30", true, restriccionDeNombres(nombresPermitidos)));
   if (!esCA) {
     extensiones.push(extension("2.5.29.37", false, seq(oid("1.3.6.1.5.5.7.3.1"))));
     const generales = nombresAlternos.map((n) =>
@@ -164,6 +182,9 @@ if (fs.existsSync(rutaCaCrt) && fs.existsSync(rutaCaKey)) {
     llaveFirma: par.privateKey,
     dias: 3650,
     esCA: true,
+    // Los nombres (no IP) que se usan hoy. Si el equipo cambia de nombre, hay
+    // que borrar certificados\\ y crear todo de nuevo (y reinstalar la CA).
+    nombresPermitidos: validos.filter((n) => !/^\d+\.\d+\.\d+\.\d+$/.test(n)),
   });
   fs.writeFileSync(rutaCaCrt, ca.pem);
   fs.writeFileSync(rutaCaKey, par.privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
@@ -192,6 +213,10 @@ const ca = new crypto.X509Certificate(fs.readFileSync(rutaCaCrt));
 if (!leido.verify(ca.publicKey)) {
   console.error("ERROR: el certificado no quedó bien firmado.");
   process.exit(1);
+}
+const fueraDeRed = validos.filter((n) => /^\d+\.\d+\.\d+\.\d+$/.test(n) && !/^(10\.|192\.168\.|127\.|172\.(1[6-9]|2\d|3[01])\.)/.test(n));
+if (fueraDeRed.length) {
+  console.warn(`AVISO: ${fueraDeRed.join(", ")} no es una dirección de red interna; los navegadores no la aceptarán con esta autoridad.`);
 }
 console.log(`Certificado del servidor listo (vence ${new Date(leido.validTo).toLocaleDateString("es-MX")}) para:`);
 for (const n of validos) console.log(`   ${n}`);

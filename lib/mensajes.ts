@@ -23,7 +23,9 @@ export function participantes(canal: string): string[] | null {
 export function puedeVerCanal(userId: string, canal: string): boolean {
   if (canal === CANAL_GENERAL) return true;
   const p = participantes(canal);
-  return !!p && p.includes(userId) && p[0] !== p[1];
+  // Los ids van en orden (ver canalDirecto): "dm:B:A" sería una segunda
+  // conversación con la misma persona.
+  return !!p && p.includes(userId) && p[0] < p[1];
 }
 
 // Del canal directo, el id de la otra persona.

@@ -223,42 +223,33 @@ export async function changeUserPassword(
     return { error: parsed.error.issues[0]?.message ?? "Contraseña inválida" };
   }
 
+  // La propia se cambia en "Mi contraseña", que pide la actual: aquí no, para
+  // que alguien con la sesión del ADMIN abierta no pueda dejarlo fuera.
+  if (admin.userId === userId) {
+    return { error: "Tu propia contraseña cámbiala en «Mi contraseña» (arriba a la derecha): ahí se pide la actual." };
+  }
   const destino = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
   if (!destino) return { error: "El usuario ya no existe." };
   const problema = problemaDeContrasena(parsed.data.password, destino.username);
   if (problema) return { error: problema };
 
-  const propia = admin.userId === userId;
   const passwordHash = await hashPassword(parsed.data.password);
-  // Si el ADMIN restablece la de otro, esa persona la cambia por una suya al
-  // entrar: el ADMIN no debe conocer la contraseña de nadie.
+  // La persona la cambia por una suya al entrar: el ADMIN no debe conocer la
+  // contraseña de nadie.
   await prisma.user.update({
     where: { id: userId },
-    data: {
-      passwordHash,
-      debeCambiarContrasena: !propia,
-      intentosFallidosLogin: 0,
-      bloqueadoHasta: null,
-      ...(propia ? { contrasenaCambiadaEl: new Date() } : {}),
-    },
+    data: { passwordHash, debeCambiarContrasena: true, intentosFallidosLogin: 0, bloqueadoHasta: null },
   });
   await registrarAcceso({
-    evento: propia ? "CAMBIO_CONTRASENA" : "CONTRASENA_RESTABLECIDA",
+    evento: "CONTRASENA_RESTABLECIDA",
     username: destino.username,
     userId,
-    actorUsername: propia ? null : admin.username,
+    actorUsername: admin.username,
   });
-  // Con la contraseña nueva, las sesiones abiertas de esa cuenta se cierran
-  // (menos la de quien la cambia, si es la suya).
-  await prisma.sesionActiva.deleteMany({
-    where: { userId, ...(admin.userId === userId ? { NOT: { id: admin.sesionId } } : {}) },
-  });
+  // Con la contraseña nueva, las sesiones abiertas de esa cuenta se cierran.
+  await prisma.sesionActiva.deleteMany({ where: { userId } });
 
-  return {
-    success: propia
-      ? "Contraseña actualizada."
-      : "Contraseña restablecida. Al entrar, la persona tendrá que poner una suya. Si estaba bloqueada, ya puede entrar.",
-  };
+  return { success: "Contraseña restablecida. Al entrar, la persona tendrá que poner una suya. Si estaba bloqueada, ya puede entrar." };
 }
 
 export async function assignUserCities(userId: string, cityIds: string[]) {

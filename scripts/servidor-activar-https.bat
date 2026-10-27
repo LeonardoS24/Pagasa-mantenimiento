@@ -21,6 +21,11 @@ echo Creando certificados...
 node scripts\crear-certificado-https.mjs %*
 if errorlevel 1 goto :error
 
+REM Las llaves privadas solo las pueden leer el sistema y los administradores
+REM de Windows (por SID, para que funcione en Windows en espanol o en ingles).
+icacls "certificados\pagasa-ca.key" /inheritance:r /grant:r *S-1-5-18:F *S-1-5-32-544:F "%USERNAME%":F >nul
+icacls "certificados\servidor.key" /inheritance:r /grant:r *S-1-5-18:F *S-1-5-32-544:F "%USERNAME%":F >nul
+
 echo.
 echo ==========================================================
 echo   LISTO. Falta un paso en CADA computadora y celular:

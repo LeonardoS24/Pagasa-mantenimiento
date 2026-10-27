@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { EVENTOS_ACCESO, EVENTOS_DE_RIESGO, type EventoAcceso } from "./registro-acceso";
-import { DURACION_MAXIMA_MS } from "./sesion-vigencia";
+import { DURACION_MAXIMA_MS, INACTIVIDAD_MS } from "./sesion-vigencia";
 
 // Consultas de la pestaña "Bitácora de acceso" (/admin/accesos) y de su
 // descarga en Excel. Los filtros llegan por la URL.
@@ -69,10 +69,14 @@ export async function getResumenAccesos() {
     prisma.registroAcceso.count({ where: { evento: "INICIO_SESION", createdAt: { gte: inicioDeHoy } } }),
     prisma.registroAcceso.count({ where: { evento: { in: EVENTOS_DE_RIESGO }, createdAt: { gte: hace24h } } }),
     prisma.user.findMany({ where: { bloqueadoHasta: { gt: new Date() } }, select: { id: true, username: true, bloqueadoHasta: true } }),
-    // Las de más de 12 h ya no sirven aunque la fila siga (se limpian al
-    // siguiente inicio de sesión).
+    // Vivas = menos de 12 h desde que iniciaron Y con actividad en los
+    // últimos 20 min. Las demás ya no sirven aunque la fila siga (navegador
+    // cerrado, inactividad); se limpian solas.
     prisma.sesionActiva.findMany({
-      where: { creadaEl: { gte: new Date(ahora - DURACION_MAXIMA_MS) } },
+      where: {
+        creadaEl: { gte: new Date(ahora - DURACION_MAXIMA_MS) },
+        ultimaActividad: { gte: new Date(ahora - INACTIVIDAD_MS) },
+      },
       include: { user: { select: { username: true, puesto: true } } },
       orderBy: { creadaEl: "desc" },
     }),

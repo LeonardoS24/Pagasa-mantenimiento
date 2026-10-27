@@ -94,6 +94,6 @@ export async function verificarCopia(rutaCopia: string): Promise<ResultadoVerifi
     return { integridad, conteos };
   } finally {
     await cliente.$disconnect();
-    await fs.rm(temporal, { force: true });
+    await fs.rm(temporal, { force: true }).catch(() => undefined);
   }
 }

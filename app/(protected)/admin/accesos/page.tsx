@@ -74,8 +74,8 @@ export default async function AccesosPage({ searchParams }: { searchParams: Reco
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h2 className="mb-1 text-sm font-semibold uppercase text-primary-bright">Sesiones abiertas</h2>
         <p className="mb-3 text-xs text-gray-500">
-          Las que siguen vigentes (hasta 12 h desde que se inició; se cierran antes con 20 min sin actividad o al cerrar el
-          navegador). Cerrar una saca a esa persona en su siguiente clic.
+          Las que tuvieron actividad en los últimos 20 minutos (después de eso se cierran solas). Cerrar una saca a esa
+          persona en su siguiente clic.
         </p>
         {resumen.sesiones.length === 0 ? (
           <p className="text-sm text-ink">No hay sesiones abiertas.</p>
@@ -86,6 +86,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Reco
                 <tr>
                   <th className="py-1 pr-3">Usuario</th>
                   <th className="py-1 pr-3">Inició</th>
+                  <th className="py-1 pr-3">Última actividad</th>
                   <th className="py-1 pr-3">Equipo (IP)</th>
                   <th className="py-1 pr-3">Navegador</th>
                   <th />
@@ -99,6 +100,7 @@ export default async function AccesosPage({ searchParams }: { searchParams: Reco
                       {s.id === session.sesionId && <span className="ml-1 text-xs text-gray-500">(esta)</span>}
                     </td>
                     <td className="py-1.5 pr-3">{fechaHora(s.creadaEl)}</td>
+                    <td className="py-1.5 pr-3">{s.ultimaActividad ? fechaHora(s.ultimaActividad) : "—"}</td>
                     <td className="py-1.5 pr-3 font-mono text-xs">{s.ip ?? "—"}</td>
                     <td className="py-1.5 pr-3 text-xs">{s.navegador ?? "—"}</td>
                     <td className="py-1.5 text-right">
