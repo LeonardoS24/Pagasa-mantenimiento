@@ -1,5 +1,6 @@
 "use client";
 
+import { VistoBuenoControl, VistoBuenoInsignia } from "./VistoBueno";
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { ValveCorrectiveMaintenanceLog, Document } from "@prisma/client";
@@ -139,6 +140,7 @@ export function ValveCorrectiveMaintenanceLogRow({
         </span>
         <span className="text-xs text-primary">{expanded ? "Ocultar" : "Ver detalle"}</span>
       </button>
+      <VistoBuenoInsignia entidad="valvulasCorrectivo" registroId={log.id} actualizadoEl={log.updatedAt} />
 
       {expanded && (
         <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 text-sm text-ink">
@@ -168,6 +170,7 @@ export function ValveCorrectiveMaintenanceLogRow({
                   valveCorrectiveMaintenanceLogId={log.id}
                 />
               )}
+              <VistoBuenoControl entidad="valvulasCorrectivo" registroId={log.id} creadoPorId={log.createdById} actualizadoEl={log.updatedAt} />
               <DocumentList documents={log.documents} isAdmin={isAdmin} />
             </div>
           </div>

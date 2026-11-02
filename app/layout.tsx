@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { RegistrarApp } from "@/components/layout/RegistrarApp";
 
 // Misma tipografía que grupopagasa.com.mx (Roboto), pero SIN next/font/google:
 // esa opción descarga la fuente desde Google al compilar y este equipo no
@@ -12,6 +13,16 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Sistema Integral de Mantenimiento — Pagasa",
   description: "Sistema interno de mantenimiento por ciudad y sede",
+  // Para "Agregar a pantalla de inicio" en el celular (ver app/manifest.ts).
+  appleWebApp: { capable: true, title: "Mantenimiento", statusBarStyle: "default" },
+  icons: { icon: "/logos/icono-192.png", apple: "/logos/apple-touch-icon.png" },
+};
+
+// Ancho del teléfono y barra del navegador con el azul del sistema.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#054095",
 };
 
 export default function RootLayout({
@@ -21,7 +32,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className="bg-gray-50 font-sans">{children}</body>
+      <body className="bg-gray-50 font-sans">
+        {children}
+        <RegistrarApp />
+      </body>
     </html>
   );
 }

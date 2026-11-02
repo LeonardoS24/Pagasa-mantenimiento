@@ -58,6 +58,7 @@ model User {
   registrosAcceso                RegistroAcceso[]
   mensajesEnviados               Mensaje[]
   lecturasCanal                  LecturaCanal[]
+  vistosBuenos                   VistoBueno[]
   documents                      Document[]
   maintenanceLogs                MaintenanceLog[]
   ultrasoundLogs                 UltrasoundLog[]
@@ -93,8 +94,8 @@ model City {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sections   Section[]
-  userAccess UserCityAccess[]
+  sections            Section[]
+  userAccess          UserCityAccess[]
   // Solo Transportadora Kino (ver ConjuntoTransporte).
   conjuntosTransporte ConjuntoTransporte[]
   lotesDocumentos     LoteDocumentos[]
@@ -125,6 +126,7 @@ model Section {
   updatedAt DateTime @updatedAt
 
   @@unique([cityId, parentId, slug])
+  @@index([parentId])
   @@map("sections")
 }
 
@@ -236,16 +238,18 @@ model VehicleRecord {
   createdById String?
   createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  insurancePolicyLogs      InsurancePolicyLog[]
-  complianceChecklistItems ComplianceChecklistItem[]
-  sealLogs                 SealLog[]
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  insurancePolicyLogs       InsurancePolicyLog[]
+  complianceChecklistItems  ComplianceChecklistItem[]
+  sealLogs                  SealLog[]
   // Transportadora Kino (ver ConjuntoTransporte): un tractocamión puede
   // encabezar varios conjuntos; un semirremolque está en uno solo a la vez.
-  conjuntosComoTractocamion ConjuntoTransporte[]    @relation("ConjuntoTractocamion")
+  conjuntosComoTractocamion ConjuntoTransporte[]      @relation("ConjuntoTractocamion")
   conjuntoSemirremolque     ConjuntoSemirremolque?
 
+  @@index([sectionId])
+  @@index([createdById])
   @@map("vehicle_records")
 }
 
@@ -466,9 +470,9 @@ model VehicleTechnicalSheet {
   fechaDictamenEstacion    DateTime?
 
   // Gobernador (limitador) de velocidad.
-  tieneGobernador    Boolean @default(false)
-  numeroGobernador   String?
-  empresaGobernador  String?
+  tieneGobernador   Boolean @default(false)
+  numeroGobernador  String?
+  empresaGobernador String?
 
   // Unidad(es) con las que se acopla: en un Tractocamión, sus
   // semirremolques; en un Semirremolque, su tractocamión (Transportadora
@@ -478,23 +482,23 @@ model VehicleTechnicalSheet {
 
   // Tractocamión (Transportadora Kino): datos de la ficha técnica que se
   // arma con la factura de compra. "potencia" ya existía arriba.
-  claveVehicular       String?
-  facturaNumero        String?
-  facturaFecha         String?
-  motorMarca           String?
-  motorModelo          String?
-  motorTorque          String?
-  numeroMotor          String?
-  transmisionMarca     String?
-  transmisionModelo    String?
+  claveVehicular         String?
+  facturaNumero          String?
+  facturaFecha           String?
+  motorMarca             String?
+  motorModelo            String?
+  motorTorque            String?
+  numeroMotor            String?
+  transmisionMarca       String?
+  transmisionModelo      String?
   transmisionVelocidades String?
-  numeroTransmision    String?
-  ejeDelantero         String?
-  ejesTraseros         String?
-  suspension           String?
-  cabina               String?
-  dormitorio           String?
-  quintaRueda          String?
+  numeroTransmision      String?
+  ejeDelantero           String?
+  ejesTraseros           String?
+  suspension             String?
+  cabina                 String?
+  dormitorio             String?
+  quintaRueda            String?
 
   // Semirremolque (Transportadora Kino): identificación ante Pemex/CRE y
   // datos del certificado de fabricación del recipiente que no tenían ya
@@ -692,6 +696,8 @@ model MaintenanceLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([createdById])
   @@map("maintenance_logs")
 }
 
@@ -754,6 +760,7 @@ model CustomFieldValue {
   updatedAt DateTime @updatedAt
 
   @@unique([fieldId, vehicleRecordId])
+  @@index([vehicleRecordId])
   @@map("custom_field_values")
 }
 
@@ -834,6 +841,9 @@ model UltrasoundLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([stationTankTechnicalSheetId])
+  @@index([createdById])
   @@map("ultrasound_logs")
 }
 
@@ -877,6 +887,9 @@ model VisualInspectionLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([stationTankTechnicalSheetId])
+  @@index([createdById])
   @@map("visual_inspection_logs")
 }
 
@@ -915,6 +928,9 @@ model TightnessTestLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([stationTankTechnicalSheetId])
+  @@index([createdById])
   @@map("tightness_test_logs")
 }
 
@@ -950,6 +966,9 @@ model InternalVisualInspectionLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([stationTankTechnicalSheetId])
+  @@index([createdById])
   @@map("internal_visual_inspection_logs")
 }
 
@@ -984,6 +1003,9 @@ model HydrostaticTestLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([stationTankTechnicalSheetId])
+  @@index([createdById])
   @@map("hydrostatic_test_logs")
 }
 
@@ -1016,6 +1038,8 @@ model InsurancePolicyLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([createdById])
   @@map("insurance_policy_logs")
 }
 
@@ -1049,6 +1073,9 @@ model SealLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([createdById])
+  @@index([deactivatedById])
   @@map("seal_logs")
 }
 
@@ -1077,6 +1104,7 @@ model ComplianceChecklistItem {
   updatedAt DateTime @updatedAt
 
   @@unique([vehicleRecordId, clave])
+  @@index([updatedById])
   @@map("compliance_checklist_items")
 }
 
@@ -1101,6 +1129,8 @@ model ExtinguisherChangeLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([createdById])
   @@map("extinguisher_change_logs")
 }
 
@@ -1127,6 +1157,8 @@ model ExtinguisherQualityChangeLog {
 
   createdAt DateTime @default(now())
 
+  @@index([vehicleRecordId])
+  @@index([createdById])
   @@map("extinguisher_quality_change_logs")
 }
 
@@ -1182,6 +1214,8 @@ model ValveChangeLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([createdById])
   @@map("valve_change_logs")
 }
 
@@ -1212,6 +1246,8 @@ model ValveCorrectiveMaintenanceLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([createdById])
   @@map("valve_corrective_maintenance_logs")
 }
 
@@ -1241,6 +1277,8 @@ model HoseChangeLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([vehicleRecordId])
+  @@index([createdById])
   @@map("hose_change_logs")
 }
 
@@ -1310,6 +1348,10 @@ model PieceOrder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([sectionId])
+  @@index([vehicleRecordId])
+  @@index([sustituyeEquipoId])
+  @@index([createdById])
   @@map("piece_orders")
 }
 
@@ -1366,6 +1408,13 @@ model InventoryItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([sectionId])
+  @@index([pieceOrderId])
+  @@index([usedOnVehicleId])
+  @@index([usedOnMaintenanceLogId])
+  @@index([usedOnValveChangeLogId])
+  @@index([usedOnValveCorrectiveMaintenanceLogId])
+  @@index([createdById])
   @@map("inventory_items")
 }
 
@@ -1463,6 +1512,10 @@ model Equipo {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([sectionId])
+  @@index([vehicleRecordId])
+  @@index([sustituidoPorId])
+  @@index([createdById])
   @@map("equipos")
 }
 
@@ -1496,6 +1549,8 @@ model EquipmentLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([equipoId])
+  @@index([createdById])
   @@map("equipment_logs")
 }
 
@@ -1571,6 +1626,22 @@ model Document {
 
   createdAt DateTime @default(now())
 
+  @@index([sectionId])
+  @@index([vehicleRecordId])
+  @@index([maintenanceLogId])
+  @@index([ultrasoundLogId])
+  @@index([visualInspectionLogId])
+  @@index([tightnessTestLogId])
+  @@index([internalVisualInspectionLogId])
+  @@index([hydrostaticTestLogId])
+  @@index([extinguisherChangeLogId])
+  @@index([insurancePolicyLogId])
+  @@index([valveChangeLogId])
+  @@index([valveCorrectiveMaintenanceLogId])
+  @@index([hoseChangeLogId])
+  @@index([equipoId])
+  @@index([equipmentLogId])
+  @@index([uploadedById])
   @@map("documents")
 }
 
@@ -1586,6 +1657,7 @@ model UserCityAccess {
   createdAt DateTime @default(now())
 
   @@unique([userId, cityId])
+  @@index([cityId])
   @@map("user_city_access")
 }
 
@@ -1610,6 +1682,7 @@ model ActivityLog {
 
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@map("activity_log")
 }
 
@@ -1638,6 +1711,8 @@ model ConjuntoTransporte {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([cityId])
+  @@index([tractocamionId])
   @@map("conjuntos_transporte")
 }
 
@@ -1654,6 +1729,7 @@ model ConjuntoSemirremolque {
 
   orden Int @default(0)
 
+  @@index([conjuntoId])
   @@map("conjunto_semirremolques")
 }
 
@@ -1696,6 +1772,7 @@ model LoteDocumentos {
   updatedAt DateTime @updatedAt
 
   @@index([cityId, createdAt])
+  @@index([createdById])
   @@map("lotes_documentos")
 }
 
@@ -1705,12 +1782,12 @@ model LoteDocumentos {
 // del catálogo base". Así, cuando una norma cambia (las de emergencia duran 6
 // meses), basta editar el plazo y la cita desde /admin/normas.
 model RequisitoNormativoAjuste {
-  clave      String   @id
-  plazoAnios Int?
-  norma      String?
-  numeral    String?
-  cita       String?
-  verificado Boolean?
+  clave          String   @id
+  plazoAnios     Int?
+  norma          String?
+  numeral        String?
+  cita           String?
+  verificado     Boolean?
   // Quién lo editó por última vez (nombre de usuario, se conserva aunque
   // después se elimine la cuenta).
   actualizadoPor String?
@@ -1726,14 +1803,14 @@ model RequisitoNormativoAjuste {
 model ConfiguracionReportes {
   id String @id @default("unico")
 
-  activo        Boolean @default(false)
+  activo           Boolean @default(false)
   // Correos separados por coma, punto y coma o salto de línea.
-  destinatarios String  @default("")
+  destinatarios    String  @default("")
   // 0 = domingo ... 6 = sábado (igual que Date.getDay()); hora local del servidor.
-  diaSemana        Int @default(1)
-  hora             Int @default(7)
+  diaSemana        Int     @default(1)
+  hora             Int     @default(7)
   // Además de los vencidos, lo que vence dentro de estos días.
-  diasAnticipacion Int @default(30)
+  diasAnticipacion Int     @default(30)
 
   smtpHost         String?
   smtpPuerto       Int     @default(465)
@@ -1782,14 +1859,14 @@ model AjusteSistema {
 // haya copiado su valor. Es la única tabla de este tipo con Cascade: no
 // guarda historial de negocio, solo sesiones.
 model SesionActiva {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  creadaEl  DateTime @default(now())
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creadaEl        DateTime  @default(now())
   // De dónde se inició, para la lista de sesiones abiertas en
   // /admin/accesos.
-  ip        String?
-  navegador String?
+  ip              String?
+  navegador       String?
   // Último latido del navegador (/api/sesion/ping, solo mientras la persona
   // usa la pantalla): con esto "Sesiones abiertas" muestra las que de verdad
   // siguen vivas y no las de un navegador que se cerró.
@@ -1805,18 +1882,18 @@ model SesionActiva {
 // negocio. `username` se guarda como texto: en un intento fallido puede ser
 // un usuario que no existe, y si la cuenta se elimina el registro se queda.
 model RegistroAcceso {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  evento    String
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  username  String
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  evento        String
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username      String
   // Quién hizo el cambio cuando no es la propia persona (el ADMIN que
   // restableció la contraseña, cambió el rol, etc.).
   actorUsername String?
-  ip        String?
-  navegador String?
-  detalle   String?
+  ip            String?
+  navegador     String?
+  detalle       String?
 
   @@index([createdAt])
   @@index([userId, createdAt])
@@ -1837,6 +1914,7 @@ model Mensaje {
   createdAt  DateTime @default(now())
 
   @@index([canal, createdAt])
+  @@index([deUserId])
 }
 
 // Hasta dónde leyó cada persona cada conversación (para los no leídos).
@@ -1847,4 +1925,29 @@ model LecturaCanal {
   leidoHasta DateTime
 
   @@id([userId, canal])
+  @@index([userId])
+}
+
+// Visto bueno de un supervisor a un registro de bitácora (mantenimiento,
+// pruebas, cambios de válvulas, mangueras, extintor): quién lo revisó y
+// cuándo. Ver lib/visto-bueno.ts. Genérica (entidad + id del registro) para
+// no agregar columnas a diez tablas; uno por registro. Quien capturó el
+// registro no puede darle visto bueno (regla de cuatro ojos).
+model VistoBueno {
+  id                    String    @id @default(cuid())
+  entidad               String
+  registroId            String
+  vehicleRecordId       String
+  userId                String?
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username              String
+  comentario            String?
+  // Última modificación del registro cuando se aprobó: si después alguien lo
+  // edita, el visto bueno deja de valer y se ve como "modificado después".
+  registroActualizadoEl DateTime?
+  createdAt             DateTime  @default(now())
+
+  @@unique([entidad, registroId])
+  @@index([vehicleRecordId])
+  @@index([userId])
 }

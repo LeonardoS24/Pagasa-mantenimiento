@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { LoginAlertToasts } from "@/components/layout/LoginAlertToasts";
 import { InactividadGuard } from "@/components/layout/InactividadGuard";
 import { MenuMovilProvider } from "@/components/layout/MenuMovil";
+import { ReductorDeFotos } from "@/components/layout/ReductorDeFotos";
 
 export default async function ProtectedLayout({
   children,
@@ -21,6 +22,7 @@ export default async function ProtectedLayout({
     <div className="flex h-screen flex-col print:block print:h-auto">
       <LoginAlertToasts />
       <InactividadGuard />
+      <ReductorDeFotos />
       <Header user={user} />
       <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
         <Sidebar cities={cities} isAdmin={user.role === "ADMIN"} />

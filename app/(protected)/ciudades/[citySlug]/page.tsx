@@ -118,6 +118,26 @@ export default async function CityPage({
           Calendario de vencimientos
         </Link>
         <Link
+          href={`/ciudades/${city.slug}/expediente`}
+          className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 3h7l5 5v13H7z" />
+            <path d="M14 3v5h5M10 13l2 2 4-4" />
+          </svg>
+          Expediente de cumplimiento
+        </Link>
+        <Link
+          href={`/ciudades/${city.slug}/programa-anual`}
+          className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4M7 14h2M11 14h2M15 14h2M7 17h2M11 17h2" />
+          </svg>
+          Programa anual
+        </Link>
+        <Link
           href={`/ciudades/${city.slug}/etiquetas-qr`}
           className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
         >

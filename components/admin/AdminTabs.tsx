@@ -11,6 +11,7 @@ const TABS = [
   { href: "/admin/reportes", label: "Reportes por correo" },
   { href: "/admin/piezas", label: "Piezas y refacciones" },
   { href: "/admin/campos", label: "Recuadros de fichas" },
+  { href: "/admin/estado", label: "Estado del servidor" },
   { href: "/admin/respaldos", label: "Respaldos" },
   { href: "/admin/actividad", label: "Actividad del sistema" },
   { href: "/admin/accesos", label: "Bitácora de acceso" },

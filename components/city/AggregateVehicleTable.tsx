@@ -6,10 +6,10 @@ import { VehicleEstatusControl } from "./VehicleEstatusControl";
 function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEstacion: boolean }) {
   return (
     <tr
-      className={`relative border-t border-gray-100 hover:bg-gray-50 ${!record.activo ? "bg-orange-50" : ""}`}
+      className={`relative flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 px-3 py-2.5 hover:bg-gray-50 sm:table-row sm:p-0 ${!record.activo ? "bg-orange-50" : ""}`}
       title={!record.activo && record.motivoBaja ? `Motivo de la baja: ${record.motivoBaja}` : undefined}
     >
-      <td className="whitespace-nowrap px-2 py-2">
+      <td className="order-first whitespace-nowrap sm:px-2 sm:py-2">
         {record.semaforoLevel !== "none" && (
           <span
             className={`inline-block h-3 w-3 rounded-full ${semaforoDotStyles[record.semaforoLevel]}`}
@@ -17,7 +17,7 @@ function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEst
           />
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-2 font-medium text-primary">
+      <td className="basis-[85%] font-medium text-primary sm:basis-auto sm:whitespace-nowrap sm:px-4 sm:py-2">
         {/* Estira el link a toda la fila (no solo esta celda), mismo
             truco que VehicleTable.tsx. */}
         <Link
@@ -33,20 +33,20 @@ function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEst
           {record.numeroEconomico}
         </Link>
       </td>
-      <td className="whitespace-nowrap px-4 py-2 text-ink">{record.cityName}</td>
+      <td data-etiqueta="Ciudad:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.cityName}</td>
       {isEstacion ? (
         <>
-          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.permisionaria || "—"}</td>
-          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.permiso || "—"}</td>
-          <td className="max-w-xs whitespace-pre-wrap px-4 py-2 text-ink">{record.sucursal || "—"}</td>
+          <td data-etiqueta="Permisionaria:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.permisionaria || "—"}</td>
+          <td data-etiqueta="Permiso:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.permiso || "—"}</td>
+          <td data-etiqueta="Dirección:" className="w-full whitespace-pre-wrap text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:w-auto sm:max-w-xs sm:px-4 sm:py-2">{record.sucursal || "—"}</td>
         </>
       ) : (
         <>
-          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
-          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
-          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
-          <td className="whitespace-nowrap px-4 py-2 text-ink">{record.serie || "—"}</td>
-          <td className="relative z-10 whitespace-nowrap px-4 py-2">
+          <td data-etiqueta="Marca:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.sucursal}</td>
+          <td data-etiqueta="Año:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.anio}</td>
+          <td data-etiqueta="Placas:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.placas}</td>
+          <td data-etiqueta="Serie:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.serie || "—"}</td>
+          <td className="relative z-10 sm:whitespace-nowrap sm:px-4 sm:py-2">
             <VehicleEstatusControl vehicleId={record.id} estatus={record.estatus} activo={record.activo} />
           </td>
         </>
@@ -57,7 +57,7 @@ function VehicleRow({ record, isEstacion }: { record: AggregateVehicleRow; isEst
 
 function VehicleTableHead({ isEstacion }: { isEstacion: boolean }) {
   return (
-    <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+    <thead className="hidden bg-gray-50 text-xs font-semibold uppercase text-gray-500 sm:table-header-group">
       <tr>
         <th className="whitespace-nowrap px-2 py-2" title="Semáforo de vencimientos próximos" aria-label="Semáforo">
           <span className="sr-only">Estado</span>
@@ -117,10 +117,10 @@ export function AggregateVehicleTable({
   return (
     <div className="space-y-6">
       {activos.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="rounded-lg border border-gray-200 bg-white sm:overflow-x-auto">
+          <table className="block w-full text-left text-sm sm:table">
             <VehicleTableHead isEstacion={isEstacion} />
-            <tbody>
+            <tbody className="block sm:table-row-group">
               {activos.map((record) => (
                 <VehicleRow key={record.id} record={record} isEstacion={isEstacion} />
               ))}
@@ -138,10 +138,10 @@ export function AggregateVehicleTable({
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
             Dadas de baja
           </h3>
-          <div className="overflow-x-auto rounded-lg border border-orange-200 bg-white">
-            <table className="w-full text-left text-sm">
+          <div className="rounded-lg border border-orange-200 bg-white sm:overflow-x-auto">
+            <table className="block w-full text-left text-sm sm:table">
               <VehicleTableHead isEstacion={isEstacion} />
-              <tbody>
+              <tbody className="block sm:table-row-group">
                 {inactivos.map((record) => (
                   <VehicleRow key={record.id} record={record} isEstacion={isEstacion} />
                 ))}

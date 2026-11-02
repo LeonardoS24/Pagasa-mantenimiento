@@ -98,9 +98,11 @@ export function VehicleTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+    // En celular cada renglón se vuelve tarjeta (sin deslizar de lado) y cada
+    // dato lleva su etiqueta (data-etiqueta); desde sm es la tabla de siempre.
+    <div className="rounded-lg border border-gray-200 bg-white sm:overflow-x-auto">
+      <table className="block w-full text-left text-sm sm:table">
+        <thead className="hidden bg-gray-50 text-xs font-semibold uppercase text-gray-500 sm:table-header-group">
           <tr>
             <th className="whitespace-nowrap px-2 py-2" title="Semáforo de vencimientos próximos" aria-label="Semáforo">
               <span className="sr-only">Estado</span>
@@ -124,7 +126,7 @@ export function VehicleTable({
             )}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="block sm:table-row-group">
           {records.map((record, index) => {
             const isFirstInactive = !record.activo && (index === 0 || records[index - 1].activo);
             const alertLevel = record.activo && isAlertVisibleForSection("ultrasonido", sectionSlug)
@@ -186,8 +188,8 @@ export function VehicleTable({
             return (
               <Fragment key={record.id}>
                 {isFirstInactive && (
-                  <tr aria-hidden="true">
-                    <td colSpan={isEstacion ? 5 : 8} className="bg-gray-100 px-4 py-3 border-t-4 border-gray-200">
+                  <tr aria-hidden="true" className="block sm:table-row">
+                    <td colSpan={isEstacion ? 5 : 8} className="block bg-gray-100 px-4 py-3 border-t-4 border-gray-200 sm:table-cell">
                       <span className="text-xs font-semibold uppercase text-gray-500">
                         Dadas de baja
                       </span>
@@ -195,7 +197,7 @@ export function VehicleTable({
                   </tr>
                 )}
                 <tr
-                className={`relative border-t border-gray-100 hover:bg-gray-50 ${
+                className={`relative flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 px-3 py-2.5 hover:bg-gray-50 sm:table-row sm:p-0 ${
                   !record.activo
                     ? "bg-orange-50"
                     : worstRowStyle(
@@ -211,7 +213,7 @@ export function VehicleTable({
                       )
                 }`}
               >
-                <td className="whitespace-nowrap px-2 py-2">
+                <td className="order-first whitespace-nowrap sm:px-2 sm:py-2">
                   {semaforoLevel !== "none" && (
                     <span
                       className={`inline-block h-3 w-3 rounded-full ${semaforoDotStyles[semaforoLevel]}`}
@@ -219,7 +221,7 @@ export function VehicleTable({
                     />
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 font-medium text-primary">
+                <td className="basis-[85%] font-medium text-primary sm:basis-auto sm:whitespace-nowrap sm:px-4 sm:py-2">
                   {/* Estira el link a toda la fila (no solo esta celda): "tr" es
                       "relative" y este link "absolute inset-0" toma su tamaño
                       completo. El link visible de abajo sigue ahí para que el
@@ -339,17 +341,17 @@ export function VehicleTable({
                 </td>
                 {isEstacion ? (
                   <>
-                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.permisionaria || "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.permiso || "—"}</td>
-                    <td className="max-w-xs whitespace-pre-wrap px-4 py-2 text-ink">{record.sucursal || "—"}</td>
+                    <td data-etiqueta="Permisionaria:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.permisionaria || "—"}</td>
+                    <td data-etiqueta="Permiso:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.permiso || "—"}</td>
+                    <td data-etiqueta="Dirección:" className="w-full whitespace-pre-wrap text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:w-auto sm:max-w-xs sm:px-4 sm:py-2">{record.sucursal || "—"}</td>
                   </>
                 ) : (
                   <>
-                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
-                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.anio}</td>
-                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
-                    <td className="whitespace-nowrap px-4 py-2 text-ink">{record.technicalSheet?.serie || "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-2">
+                    <td data-etiqueta="Marca:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.sucursal}</td>
+                    <td data-etiqueta="Año:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.anio}</td>
+                    <td data-etiqueta="Placas:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.placas}</td>
+                    <td data-etiqueta="Serie:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.technicalSheet?.serie || "—"}</td>
+                    <td className="sm:whitespace-nowrap sm:px-4 sm:py-2">
                       {calidadEfectiva && (
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${calidadMantenimientoStyles[calidadEfectiva]}`}
@@ -358,7 +360,7 @@ export function VehicleTable({
                         </span>
                       )}
                     </td>
-                    <td className="relative z-10 whitespace-nowrap px-4 py-2">
+                    <td className="relative z-10 sm:whitespace-nowrap sm:px-4 sm:py-2">
                       <VehicleEstatusControl vehicleId={record.id} estatus={record.estatus} activo={record.activo} />
                     </td>
                   </>

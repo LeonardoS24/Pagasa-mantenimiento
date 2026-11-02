@@ -7,7 +7,9 @@ export const config = {
   // sesion-invalida queda fuera: es la ruta que borra una cookie cuya cuenta
   // ya no existe, y el middleware (que solo mira la cookie) la daría por
   // válida y la dejaría pasar igual, o la desviaría antes de poder limpiarla.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|logos/|login|sesion-invalida).*)"],
+  // manifest, sw.js y sin-conexion.html también: el celular los pide antes de
+  // iniciar sesión para poder instalar el sistema como app.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|logos/|login|sesion-invalida|manifest.webmanifest|sw.js|sin-conexion.html).*)"],
 };
 
 // El middleware solo ve la cookie (no hay Prisma en el edge): aquí se corta lo
