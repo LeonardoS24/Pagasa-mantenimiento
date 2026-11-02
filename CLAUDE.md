@@ -707,6 +707,18 @@ actualización de la ficha. No duplicar esa lógica.
   mangueras solo en carburación, extintor solo donde no hay gemelo (reparto, no su
   copia en carburación). **No es todo o nada**: cada unidad se guarda aparte y se
   devuelve qué pasó con cada una; las que fallan se quedan elegidas para reintentar.
+- **Lo que es distinto en cada unidad** (`CAMPOS_POR_UNIDAD` en
+  `lib/registro-lote.ts`): el número de ultrasonido / inspección / prueba, el
+  kilometraje del mantenimiento y la fecha de fabricación de la manguera NO van
+  «igual para todas»: la pantalla pone una columna por unidad (Enter pasa a la
+  siguiente, se puede pegar una columna de Excel y hay «numerar en serie»). En
+  ultrasonido, visuales, hermeticidad e hidrostática el **número es obligatorio en
+  el lote y en el Excel** (`camposObligatoriosEnLote`; el formulario de la ficha lo
+  deja opcional) y **no se puede repetir** entre unidades del mismo envío o del
+  mismo Excel (`numerosRepetidos`, sin importar mayúsculas/espacios/guiones). Antes
+  de confirmar, `revisarNumerosEnLote` avisa (sin bloquear) si el número ya está
+  en la bitácora de otra unidad. Extintor y póliza siguen siendo «igual para todas»
+  (una póliza suele cubrir varias unidades).
 - **`/ciudades/[c]/registros-desde-excel`**: plantilla
   (`/api/ciudades/[c]/plantilla-registros`) con una hoja por tipo y las unidades de
   la ciudad ya puestas («KG-158 · Auto-Tanques · Mexicali»); se llena solo lo que

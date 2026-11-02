@@ -8,7 +8,7 @@ import { verifySessionPassword } from "@/lib/reauth";
 import { logActivity } from "@/lib/activity-log";
 import { idsDeTrabajo } from "@/lib/ciudades-de-trabajo";
 import { CAMPOS_POR_TIPO, itemLoteNuevo, tipoLoteLabel, type CampoItem, type TipoLote } from "@/lib/lote-documentos";
-import { aplicaEnLote, esTipoEnLote } from "@/lib/registro-lote";
+import { aplicaEnLote, camposObligatoriosEnLote, claveDeNumero, esTipoEnLote, numeroObligatorioEnLote, numerosRepetidos } from "@/lib/registro-lote";
 import { formularioDeBitacora, guardarEnBitacora } from "@/lib/bitacora-formulario";
 import { MAX_FILAS_EXCEL, type FilaRegistro } from "@/lib/registros-excel";
 import { previsualizarRegistros, type PrevisualizacionRegistros } from "@/lib/registros-excel-servidor";
@@ -59,6 +59,11 @@ async function guardarFilas(
   const defs = CAMPOS_POR_TIPO[tipo];
   const etiqueta = tipoLoteLabel[tipo];
 
+  const obligatorios = new Set<CampoItem>(camposObligatoriosEnLote(tipo));
+
+  // Primero se arma lo que llevaría cada unidad, para poder avisar de los
+  // números repetidos en el mismo envío antes de guardar nada.
+  const armadas: { unidad: NonNullable<ReturnType<typeof porId.get>>; valores: Partial<Record<CampoItem, string | null>>; faltan: string[] }[] = [];
   const resultados: ResultadoUnidad[] = [];
   const vistos = new Set<string>();
   for (const fila of filas) {
@@ -82,10 +87,35 @@ async function guardarFilas(
       const comun = String(comunes?.[def.campo] ?? "").trim();
       const valor = propio || comun;
       valores[def.campo] = valor || null;
-      if (def.requerido && !valor) faltan.push(def.etiqueta);
+      if (obligatorios.has(def.campo) && !valor) faltan.push(def.etiqueta);
     }
+    armadas.push({ unidad, valores, faltan });
+  }
+
+  // Cada unidad trae su propio número: dos con el mismo casi siempre es un
+  // error de captura, así que ninguna de las dos se guarda hasta corregirlo.
+  const repetidos = new Map<string, { numero: string; unidades: string[] }>();
+  if (numeroObligatorioEnLote(tipo)) {
+    for (const g of numerosRepetidos(armadas.map((a) => ({ unidad: a.unidad.numeroEconomico, numero: a.valores.numero ?? "" })))) {
+      repetidos.set(claveDeNumero(g.numero), g);
+    }
+  }
+
+  for (const { unidad, valores, faltan } of armadas) {
     if (faltan.length > 0) {
       resultados.push({ vehicleId: unidad.id, nombre: unidad.numeroEconomico, ok: false, mensaje: `Falta: ${faltan.join(", ")}.`, tipo });
+      continue;
+    }
+    const repetido = repetidos.get(claveDeNumero(valores.numero ?? ""));
+    if (repetido) {
+      const otras = repetido.unidades.filter((u) => u !== unidad.numeroEconomico).join(", ");
+      resultados.push({
+        vehicleId: unidad.id,
+        nombre: unidad.numeroEconomico,
+        ok: false,
+        mensaje: `El número «${repetido.numero}» también se puso en ${otras}. Cada unidad lleva el suyo.`,
+        tipo,
+      });
       continue;
     }
 
@@ -151,6 +181,70 @@ export async function registrarEnLote(citySlug: string, entrada: EntradaRegistro
   await anotarActividad(editor, city, entrada.tipo, resultados, "Registro en lote");
   refrescar(city.slug);
   return { resultados };
+}
+
+export type NumeroYaUsado = { vehicleId: string; numero: string; usadoEn: string };
+
+// Antes de confirmar: ¿alguno de estos números ya está en la bitácora de otra
+// unidad (o de la misma)? Solo avisa, no bloquea: puede ser una corrección
+// a propósito. Solo mira unidades de las ciudades del usuario.
+export async function revisarNumerosEnLote(
+  citySlug: string,
+  tipo: string,
+  filas: { vehicleId: string; numero: string }[]
+): Promise<{ error?: string; avisos: NumeroYaUsado[] }> {
+  const editor = await requireEditor();
+  if (!esTipoEnLote(tipo) || !numeroObligatorioEnLote(tipo)) return { avisos: [] };
+  if (!Array.isArray(filas) || filas.length > MAX_UNIDADES) return { error: "Son demasiadas unidades.", avisos: [] };
+  const city = await assertCityAccess(editor, citySlug);
+  const ids = await idsDeTrabajo(editor, city);
+
+  const numeros = Array.from(new Set(filas.map((f) => String(f.numero ?? "").trim()).filter(Boolean)));
+  if (numeros.length === 0) return { avisos: [] };
+
+  // Se traen los números de la ciudad y se comparan aquí sin importar
+  // mayúsculas, espacios ni guiones («US-12» = «us 12»): la base solo
+  // compara exacto y las tablas son chicas.
+  const seleccion = {
+    fechaRealizacion: true,
+    vehicleRecord: { select: { numeroEconomico: true, section: { select: { cityId: true } } } },
+  } as const;
+  const dondeUnidad = { vehicleRecord: { section: { cityId: { in: ids } } } };
+  let hallados: { numero: string | null; fechaRealizacion: Date; vehicleRecord: { numeroEconomico: string } }[] = [];
+  switch (tipo) {
+    case "ULTRASONIDO":
+      hallados = (await prisma.ultrasoundLog.findMany({ where: { numeroUltrasonido: { not: null }, ...dondeUnidad }, select: { numeroUltrasonido: true, ...seleccion } })).map((r) => ({ ...r, numero: r.numeroUltrasonido }));
+      break;
+    case "VISUAL_EXTERNA":
+      hallados = (await prisma.visualInspectionLog.findMany({ where: { numeroInspeccion: { not: null }, ...dondeUnidad }, select: { numeroInspeccion: true, ...seleccion } })).map((r) => ({ ...r, numero: r.numeroInspeccion }));
+      break;
+    case "VISUAL_INTERNA":
+      hallados = (await prisma.internalVisualInspectionLog.findMany({ where: { numeroInspeccion: { not: null }, ...dondeUnidad }, select: { numeroInspeccion: true, ...seleccion } })).map((r) => ({ ...r, numero: r.numeroInspeccion }));
+      break;
+    case "HERMETICIDAD":
+      hallados = (await prisma.tightnessTestLog.findMany({ where: { numeroPrueba: { not: null }, ...dondeUnidad }, select: { numeroPrueba: true, ...seleccion } })).map((r) => ({ ...r, numero: r.numeroPrueba }));
+      break;
+    case "HIDROSTATICA":
+      hallados = (await prisma.hydrostaticTestLog.findMany({ where: { numeroPrueba: { not: null }, ...dondeUnidad }, select: { numeroPrueba: true, ...seleccion } })).map((r) => ({ ...r, numero: r.numeroPrueba }));
+      break;
+    default:
+      return { avisos: [] };
+  }
+
+  const dmy = (d: Date) => d.toISOString().slice(0, 10).split("-").reverse().join("/");
+  const avisos: NumeroYaUsado[] = [];
+  for (const f of filas) {
+    const n = String(f.numero ?? "").trim();
+    if (!n) continue;
+    const previos = hallados.filter((h) => h.numero !== null && claveDeNumero(h.numero) === claveDeNumero(n));
+    if (previos.length === 0) continue;
+    avisos.push({
+      vehicleId: f.vehicleId,
+      numero: n,
+      usadoEn: previos.map((p) => `${p.vehicleRecord.numeroEconomico} (${dmy(p.fechaRealizacion)})`).join(", "),
+    });
+  }
+  return { avisos };
 }
 
 // ── Registros nuevos desde Excel ─────────────────────────────────────────

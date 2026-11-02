@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { XLSX, escribirLibro, hojaConFormato } from "./excel-formato";
 import { CAMPOS_POR_TIPO, type TipoLote } from "./lote-documentos";
-import { aplicaEnLote, TIPOS_EN_LOTE } from "./registro-lote";
+import { aplicaEnLote, camposObligatoriosEnLote, etiquetaDeCampo, TIPOS_EN_LOTE } from "./registro-lote";
 import { etiquetasDeUnidades, normalizar } from "./almacen";
 import {
   COL_UNIDAD,
@@ -52,6 +52,7 @@ const INSTRUCCIONES = [
   ["5. Donde hay opciones, escribe una de las que aparecen abajo."],
   ["6. Súbela en «Registros desde Excel»: el sistema te muestra cada registro, te pide tu contraseña y no guarda nada hasta que lo confirmes."],
   ["7. Esto CREA registros nuevos (lo anterior queda como historial). Si subes el mismo archivo dos veces, se duplican: cuando termines, descarga una plantilla nueva."],
+  ["8. En ultrasonido, inspecciones y pruebas, cada unidad trae el número de su propio dictamen: es obligatorio y no se puede repetir entre renglones de la misma hoja."],
   [""],
 ];
 
@@ -61,7 +62,7 @@ export async function armarPlantillaRegistros(cityIds: string[]): Promise<Buffer
 
   const instrucciones = [...INSTRUCCIONES];
   for (const tipo of TIPOS_EN_LOTE) {
-    const obligatorias = CAMPOS_POR_TIPO[tipo].filter((d) => d.requerido).map((d) => d.etiqueta);
+    const obligatorias = camposObligatoriosEnLote(tipo).map((c) => etiquetaDeCampo(tipo, c));
     instrucciones.push([`${HOJA_DE_TIPO[tipo]} → obligatorias: ${obligatorias.join(", ")}`]);
     for (const def of CAMPOS_POR_TIPO[tipo]) {
       if (def.control === "opciones" && def.opciones) {

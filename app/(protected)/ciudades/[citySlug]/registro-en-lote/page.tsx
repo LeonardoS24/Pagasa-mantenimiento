@@ -4,8 +4,8 @@ import { assertCityAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { idsDeTrabajo } from "@/lib/ciudades-de-trabajo";
 import { canEdit } from "@/lib/roles";
-import { tipoLoteLabel } from "@/lib/lote-documentos";
-import { TIPOS_EN_LOTE, aplicaEnLote, esTipoEnLote } from "@/lib/registro-lote";
+import { CAMPOS_POR_TIPO, tipoLoteLabel } from "@/lib/lote-documentos";
+import { TIPOS_EN_LOTE, aplicaEnLote, camposPorUnidad, esTipoEnLote } from "@/lib/registro-lote";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { RegistroEnLote } from "@/components/registro-lote/RegistroEnLote";
 
@@ -74,11 +74,26 @@ export default async function RegistroEnLotePage({
         </p>
       ) : !tipo ? null : (
         <>
-          <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
-            <li>Llena una sola vez los datos que se repiten (los marcados con * son obligatorios).</li>
-            <li>Elige las unidades. Si a alguna le toca un dato distinto, ábrela con «Ajustar» y ponlo ahí.</li>
-            <li>Revisa lo que se guardará en cada unidad, escribe tu contraseña y confirma.</li>
-          </ol>
+          {camposPorUnidad(tipo).length > 0 ? (
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
+              <li>Llena una sola vez los datos que se repiten, como la compañía y la fecha (los marcados con * son obligatorios).</li>
+              <li>
+                Elige las unidades y escribe en el renglón de cada una lo que es distinto:{" "}
+                {CAMPOS_POR_TIPO[tipo]
+                  .filter((d) => camposPorUnidad(tipo).includes(d.campo))
+                  .map((d) => d.etiqueta.toLowerCase())
+                  .join(", ")}
+                . Enter pasa a la siguiente unidad.
+              </li>
+              <li>Revisa lo que se guardará en cada unidad, escribe tu contraseña y confirma.</li>
+            </ol>
+          ) : (
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
+              <li>Llena una sola vez los datos que se repiten (los marcados con * son obligatorios).</li>
+              <li>Elige las unidades. Si a alguna le toca un dato distinto, ábrela con «Ajustar» y ponlo ahí.</li>
+              <li>Revisa lo que se guardará en cada unidad, escribe tu contraseña y confirma.</li>
+            </ol>
+          )}
           <RegistroEnLote key={tipo} citySlug={city.slug} tipo={tipo} unidades={unidades} />
         </>
       )}

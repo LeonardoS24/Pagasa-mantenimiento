@@ -113,3 +113,25 @@ test("mantenimiento: kilometraje como número y estatus por su nombre", () => {
   celdas[1][1] = "Mensual";
   assert.ok(leerHojaRegistros("MANTENIMIENTO", "Mantenimiento", celdas, resolver).problemas[0].mensaje.includes("opción válida"));
 });
+
+test("excel de registros: el número de ultrasonido es obligatorio y no se repite entre unidades", () => {
+  const otra: UnidadResuelta = { id: "u9", nombre: "KG-159", slug: "auto-tanques" };
+  const res = (t: string) => (t.trim().toLowerCase().startsWith("kg-159") ? otra : resolver(t));
+  const enc = ["Unidad", "Compañía", "Número de ultrasonido", "Responsable", "Última fecha de ultrasonido", "Fecha de realización"];
+  const sinNumero = leerHojaRegistros("ULTRASONIDO", "Ultrasonido", [enc, ["KG-158 · Auto-Tanques · Hermosillo", null, null, null, null, "05/03/2026"]], res);
+  assert.equal(sinNumero.filas.length, 0);
+  assert.ok(sinNumero.problemas[0].mensaje.includes("Número de ultrasonido"));
+
+  const dos = leerHojaRegistros(
+    "ULTRASONIDO",
+    "Ultrasonido",
+    [
+      enc,
+      ["KG-158 · Auto-Tanques · Hermosillo", null, "US-12", null, null, "05/03/2026"],
+      ["KG-159 · Auto-Tanques · Hermosillo", null, "us 12", null, null, "05/03/2026"],
+    ],
+    res
+  );
+  assert.equal(dos.filas.length, 1);
+  assert.ok(dos.problemas[0].mensaje.includes("Cada unidad lleva el suyo"));
+});

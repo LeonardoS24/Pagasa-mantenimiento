@@ -1,5 +1,5 @@
 import { CAMPOS_POR_TIPO, type CampoItem, type DefCampo, type TipoLote } from "@/lib/lote-documentos";
-import { aplicaEnLote } from "@/lib/registro-lote";
+import { aplicaEnLote, camposObligatoriosEnLote, claveDeNumero, numeroObligatorioEnLote } from "@/lib/registro-lote";
 import { leerFecha } from "@/lib/carga-fechas";
 import { normalizar } from "@/lib/almacen";
 
@@ -91,14 +91,18 @@ export function leerHojaRegistros(
     problemas.push({ hoja, fila: 1, mensaje: `Falta la columna «${COL_UNIDAD}». Usa la plantilla que se descarga de esta pantalla.` });
     return { filas, problemas };
   }
-  const columnas = defs.map((d) => ({ def: d, i: encabezado.indexOf(normalizar(d.etiqueta)) }));
-  const sinColumna = columnas.filter((c) => c.i < 0 && c.def.requerido);
+  // En las pruebas e inspecciones el número de cada dictamen también es
+  // obligatorio aquí (cada unidad trae el suyo).
+  const obligatorios = new Set<CampoItem>(camposObligatoriosEnLote(tipo));
+  const columnas = defs.map((d) => ({ def: d, i: encabezado.indexOf(normalizar(d.etiqueta)), obligatorio: obligatorios.has(d.campo) }));
+  const sinColumna = columnas.filter((c) => c.i < 0 && c.obligatorio);
   if (sinColumna.length > 0) {
     problemas.push({ hoja, fila: 1, mensaje: `Faltan columnas obligatorias: ${sinColumna.map((c) => `«${c.def.etiqueta}»`).join(", ")}.` });
     return { filas, problemas };
   }
 
   const vistos = new Set<string>();
+  const numerosVistos = new Map<string, { fila: number; unidad: string }>();
   celdas.slice(1).forEach((fila, k) => {
     const numero = k + 2; // la 1 es el encabezado
     if (!Array.isArray(fila)) return;
@@ -127,14 +131,26 @@ export function leerHojaRegistros(
       if ("error" in r) errores.push(r.error);
       else if (r.valor) valores[def.campo] = r.valor;
     }
-    for (const { def } of columnas) {
-      if (def.requerido && !valores[def.campo] && !errores.some((e) => e.startsWith(`«${def.etiqueta}»`))) {
+    for (const { def, obligatorio } of columnas) {
+      if (obligatorio && !valores[def.campo] && !errores.some((e) => e.startsWith(`«${def.etiqueta}»`))) {
         errores.push(`falta «${def.etiqueta}»`);
       }
     }
     if (errores.length > 0) {
       problemas.push({ hoja, fila: numero, mensaje: `${unidad.nombre}: ${errores.join("; ")}.` });
       return;
+    }
+
+    // Cada unidad trae su propio número: el mismo en otro renglón de la hoja
+    // casi siempre es un error de copiar y pegar.
+    if (numeroObligatorioEnLote(tipo) && valores.numero) {
+      const clave = claveDeNumero(valores.numero);
+      const previo = numerosVistos.get(clave);
+      if (previo) {
+        problemas.push({ hoja, fila: numero, mensaje: `${unidad.nombre}: el número «${valores.numero}» ya está en el renglón ${previo.fila} (${previo.unidad}). Cada unidad lleva el suyo; se omitió.` });
+        return;
+      }
+      numerosVistos.set(clave, { fila: numero, unidad: unidad.nombre });
     }
 
     // Dos renglones iguales en el mismo archivo casi siempre son un error de
