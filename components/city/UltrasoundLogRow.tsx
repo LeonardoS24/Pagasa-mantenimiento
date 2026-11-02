@@ -1,5 +1,6 @@
 "use client";
 
+import { VistoBuenoControl, VistoBuenoInsignia } from "./VistoBueno";
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { UltrasoundLog, Document } from "@prisma/client";
@@ -141,6 +142,7 @@ export function UltrasoundLogRow({
         </span>
         <span className="text-xs text-primary">{expanded ? "Ocultar" : "Ver detalle"}</span>
       </button>
+      <VistoBuenoInsignia entidad="ultrasonido" registroId={log.id} />
 
       {expanded && (
         <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 text-sm text-ink">
@@ -164,6 +166,7 @@ export function UltrasoundLogRow({
             </p>
             <div className="space-y-2">
               {canEdit && <UploadUltrasoundLogDocumentForm ultrasoundLogId={log.id} />}
+              <VistoBuenoControl entidad="ultrasonido" registroId={log.id} creadoPorId={log.createdById} />
               <DocumentList documents={log.documents} isAdmin={isAdmin} />
             </div>
           </div>

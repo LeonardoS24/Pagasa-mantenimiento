@@ -58,6 +58,7 @@ model User {
   registrosAcceso                RegistroAcceso[]
   mensajesEnviados               Mensaje[]
   lecturasCanal                  LecturaCanal[]
+  vistosBuenos                   VistoBueno[]
   documents                      Document[]
   maintenanceLogs                MaintenanceLog[]
   ultrasoundLogs                 UltrasoundLog[]
@@ -1924,5 +1925,26 @@ model LecturaCanal {
   leidoHasta DateTime
 
   @@id([userId, canal])
+  @@index([userId])
+}
+
+// Visto bueno de un supervisor a un registro de bitácora (mantenimiento,
+// pruebas, cambios de válvulas, mangueras, extintor): quién lo revisó y
+// cuándo. Ver lib/visto-bueno.ts. Genérica (entidad + id del registro) para
+// no agregar columnas a diez tablas; uno por registro. Quien capturó el
+// registro no puede darle visto bueno (regla de cuatro ojos).
+model VistoBueno {
+  id              String   @id @default(cuid())
+  entidad         String
+  registroId      String
+  vehicleRecordId String
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username        String
+  comentario      String?
+  createdAt       DateTime @default(now())
+
+  @@unique([entidad, registroId])
+  @@index([vehicleRecordId])
   @@index([userId])
 }

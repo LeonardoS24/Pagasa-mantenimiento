@@ -119,6 +119,8 @@ import {
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { tipoRegistro, tipoRegistroLabel } from "@/lib/section-labels";
 import { hasActiveElevatedAccess } from "@/lib/elevated-access";
+import { vistosBuenosDeUnidad } from "@/lib/visto-bueno";
+import { VistosBuenosProvider } from "@/components/city/VistoBueno";
 
 export default async function VehicleDetailPage({
   params,
@@ -386,7 +388,10 @@ export default async function VehicleDetailPage({
     { label: vehicle.numeroEconomico },
   ];
 
+  const vistosBuenos = await vistosBuenosDeUnidad(vehicle.id);
+
   return (
+    <VistosBuenosProvider vistos={vistosBuenos} userId={user.userId} puedeRevisar={canEdit(user.role)} esAdmin={user.role === "ADMIN"}>
     <div>
       <Breadcrumb items={breadcrumbItems} />
 
@@ -490,6 +495,12 @@ export default async function VehicleDetailPage({
         )}
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/ciudades/${params.citySlug}/expediente?unidad=${vehicle.id}`}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-gray-50"
+          >
+            Expediente de cumplimiento
+          </Link>
           <Link
             href={`/ciudades/${params.citySlug}/etiquetas-qr?unidad=${vehicle.id}`}
             className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-gray-50"
@@ -1240,5 +1251,6 @@ export default async function VehicleDetailPage({
         </Link>
       </p>
     </div>
+    </VistosBuenosProvider>
   );
 }
