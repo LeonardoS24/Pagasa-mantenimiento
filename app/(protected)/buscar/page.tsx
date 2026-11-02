@@ -271,9 +271,10 @@ export default async function BuscarPage({
           <h2 className="mb-2 text-xs font-semibold uppercase text-gray-500">
             Unidades ({records.length})
           </h2>
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+          {/* En celular, tarjetas (ver components/city/VehicleTable.tsx). */}
+          <div className="rounded-lg border border-gray-200 bg-white sm:overflow-x-auto">
+            <table className="block w-full text-left text-sm sm:table">
+              <thead className="hidden bg-gray-50 text-xs font-semibold uppercase text-gray-500 sm:table-header-group">
                 <tr>
                   <th className="whitespace-nowrap px-4 py-2">Número económico</th>
                   <th className="whitespace-nowrap px-4 py-2">Placas</th>
@@ -282,7 +283,7 @@ export default async function BuscarPage({
                   <th className="whitespace-nowrap px-4 py-2">Coincide en</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="block sm:table-row-group">
                 {records.map((record, index) => {
                   const location = [
                     record.section.city.name,
@@ -301,16 +302,16 @@ export default async function BuscarPage({
                   return (
                     <Fragment key={record.id}>
                       {isFirstPushedDown && (
-                        <tr aria-hidden="true">
-                          <td colSpan={5} className="border-t-4 border-gray-200 bg-gray-100 px-4 py-3">
+                        <tr aria-hidden="true" className="block sm:table-row">
+                          <td colSpan={5} className="block border-t-4 border-gray-200 bg-gray-100 px-4 py-3 sm:table-cell">
                             <span className="text-xs font-semibold uppercase text-gray-500">
                               Dadas de baja
                             </span>
                           </td>
                         </tr>
                       )}
-                      <tr className="relative border-t border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-2 font-medium text-primary">
+                      <tr className="relative flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 px-3 py-2.5 hover:bg-gray-50 sm:table-row sm:p-0">
+                        <td className="w-full font-medium text-primary sm:w-auto sm:px-4 sm:py-2">
                           {/* Estira el link a toda la fila (no solo el número
                               económico): "tr" es "relative" y este link
                               "absolute inset-0" toma su tamaño completo. */}
@@ -340,10 +341,10 @@ export default async function BuscarPage({
                             {record.section.name}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-2 text-ink">{record.placas}</td>
-                        <td className="whitespace-nowrap px-4 py-2 text-ink">{record.sucursal}</td>
-                        <td className="whitespace-nowrap px-4 py-2 text-ink">{location}</td>
-                        <td className="px-4 py-2 text-ink">
+                        <td data-etiqueta="Placas:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.placas}</td>
+                        <td data-etiqueta="Marca/Dirección:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{record.sucursal}</td>
+                        <td data-etiqueta="Ubicación:" className="text-ink before:mr-1 before:text-xs before:text-gray-500 before:content-[attr(data-etiqueta)] sm:before:content-none sm:whitespace-nowrap sm:px-4 sm:py-2">{location}</td>
+                        <td className="w-full text-ink sm:w-auto sm:px-4 sm:py-2">
                           <div className="flex flex-wrap gap-1">
                             {matchedGroups.map((group) => (
                               <span
