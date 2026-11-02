@@ -23,12 +23,14 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import next from "next";
+import { iniciarRegistro } from "./registro-servidor.mjs";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // uploads/, backups/ y la base se buscan desde la carpeta de trabajo: si se
 // arrancara desde otro lado (una tarea programada sin "Iniciar en"), irían a
 // parar a otra carpeta.
 process.chdir(RAIZ);
+const { arranques } = iniciarRegistro(RAIZ);
 const PUERTO = Number(process.env.PORT) || 3000;
 const PUERTO_HTTPS = Number(process.env.HTTPS_PORT) || 3443;
 const CRT = path.join(RAIZ, "certificados", "servidor.crt");
@@ -41,6 +43,20 @@ if (conHttps) process.env.COOKIE_SECURE = "true";
 
 function ipDe(req) {
   return (req.socket.remoteAddress ?? "").replace(/^::ffff:/, "");
+}
+
+// Si el puerto ya está ocupado (otro servidor quedó abierto) no tiene caso
+// reintentar: se sale con código 2 y servidor-iniciar.bat se detiene y avisa.
+function alEscuchar(servidor, puerto) {
+  servidor.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`El puerto ${puerto} ya está ocupado: ¿hay otro servidor del sistema abierto?`);
+      arranques(`NO ARRANCÓ: puerto ${puerto} ocupado`);
+      process.exit(2);
+    }
+    throw error;
+  });
+  return servidor;
 }
 
 const app = next({ dev: false, dir: RAIZ, hostname: "0.0.0.0", port: conHttps ? PUERTO_HTTPS : PUERTO });
@@ -65,22 +81,27 @@ for (const lista of Object.values(os.networkInterfaces())) {
 }
 
 if (conHttps) {
-  https
-    .createServer({ cert: fs.readFileSync(CRT), key: fs.readFileSync(KEY) }, atender("https"))
-    .listen(PUERTO_HTTPS, "0.0.0.0");
+  alEscuchar(https.createServer({ cert: fs.readFileSync(CRT), key: fs.readFileSync(KEY) }, atender("https")), PUERTO_HTTPS).listen(
+    PUERTO_HTTPS,
+    "0.0.0.0",
+    () => arranques(`ARRANQUE (HTTPS, Node ${process.version})`)
+  );
   // El puerto viejo solo manda a HTTPS (307 conserva el método y el cuerpo).
-  http
-    .createServer((req, res) => {
+  alEscuchar(
+    http.createServer((req, res) => {
       const host = (req.headers.host ?? "localhost").replace(/:\d+$/, "");
       res.writeHead(307, { Location: `https://${host}:${PUERTO_HTTPS}${req.url ?? "/"}` });
       res.end();
-    })
-    .listen(PUERTO, "0.0.0.0");
+    }),
+    PUERTO
+  ).listen(PUERTO, "0.0.0.0");
   console.log("Sistema Pagasa listo por HTTPS. Los demas entran a:");
   for (const d of direcciones) console.log(`   https://${d}:${PUERTO_HTTPS}`);
   console.log(`(http://...:${PUERTO} redirige solo a HTTPS)`);
 } else {
-  http.createServer(atender("http")).listen(PUERTO, "0.0.0.0");
+  alEscuchar(http.createServer(atender("http")), PUERTO).listen(PUERTO, "0.0.0.0", () =>
+    arranques(`ARRANQUE (HTTP, Node ${process.version})`)
+  );
   console.log("Sistema Pagasa listo. Los demas entran a:");
   for (const d of direcciones) console.log(`   http://${d}:${PUERTO}`);
 }

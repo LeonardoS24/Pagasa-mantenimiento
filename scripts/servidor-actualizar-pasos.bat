@@ -43,7 +43,7 @@ echo ==========================================
 echo   Listo. Iniciando el servidor...
 echo ==========================================
 echo.
-node scripts\servidor.mjs
+call "%~dp0servidor-iniciar.bat"
 exit /b 0
 
 :error_build

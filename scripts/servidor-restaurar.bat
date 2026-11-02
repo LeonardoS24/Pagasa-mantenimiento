@@ -101,7 +101,7 @@ echo   Base anterior guardada en:
 echo   backups\antes-de-restaurar\%MARCA%\dev.db
 echo ==========================================
 echo.
-node scripts\servidor.mjs
+call "%~dp0servidor-iniciar.bat"
 goto :fin
 
 :error

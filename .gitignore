@@ -36,6 +36,9 @@ prisma/dev.db.backup-*
 # certificados HTTPS (llaves privadas, ver scripts/crear-certificado-https.mjs)
 /certificados
 
+# registro del servidor (ver scripts/registro-servidor.mjs)
+/logs
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
