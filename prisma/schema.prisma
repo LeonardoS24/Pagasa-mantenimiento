@@ -99,8 +99,105 @@ model City {
   // Solo Transportadora Kino (ver ConjuntoTransporte).
   conjuntosTransporte ConjuntoTransporte[]
   lotesDocumentos     LoteDocumentos[]
+  almacenConfig       AlmacenConfig?
+  almacenArticulos    AlmacenArticulo[]
+  almacenMovimientos  AlmacenMovimiento[]
 
   @@map("cities")
+}
+
+// Inventario de almacén de cada ciudad, que se lleva en una hoja de Google
+// (pestañas Inventario y Movimientos; ver lib/almacen.ts). El sistema lee la
+// hoja, muestra qué cambió y solo guarda cuando una persona lo aprueba con su
+// contraseña. NADA se borra: un artículo que ya no aparece en la hoja se marca
+// inactivo, y los movimientos solo se agregan.
+model AlmacenConfig {
+  id String @id @default(cuid())
+
+  cityId String @unique
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  // Enlace de la hoja de Google (cualquiera con el enlace puede verla).
+  urlHoja       String?
+  ultimaLectura DateTime?
+  ultimoError   String?
+
+  // Lo último que se leyó de la hoja y todavía no se aprueba (JSON), con su
+  // huella para no volver a avisar por lo mismo.
+  pendiente       String?
+  pendienteHuella String?
+  pendienteEl     DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("almacen_config")
+}
+
+model AlmacenArticulo {
+  id String @id @default(cuid())
+
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  // Código del artículo o, si no tiene, su nombre normalizado: es con lo que
+  // se reconoce el renglón de la hoja entre una lectura y otra.
+  clave String
+
+  codigo      String?
+  articulo    String
+  categoria   String?
+  marca       String?
+  unidad      String?
+  ubicacion   String?
+  cantidad    Float?
+  disponibles Float?
+  prestadoA   String?
+  notas       String?
+
+  // false = ya no aparece en la hoja (se conserva, no se borra).
+  activo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cityId, clave])
+  @@index([cityId])
+  @@map("almacen_articulos")
+}
+
+model AlmacenMovimiento {
+  id String @id @default(cuid())
+
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  // Huella del renglón de la hoja; "repeticion" distingue dos renglones
+  // idénticos (p. ej. dos salidas iguales el mismo día).
+  huella     String
+  repeticion Int    @default(0)
+
+  fecha      DateTime?
+  fechaTexto String?
+  movimiento String?
+  articulo   String
+  cantidad   Float?
+  trabajador String?
+  paraQue    String?
+  notas      String?
+
+  // Unidad, estación o planta donde se usa la pieza: el texto como viene de la
+  // lista desplegable de la hoja y, si se reconoce, el registro del sistema
+  // (SetNull: si se borra la unidad se conserva el texto del movimiento).
+  unidad          String?
+  vehicleRecordId String?
+  vehicleRecord   VehicleRecord? @relation(fields: [vehicleRecordId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@unique([cityId, huella, repeticion])
+  @@index([vehicleRecordId])
+  @@index([cityId, fecha])
+  @@map("almacen_movimientos")
 }
 
 model Section {
@@ -136,6 +233,9 @@ model Section {
 model VehicleRecord {
   id    String @id @default(cuid())
   order Int    @default(0)
+
+  // Salidas del almacén que dicen que se usaron aquí (ver AlmacenMovimiento).
+  almacenMovimientos AlmacenMovimiento[]
 
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -723,8 +823,12 @@ model CustomField {
   // "VEHICULO" | "ESTACION" (ver CAMPO_AMBITOS en lib/custom-fields.ts)
   ambito   String
   // Recuadro donde aparece ("automovil", "tanque", ...): coincide con las
-  // claves de SECTION_STYLES para heredar el color de esa sección.
+  // claves de SECTION_STYLES para heredar el color de esa sección. Si empieza
+  // con "x:" es un recuadro propio creado por el ADMIN (CustomSection).
   seccion  String
+  // En qué apartado se ve ("auto-tanques", "semirremolques"...). null = en
+  // todos los apartados de ese ámbito (así eran todos antes de esta columna).
+  apartadoSlug String?
   etiqueta String
   // "TEXTO" | "TEXTO_LARGO" | "NUMERO" | "FECHA" | "LISTA"
   tipo     String  @default("TEXTO")
@@ -740,6 +844,23 @@ model CustomField {
   updatedAt DateTime @updatedAt
 
   @@map("custom_fields")
+}
+
+// Recuadro nuevo que el ADMIN crea en la ficha técnica de un apartado (por
+// ejemplo cuando una norma pide una sección que no existe). Sus campos son
+// CustomField con seccion = "x:<id>". Nunca toca los recuadros de fábrica.
+model CustomSection {
+  id String @id @default(cuid())
+  // "VEHICULO" | "ESTACION" (ver CAMPO_AMBITOS en lib/custom-fields.ts)
+  ambito       String
+  // null = en todos los apartados de ese ámbito
+  apartadoSlug String?
+  titulo       String
+  orden        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("custom_sections")
 }
 
 // El valor capturado de un campo extra para una unidad concreta. Se guarda

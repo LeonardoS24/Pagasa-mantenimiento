@@ -17,6 +17,7 @@ export function CargaFechasPanel({ citySlug }: { citySlug: string }) {
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<string | null>(null);
   const [omitidos, setOmitidos] = useState<string[]>([]);
+  const [contrasena, setContrasena] = useState("");
   const [leyendo, startLeer] = useTransition();
   const [aplicando, startAplicar] = useTransition();
 
@@ -86,26 +87,39 @@ export function CargaFechasPanel({ citySlug }: { citySlug: string }) {
             <p className="text-sm font-medium text-ink">
               {cambios.length} fecha(s) cambian en {unidades} unidad(es). Revisa antes de aplicar.
             </p>
-            <button
-              type="button"
-              disabled={aplicando}
-              onClick={() =>
-                startAplicar(async () => {
-                  const r = await aplicarFechas(citySlug, cambios);
-                  if (r.error) {
-                    setError(r.error);
-                    return;
-                  }
-                  setResultado(`Listo: se guardaron ${r.aplicados} fecha(s) en ${r.unidades} unidad(es). Quedó en la bitácora de actividad.`);
-                  setOmitidos(r.omitidos);
-                  setCambios(null);
-                  setProblemas([]);
-                })
-              }
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-            >
-              {aplicando ? "Guardando..." : `Aplicar ${cambios.length} cambio(s)`}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={contrasena}
+                onChange={(e) => setContrasena(e.target.value)}
+                placeholder="Tu contraseña para confirmar"
+                aria-label="Tu contraseña para confirmar"
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                disabled={aplicando}
+                onClick={() =>
+                  startAplicar(async () => {
+                    setError(null);
+                    const r = await aplicarFechas(citySlug, cambios, contrasena);
+                    if (r.error) {
+                      setError(r.error);
+                      return;
+                    }
+                    setContrasena("");
+                    setResultado(`Listo: se guardaron ${r.aplicados} fecha(s) en ${r.unidades} unidad(es). Quedó en la bitácora de actividad a tu nombre.`);
+                    setOmitidos(r.omitidos);
+                    setCambios(null);
+                    setProblemas([]);
+                  })
+                }
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {aplicando ? "Guardando..." : `Estoy de acuerdo, aplicar ${cambios.length} cambio(s)`}
+              </button>
+            </div>
           </div>
           <div className="max-h-[60vh] overflow-auto">
             <table className="w-full text-sm">

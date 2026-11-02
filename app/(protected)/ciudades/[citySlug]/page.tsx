@@ -23,6 +23,7 @@ import { ComplianceOverviewPanel } from "@/components/city/ComplianceOverviewPan
 import { getComplianceOverview } from "@/lib/compliance-stats";
 import { canEdit } from "@/lib/roles";
 import { KINO_CITY_SLUG } from "@/lib/city-template";
+import { CIUDADES_ALMACEN } from "@/lib/almacen";
 
 export default async function CityPage({
   params,
@@ -96,6 +97,28 @@ export default async function CityPage({
               <path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4" />
             </svg>
             Fechas desde Excel
+          </Link>
+        )}
+        {canEdit(user.role) && (
+          <Link
+            href={`/ciudades/${city.slug}/registro-en-lote`}
+            className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 7h6v14H9zM12 3v4M15 5h3l2 2M12 11v6" />
+            </svg>
+            Registro en lote
+          </Link>
+        )}
+        {CIUDADES_ALMACEN.includes(city.slug) && (
+          <Link
+            href={`/ciudades/${city.slug}/almacen`}
+            className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-5 9 5v11H3zM9 20v-6h6v6" />
+            </svg>
+            Inventario de almacén
           </Link>
         )}
         <Link

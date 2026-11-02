@@ -37,8 +37,8 @@ import { FormMessage } from "./FormMessage";
 import { SECTION_STYLES } from "@/lib/section-colors";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { VEHICLE_BRAND_CATALOG, findBrandOption } from "@/lib/vehicle-brand-catalog";
-import type { CustomFieldDef } from "@/lib/custom-fields";
-import { CustomFieldInputs } from "./CustomFieldInputs";
+import type { CustomFieldDef, CustomSectionDef } from "@/lib/custom-fields";
+import { CustomFieldInputs, CustomSectionInputs } from "./CustomFieldInputs";
 import { dictamenesDeApartado, getDictamenVencimiento, getDictamenAlertLevel, dictamenAlertLabel } from "@/lib/dictamen-alerts";
 
 const initialState: ActionState = {};
@@ -363,6 +363,7 @@ export function TechnicalSheetForm({
   showUnidadAsignada = false,
   lockCombustibleGasLpGasolina = false,
   camposExtra = [],
+  seccionesExtra = [],
   valoresExtra = {},
 }: {
   // Plazos normativos vigentes (ver lib/plazos.ts): el aviso de este formulario
@@ -422,6 +423,7 @@ export function TechnicalSheetForm({
   lockCombustibleGasLpGasolina?: boolean;
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
   camposExtra?: CustomFieldDef[];
+  seccionesExtra?: CustomSectionDef[];
   valoresExtra?: Record<string, string>;
 }) {
   fijarPlazos(plazos);
@@ -1284,6 +1286,8 @@ export function TechnicalSheetForm({
       </div>
       </>
       )}
+
+      <CustomSectionInputs secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} />
       </fieldset>
 
       <FormMessage state={state} />

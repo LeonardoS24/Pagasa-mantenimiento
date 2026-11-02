@@ -1,30 +1,45 @@
 import { prisma } from "@/lib/prisma";
 import {
+  aplicaAApartado,
   esCampoExtraInput,
   fieldIdDesdeInputName,
   parseOpcionesTexto,
   type CampoAmbito,
   type CampoTipo,
   type CustomFieldDef,
+  type CustomSectionDef,
 } from "@/lib/custom-fields";
 
 // Definiciones de los recuadros extra de una ficha, ya ordenadas por
 // recuadro (ver lib/custom-fields.ts). Se leen en el servidor y se le pasan
-// al formulario/vista, igual que el catálogo de piezas.
-export async function getCustomFields(ambito: CampoAmbito): Promise<CustomFieldDef[]> {
+// al formulario/vista, igual que el catálogo de piezas. Con `apartadoSlug`
+// solo salen los de ese apartado (y los que valen para todos); sin él salen
+// todos (admin y exportación a Excel).
+export async function getCustomFields(ambito: CampoAmbito, apartadoSlug?: string | null): Promise<CustomFieldDef[]> {
   const filas = await prisma.customField.findMany({
     where: { ambito },
     orderBy: [{ seccion: "asc" }, { orden: "asc" }],
   });
-  return filas.map((f) => ({
-    id: f.id,
-    ambito: f.ambito as CampoAmbito,
-    seccion: f.seccion,
-    etiqueta: f.etiqueta,
-    tipo: f.tipo as CampoTipo,
-    orden: f.orden,
-    opciones: f.tipo === "LISTA" ? parseOpcionesTexto(f.opciones) : undefined,
-  }));
+  return filas
+    .filter((f) => aplicaAApartado(f.apartadoSlug, apartadoSlug))
+    .map((f) => ({
+      id: f.id,
+      ambito: f.ambito as CampoAmbito,
+      seccion: f.seccion,
+      apartadoSlug: f.apartadoSlug,
+      etiqueta: f.etiqueta,
+      tipo: f.tipo as CampoTipo,
+      orden: f.orden,
+      opciones: f.tipo === "LISTA" ? parseOpcionesTexto(f.opciones) : undefined,
+    }));
+}
+
+// Recuadros propios (creados por el ADMIN) que le tocan a un apartado.
+export async function getCustomSections(ambito: CampoAmbito, apartadoSlug?: string | null): Promise<CustomSectionDef[]> {
+  const filas = await prisma.customSection.findMany({ where: { ambito }, orderBy: [{ orden: "asc" }, { createdAt: "asc" }] });
+  return filas
+    .filter((s) => aplicaAApartado(s.apartadoSlug, apartadoSlug))
+    .map((s) => ({ id: s.id, ambito: s.ambito as CampoAmbito, apartadoSlug: s.apartadoSlug, titulo: s.titulo, orden: s.orden }));
 }
 
 // Lo capturado en esos campos para una unidad, como { fieldId: valor }.
@@ -43,7 +58,13 @@ export async function saveCustomFieldValues(
   formData: FormData,
   ambito: CampoAmbito
 ): Promise<void> {
-  const definidos = await getCustomFields(ambito);
+  // Solo valen los campos de este apartado: el nombre del input viene del
+  // navegador y no se puede confiar en él.
+  const unidad = await prisma.vehicleRecord.findUnique({
+    where: { id: vehicleRecordId },
+    select: { section: { select: { slug: true } } },
+  });
+  const definidos = await getCustomFields(ambito, unidad?.section.slug ?? null);
   if (definidos.length === 0) return;
   const porId = new Map(definidos.map((d) => [d.id, d]));
 
@@ -51,8 +72,7 @@ export async function saveCustomFieldValues(
     if (typeof raw !== "string") continue;
     if (!esCampoExtraInput(name)) continue;
     const fieldId = fieldIdDesdeInputName(name);
-    // Solo se aceptan ids que de verdad existen en este ámbito: el nombre
-    // del input viene del navegador y no se puede confiar en él.
+    // Solo se aceptan ids que de verdad existen en este ámbito y apartado.
     const definicion = porId.get(fieldId);
     if (!definicion) continue;
 

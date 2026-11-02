@@ -1,5 +1,6 @@
-import { campoInputName, type CustomFieldDef } from "@/lib/custom-fields";
+import { campoInputName, seccionDePropia, type CustomFieldDef, type CustomSectionDef } from "@/lib/custom-fields";
 import { toDateInputValue } from "@/lib/dates";
+import { SECTION_STYLES } from "@/lib/section-colors";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100";
@@ -53,6 +54,61 @@ export function CustomFieldInputs({
           </div>
         );
       })}
+    </>
+  );
+}
+
+// Recuadros nuevos que el ADMIN creó para este apartado (ver /admin/campos):
+// cada uno sale como su propio recuadro, con el título y los campos que tenga.
+// Un recuadro sin campos no se dibuja. Va dentro del <fieldset> de la ficha.
+export function CustomSectionInputs({
+  secciones,
+  campos,
+  valores,
+}: {
+  secciones: CustomSectionDef[];
+  campos: CustomFieldDef[];
+  valores: Record<string, string>;
+}) {
+  const conCampos = secciones.filter((s) => campos.some((c) => c.seccion === seccionDePropia(s.id)));
+  if (conCampos.length === 0) return null;
+  return (
+    <>
+      {conCampos.map((s) => (
+        <div key={s.id} className={`rounded-md p-4 ${SECTION_STYLES.propio}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">{s.titulo}</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <CustomFieldInputs campos={campos} seccion={seccionDePropia(s.id)} valores={valores} />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+// Versión de solo lectura de los recuadros propios: solo salen los que tienen
+// algún dato capturado.
+export function CustomSectionItems({
+  secciones,
+  campos,
+  valores,
+}: {
+  secciones: CustomSectionDef[];
+  campos: CustomFieldDef[];
+  valores: Record<string, string>;
+}) {
+  const conDatos = secciones.filter((s) => campos.some((c) => c.seccion === seccionDePropia(s.id) && valores[c.id]));
+  if (conDatos.length === 0) return null;
+  return (
+    <>
+      {conDatos.map((s) => (
+        <div key={s.id} className={`rounded-md p-4 ${SECTION_STYLES.propio}`}>
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">{s.titulo}</h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <CustomFieldItems campos={campos} seccion={seccionDePropia(s.id)} valores={valores} />
+          </dl>
+        </div>
+      ))}
     </>
   );
 }

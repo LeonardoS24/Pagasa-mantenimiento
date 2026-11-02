@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireElevatedEditor } from "@/lib/auth";
 import { assertCityAccessById } from "@/lib/access";
+import { verifySessionPassword } from "@/lib/reauth";
 import { idsDeTrabajo } from "@/lib/ciudades-de-trabajo";
 import { aplicarCambios, previsualizar, type Previsualizacion, type ResultadoAplicar } from "@/lib/carga-fechas-servidor";
 import type { CambioFecha } from "@/lib/carga-fechas";
@@ -30,8 +31,16 @@ export async function previsualizarFechas(citySlug: string, formData: FormData):
   return previsualizar(Buffer.from(await archivo.arrayBuffer()), ids);
 }
 
-export async function aplicarFechas(citySlug: string, cambios: CambioFecha[]): Promise<ResultadoAplicar & { error?: string }> {
+export async function aplicarFechas(
+  citySlug: string,
+  cambios: CambioFecha[],
+  password: string
+): Promise<ResultadoAplicar & { error?: string }> {
   const { user, city, ids } = await ciudadConAcceso(citySlug);
+  // Después de ver el antes → después, quien aplica confirma con su contraseña
+  // (como al borrar): el cambio queda a su nombre en la bitácora de actividad.
+  const errorContrasena = await verifySessionPassword(user, password);
+  if (errorContrasena) return { aplicados: 0, unidades: 0, omitidos: [], error: errorContrasena };
   if (!Array.isArray(cambios) || cambios.length === 0) return { aplicados: 0, unidades: 0, omitidos: [], error: "No hay cambios que aplicar." };
   if (cambios.length > 20_000) return { aplicados: 0, unidades: 0, omitidos: [], error: "Demasiados cambios en una sola carga." };
   const resultado = await aplicarCambios(cambios, ids, user);

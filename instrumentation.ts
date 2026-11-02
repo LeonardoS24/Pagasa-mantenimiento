@@ -15,6 +15,10 @@ export async function register() {
     // Reporte semanal de vencimientos por correo (ver /admin/reportes).
     const { scheduleReportes } = await import("./lib/reportes-programados");
     scheduleReportes();
+    // Lee cada 30 min la hoja de Google del inventario de almacén y deja los
+    // cambios por aprobar (ver lib/almacen-servidor.ts); no guarda nada solo.
+    const { scheduleAlmacen } = await import("./lib/almacen-servidor");
+    scheduleAlmacen();
     // Plazos normativos (ver /admin/normas): se cargan al arrancar para que
     // las alertas nunca calculen con los valores base cuando el ADMIN ya
     // ajustó alguno.

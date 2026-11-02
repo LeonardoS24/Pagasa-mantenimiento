@@ -34,7 +34,7 @@ import { getPieceMaintenanceStats } from "@/lib/piece-maintenance-stats";
 import { getLearnedPieces } from "@/lib/learned-pieces";
 import { getPieceCatalog, getPieceCategoriesWithExtras } from "@/lib/piece-catalog-runtime";
 import { getChecklistItems, getLeakCheckItems, checklistListaDeApartado } from "@/lib/checklist-runtime";
-import { getCustomFields, getCustomFieldValues } from "@/lib/custom-fields-runtime";
+import { getCustomFields, getCustomSections, getCustomFieldValues } from "@/lib/custom-fields-runtime";
 import { CreateUltrasoundLogForm } from "@/components/admin/CreateUltrasoundLogForm";
 import { UltrasoundLogTable } from "@/components/city/UltrasoundLogTable";
 import { CreateVisualInspectionLogForm } from "@/components/admin/CreateVisualInspectionLogForm";
@@ -244,8 +244,11 @@ export default async function VehicleDetailPage({
   // Recuadros extra de la ficha técnica (ver /admin/campos): las
   // definiciones son iguales para todas las unidades, los valores son de
   // esta en particular.
-  const camposVehiculo = await getCustomFields("VEHICULO");
-  const camposEstacion = await getCustomFields("ESTACION");
+  // Solo los del apartado de esta unidad (o los que valen para todos).
+  const camposVehiculo = await getCustomFields("VEHICULO", vehicle.section.slug);
+  const camposEstacion = await getCustomFields("ESTACION", vehicle.section.slug);
+  const seccionesVehiculo = await getCustomSections("VEHICULO", vehicle.section.slug);
+  const seccionesEstacion = await getCustomSections("ESTACION", vehicle.section.slug);
   const valoresCampos = await getCustomFieldValues(vehicle.id);
   // Piezas con más mantenimiento de esta unidad en el año en curso (mismo
   // gráfico que Bitácora de unidades, pero acotado a una sola unidad y
@@ -603,6 +606,7 @@ export default async function VehicleDetailPage({
                     // Los recuadros extra de /admin/campos solo cuelgan del
                     // primer tanque, para no repetirlos en cada uno.
                     camposExtra={i === 0 ? camposEstacion : []}
+                    seccionesExtra={i === 0 ? seccionesEstacion : []}
                     valoresExtra={i === 0 ? valoresCampos : {}}
                     isPlanta={isPlanta}
                     showInspecciones={isMultiTanque}
@@ -611,6 +615,7 @@ export default async function VehicleDetailPage({
                   <StationTankTechnicalSheetView
                     sheet={sheet}
                     camposExtra={i === 0 ? camposEstacion : []}
+                    seccionesExtra={i === 0 ? seccionesEstacion : []}
                     valoresExtra={i === 0 ? valoresCampos : {}}
                     isPlanta={isPlanta}
                     showInspecciones={isMultiTanque}
@@ -682,6 +687,7 @@ export default async function VehicleDetailPage({
             showSemirremolqueSection={isSemirremolque}
             lockCombustibleGasLpGasolina={lockCombustibleGasLpGasolina}
             camposExtra={camposVehiculo}
+            seccionesExtra={seccionesVehiculo}
             valoresExtra={valoresCampos}
           />
         ) : (
@@ -700,6 +706,7 @@ export default async function VehicleDetailPage({
             showTractocamionSection={isTractocamion}
             showSemirremolqueSection={isSemirremolque}
             camposExtra={camposVehiculo}
+            seccionesExtra={seccionesVehiculo}
             valoresExtra={valoresCampos}
           />
         )}

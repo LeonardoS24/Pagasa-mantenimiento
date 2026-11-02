@@ -1,7 +1,7 @@
 import type { StationTankTechnicalSheet } from "@prisma/client";
 import { formatDate } from "@/lib/dates";
-import type { CustomFieldDef } from "@/lib/custom-fields";
-import { CustomFieldItems } from "@/components/admin/CustomFieldInputs";
+import type { CustomFieldDef, CustomSectionDef } from "@/lib/custom-fields";
+import { CustomFieldItems, CustomSectionItems } from "@/components/admin/CustomFieldInputs";
 import {
   STATION_VALVE_FIELDS,
   stationValveLabels,
@@ -42,12 +42,14 @@ function Item({ label, value }: { label: string; value?: string | null }) {
 export function StationTankTechnicalSheetView({
   sheet,
   camposExtra = [],
+  seccionesExtra = [],
   valoresExtra = {},
   isPlanta = false,
   showInspecciones = false,
 }: {
   sheet: StationTankTechnicalSheet | null;
   camposExtra?: CustomFieldDef[];
+  seccionesExtra?: CustomSectionDef[];
   valoresExtra?: Record<string, string>;
   isPlanta?: boolean;
   // Con más de un tanque, las 5 pruebas periódicas se muestran aquí, por
@@ -347,6 +349,8 @@ export function StationTankTechnicalSheetView({
           })()}
         </>
       )}
+
+      <CustomSectionItems secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} />
     </div>
   );
 }

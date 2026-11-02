@@ -72,14 +72,63 @@ export function seccionesPara(ambito: CampoAmbito): readonly { id: string; label
   return ambito === "ESTACION" ? CAMPO_SECCIONES_ESTACION : CAMPO_SECCIONES_VEHICULO;
 }
 
-export function labelDeSeccion(ambito: CampoAmbito, seccionId: string): string {
+export function labelDeSeccion(ambito: CampoAmbito, seccionId: string, propias: readonly CustomSectionDef[] = []): string {
+  if (esSeccionPropia(seccionId)) {
+    return propias.find((s) => s.id === idDeSeccionPropia(seccionId))?.titulo ?? "Recuadro nuevo";
+  }
   return seccionesPara(ambito).find((s) => s.id === seccionId)?.label ?? seccionId;
+}
+
+// Recuadros que el ADMIN crea (CustomSection): en CustomField.seccion se
+// guardan como "x:<id>" para no confundirse con los de fábrica de arriba.
+const PREFIJO_SECCION_PROPIA = "x:";
+export const esSeccionPropia = (seccion: string): boolean => seccion.startsWith(PREFIJO_SECCION_PROPIA);
+export const idDeSeccionPropia = (seccion: string): string => seccion.slice(PREFIJO_SECCION_PROPIA.length);
+export const seccionDePropia = (id: string): string => `${PREFIJO_SECCION_PROPIA}${id}`;
+
+export interface CustomSectionDef {
+  id: string;
+  ambito: CampoAmbito;
+  // null = se ve en todos los apartados de ese ámbito
+  apartadoSlug: string | null;
+  titulo: string;
+  orden: number;
+}
+
+// Apartados a los que se puede dirigir un campo o un recuadro nuevo. El slug
+// es el del apartado en la base (ver Section.slug).
+export const CAMPO_APARTADOS: Record<CampoAmbito, readonly { slug: string; label: string }[]> = {
+  VEHICULO: [
+    { slug: "auto-tanques", label: "Auto-Tanques" },
+    { slug: "semirremolques", label: "Semirremolques" },
+    { slug: "tractocamiones", label: "Tractocamiones" },
+    { slug: "vehiculo-de-reparto", label: "Vehículo de reparto" },
+    { slug: "vehiculo-con-tanque-de-carburacion", label: "Vehículo con tanque de carburación" },
+    { slug: "unidades-utilitarias", label: "Unidades utilitarias" },
+  ],
+  ESTACION: [
+    { slug: "estaciones-de-carburacion", label: "Estaciones de carburación" },
+    { slug: "planta-ficha-tecnica", label: "Planta" },
+  ],
+};
+
+export function labelDeApartado(ambito: CampoAmbito, apartadoSlug: string | null | undefined): string {
+  if (!apartadoSlug) return "Todos los apartados";
+  return CAMPO_APARTADOS[ambito].find((a) => a.slug === apartadoSlug)?.label ?? apartadoSlug;
+}
+
+// ¿Este campo o recuadro se ve en el apartado de la unidad? Sin apartado
+// (null) se ve en todos; si no se sabe el de la unidad, también.
+export function aplicaAApartado(apartadoSlug: string | null | undefined, apartadoDeLaUnidad: string | null | undefined): boolean {
+  return !apartadoSlug || !apartadoDeLaUnidad || apartadoSlug === apartadoDeLaUnidad;
 }
 
 export interface CustomFieldDef {
   id: string;
   ambito: CampoAmbito;
   seccion: string;
+  // null/ausente = en todos los apartados
+  apartadoSlug?: string | null;
   etiqueta: string;
   tipo: CampoTipo;
   orden: number;

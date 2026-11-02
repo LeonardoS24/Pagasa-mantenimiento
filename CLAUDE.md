@@ -519,6 +519,16 @@ se marca `secure` sola.
   patrón es lista fija en el código + tabla de "extras" que el ADMIN agrega,
   unidas por una función `*-runtime.ts`. Nunca leer la constante directo.
 - **Commits**: mensaje en español, en presente, explicando el *porqué*.
+- **Verificar sin tocar la base real**: para probar pantallas que escriben se arma una
+  COPIA aislada (código + `node_modules` + la copia de `backups/antes-de-actualizar/dev.db`,
+  con su propio `.env`), se le aplican las migraciones, se crea un usuario de prueba solo
+  ahí y se levanta en otro puerto; al terminar se borra todo. `prisma generate` en la
+  carpeta real falla con EPERM mientras el servidor corre (bloquea el motor): para
+  revisar tipos se genera el cliente en una carpeta temporal y se apunta `@prisma/client`
+  a ella con un `tsconfig` temporal.
+- **Si el servidor corre como administrador**, el paso 1 del actualizador no lo puede
+  detener (`taskkill` da "Acceso denegado") y la instalación falla con EPERM: hay que
+  cerrar su ventana "Servidor Pagasa" (no abrirla como administrador).
 - **`scripts/servidor-actualizar.bat`: no cambies nada ARRIBA de `git pull`.**
   El pull reemplaza el .bat mientras corre y cmd sigue leyendo por posición
   de bytes: si cambia el largo de esa parte, la versión vieja ejecuta renglones
@@ -676,7 +686,80 @@ por tanque). Celda vacía no borra, `BORRAR` sí. Al aplicar se revalida todo
 (ciudad, campo permitido, que no haya cambiado desde la vista previa) y queda
 en la bitácora de actividad. Mismo permiso que editar la ficha
 (`tieneEdicionAmpliada`). Ojo: la librería de Excel entrega las fechas a las
-23:59:59 del día anterior; `leerFecha` lo corrige (tiene prueba).
+23:59:59 del día anterior; `leerFecha` lo corrige (tiene prueba). **Aplicar pide
+la contraseña de quien lo aplica** (`verifySessionPassword`) tras ver el antes →
+después.
+
+## Registro en lote y registros nuevos desde Excel
+
+Mismo registro de bitácora para varias unidades, con TODOS los campos de ese tipo.
+Los campos y obligatorios de cada tipo salen de `CAMPOS_POR_TIPO`
+(`lib/lote-documentos.ts`, los del formulario de la bitácora y de la carga de
+documentos escaneados). **Cada unidad se guarda con la MISMA acción que usa el
+formulario** (`guardarEnBitacora` / `formularioDeBitacora`, en
+`lib/bitacora-formulario.ts`, sin PDF): hereda validaciones, acceso a la ciudad y
+actualización de la ficha. No duplicar esa lógica.
+
+- **`/ciudades/[c]/registro-en-lote?tipo=`**: se llenan los datos comunes, se
+  eligen unidades (con «Ajustar» para un dato distinto en una), resumen y
+  **contraseña**. `aplicaEnLote(tipo, slug)` (`lib/registro-lote.ts`) dice a qué
+  unidades va: las pruebas de tanque de estaciones/planta NO (van por tanque),
+  mangueras solo en carburación, extintor solo donde no hay gemelo (reparto, no su
+  copia en carburación). **No es todo o nada**: cada unidad se guarda aparte y se
+  devuelve qué pasó con cada una; las que fallan se quedan elegidas para reintentar.
+- **`/ciudades/[c]/registros-desde-excel`**: plantilla
+  (`/api/ciudades/[c]/plantilla-registros`) con una hoja por tipo y las unidades de
+  la ciudad ya puestas («KG-158 · Auto-Tanques · Mexicali»); se llena solo lo que
+  se hizo, se sube, se revisa y se aprueba con contraseña. Lectura pura en
+  `lib/registros-excel.ts` (probada), con base de datos en
+  `lib/registros-excel-servidor.ts`. Crea registros NUEVOS: subir el mismo archivo
+  dos veces los duplica (el panel lo avisa). Un renglón con problema no se guarda y
+  se lista con su motivo. Los resultados llevan `hoja`/`fila` para que un reintento
+  no repita lo que sí se guardó.
+- Queda un renglón por tipo en la bitácora de actividad, a nombre de quien aprobó.
+- **Ojo en `lib/registros-excel.ts` y `lib/almacen.ts`**: importan `node:crypto`;
+  un componente de cliente solo puede importar TIPOS de ahí (un valor rompe el build).
+
+## Inventario de almacén (hoja de Google)
+
+Solo Hermosillo por ahora (`CIUDADES_ALMACEN`, `lib/almacen.ts`). El inventario se
+lleva en una hoja de Google con pestañas **Inventario** y **Movimientos** (+ Listas
+y Buscador, que el sistema no lee); el sistema la **sigue**, no la reemplaza.
+
+- `/ciudades/hermosillo/almacen`: se pega el enlace de la hoja (compartida como
+  «Cualquier persona con el enlace → Lector»). `lib/almacen-servidor.ts` la lee
+  cada 30 min (`scheduleAlmacen`, arrancado en `instrumentation.ts`) o con «Leer la
+  hoja ahora», **solo desde `docs.google.com`** (el id se extrae y la URL se arma
+  aquí; nunca se visita una URL escrita por un usuario; sin redirecciones) por
+  `gviz/tq?tqx=out:csv&sheet=<pestaña>`.
+- **Nada entra solo**: lo leído queda en `AlmacenConfig.pendiente`; la pantalla
+  muestra qué cambia (artículos nuevos/cambios antes → después/ausentes, movimientos
+  nuevos/corregidos) y se guarda con la contraseña de quien aprueba
+  (`aplicarPendiente`). «Descartar» no vuelve a avisar por la misma lectura.
+- **Nada se borra**: un artículo que ya no aparece queda `activo=false`; los
+  movimientos solo se agregan o corrigen su «para qué»/notas. Artículo = código
+  (o nombre si no tiene); un movimiento se reconoce por fecha+tipo+artículo+cantidad
+  +trabajador+unidad (+ número de repetición).
+- **«Unidad / Estación»** (columna H de Movimientos) es una lista desplegable con
+  `Listas!E` = todas las unidades, estaciones y plantas del sistema
+  (`unidadesDelSistema`, etiqueta «NOMBRE · Apartado · Ciudad»); el movimiento se
+  vincula a la unidad (`vehicleRecordId`). El servidor NO puede escribir en la hoja:
+  cuando haya unidades nuevas se descarga la lista (`/api/ciudades/[c]/almacen-unidades`)
+  y se pega en `Listas!E`.
+
+## Formato de las fichas por apartado (`/admin/campos`)
+
+El ADMIN agrega a la ficha técnica de un apartado (Auto-Tanques, Semirremolques…):
+**campos** (`CustomField`, con `apartadoSlug`; null = todos los apartados) y
+**recuadros nuevos** (`CustomSection`; sus campos llevan `seccion = "x:<id>"`).
+Se editan (nombre, apartado, recuadro, opciones de un listado), se ordenan y se
+quitan. Lo de fábrica NO se toca: alimenta alertas, semáforo, vencimientos y Excel.
+El tipo de un campo no se cambia una vez creado. Un recuadro con campos adentro no se
+borra. `getCustomFields/getCustomSections(ambito, apartadoSlug)` filtran por apartado
+(sin apartado salen todos: admin y Excel); `saveCustomFieldValues` solo acepta campos
+del apartado de la unidad. En la ficha, los recuadros propios salen al final
+(`CustomSectionInputs/Items`). En el Excel de unidades, dos apartados con un campo
+del mismo nombre comparten columna sin pisarse.
 
 ## Estabilidad del servidor
 

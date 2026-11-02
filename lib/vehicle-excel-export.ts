@@ -80,7 +80,10 @@ function customFieldColumns(
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const campo of campos) {
-    out[`Extra — ${campo.etiqueta}`] = valores?.[campo.id] ?? "";
+    // Dos apartados pueden tener un campo con el mismo nombre: comparten
+    // columna y gana el que tenga valor, para que uno vacío no pise al otro.
+    const clave = `Extra — ${campo.etiqueta}`;
+    out[clave] = out[clave] || (valores?.[campo.id] ?? "");
   }
   return out;
 }

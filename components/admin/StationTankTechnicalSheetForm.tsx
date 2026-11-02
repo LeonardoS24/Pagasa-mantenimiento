@@ -7,8 +7,8 @@ import type { StationTankTechnicalSheet } from "@prisma/client";
 import { upsertStationTankTechnicalSheet } from "@/actions/vehicle-actions";
 import type { ActionState } from "@/actions/user-actions";
 import { toDateInputValue } from "@/lib/dates";
-import type { CustomFieldDef } from "@/lib/custom-fields";
-import { CustomFieldInputs } from "./CustomFieldInputs";
+import type { CustomFieldDef, CustomSectionDef } from "@/lib/custom-fields";
+import { CustomFieldInputs, CustomSectionInputs } from "./CustomFieldInputs";
 import {
   STATION_VALVE_FIELDS,
   stationValveLabels,
@@ -83,6 +83,7 @@ export function StationTankTechnicalSheetForm({
   etiqueta = "Tanque 1",
   sheet,
   camposExtra = [],
+  seccionesExtra = [],
   valoresExtra = {},
   isPlanta = false,
   showInspecciones = false,
@@ -97,6 +98,7 @@ export function StationTankTechnicalSheetForm({
   sheet: StationTankTechnicalSheet | null;
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
   camposExtra?: CustomFieldDef[];
+  seccionesExtra?: CustomSectionDef[];
   valoresExtra?: Record<string, string>;
   // Tanque de Planta (ver lib/planta-tank-instruments.ts): en vez del juego
   // de 7 válvulas de Estación con un solo vencimiento combinado, muestra 5
@@ -459,6 +461,7 @@ export function StationTankTechnicalSheetForm({
             </div>
           </>
         )}
+      <CustomSectionInputs secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} />
       </fieldset>
 
       <FormMessage state={state} />

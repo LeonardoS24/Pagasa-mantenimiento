@@ -57,8 +57,8 @@ import {
 } from "@/lib/ficha-campos";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { SECTION_STYLES } from "@/lib/section-colors";
-import type { CustomFieldDef } from "@/lib/custom-fields";
-import { CustomFieldItems } from "@/components/admin/CustomFieldInputs";
+import type { CustomFieldDef, CustomSectionDef } from "@/lib/custom-fields";
+import { CustomFieldItems, CustomSectionItems } from "@/components/admin/CustomFieldInputs";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { dictamenesDeApartado, getDictamenVencimiento, getDictamenAlertLevel, dictamenAlertLabel } from "@/lib/dictamen-alerts";
 
@@ -97,6 +97,7 @@ export function TechnicalSheetView({
   showSemirremolqueSection = false,
   showUnidadAsignada = false,
   camposExtra = [],
+  seccionesExtra = [],
   valoresExtra = {},
 }: {
   sheet: VehicleTechnicalSheet | null;
@@ -142,6 +143,7 @@ export function TechnicalSheetView({
   showUnidadAsignada?: boolean;
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
   camposExtra?: CustomFieldDef[];
+  seccionesExtra?: CustomSectionDef[];
   valoresExtra?: Record<string, string>;
 }) {
   if (!sheet) {
@@ -656,6 +658,8 @@ export function TechnicalSheetView({
       </div>
       </>
       )}
+
+      <CustomSectionItems secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} />
     </div>
   );
 }

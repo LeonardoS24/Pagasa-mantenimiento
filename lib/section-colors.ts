@@ -14,6 +14,8 @@ export const SECTION_STYLES = {
   hermeticidad: "border-l-4 border-l-fuchsia-400 bg-fuchsia-50/60",
   visualInterna: "border-l-4 border-l-violet-400 bg-violet-50/60",
   hidrostatica: "border-l-4 border-l-blue-400 bg-blue-50/60",
+  // Recuadros nuevos que crea el ADMIN en /admin/campos (CustomSection).
+  propio: "border-l-4 border-l-orange-400 bg-orange-50/60",
   // Las 3 divisiones de color del apartado "Equipos" (ver lib/equipo-enums.ts).
   equipoMecanico: "border-l-4 border-l-teal-400 bg-teal-50/60",
   equipoElectrico: "border-l-4 border-l-yellow-400 bg-yellow-50/60",
