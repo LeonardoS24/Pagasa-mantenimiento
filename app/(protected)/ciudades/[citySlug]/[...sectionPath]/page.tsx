@@ -75,13 +75,15 @@ import { esApartadoKino, TRACTOCAMIONES_SLUG } from "@/lib/kino-sections";
 import { getConjuntosDeCiudad } from "@/lib/conjuntos";
 import { ConjuntosTransporteView } from "@/components/city/ConjuntosTransporteView";
 import Link from "next/link";
+import { CIUDADES_ALMACEN } from "@/lib/almacen";
+import { AlmacenSeccion } from "@/components/almacen/AlmacenSeccion";
 
 export default async function SectionPage({
   params,
   searchParams,
 }: {
   params: { citySlug: string; sectionPath: string[] };
-  searchParams: { mes?: string; tab?: string; ambito?: string; estacion?: string; vista?: string };
+  searchParams: { mes?: string; tab?: string; ambito?: string; estacion?: string; vista?: string; q?: string };
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
@@ -616,13 +618,20 @@ export default async function SectionPage({
         isAggregateCity ? (
           <InventoryAggregateTable items={inventoryFeed} />
         ) : (
-          <InventoryItemTable
-            items={inventoryItems}
-            vehicles={cityVehicles}
-            citySlug={city.slug}
-            canEdit={isEditor}
-            isAdmin={isAdmin}
-          />
+          <div className="space-y-8">
+            {/* Inventario de almacén (hoja de Google): por ahora solo Hermosillo. */}
+            {CIUDADES_ALMACEN.includes(city.slug) && <AlmacenSeccion city={city} puede={isAdmin} q={searchParams.q ?? ""} />}
+            <div className="space-y-2">
+              {CIUDADES_ALMACEN.includes(city.slug) && <h2 className="text-lg font-semibold text-primary">Piezas de órdenes de compra</h2>}
+              <InventoryItemTable
+                items={inventoryItems}
+                vehicles={cityVehicles}
+                citySlug={city.slug}
+                canEdit={isEditor}
+                isAdmin={isAdmin}
+              />
+            </div>
+          </div>
         )
       ) : isPlantaFichaTecnicaSection ? (
         <div>

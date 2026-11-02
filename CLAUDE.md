@@ -726,7 +726,7 @@ Solo Hermosillo por ahora (`CIUDADES_ALMACEN`, `lib/almacen.ts`). El inventario 
 lleva en una hoja de Google con pestañas **Inventario** y **Movimientos** (+ Listas
 y Buscador, que el sistema no lee); el sistema la **sigue**, no la reemplaza.
 
-- `/ciudades/hermosillo/almacen`: se pega el enlace de la hoja (compartida como
+- Vive en el apartado **Inventarios** de la ciudad (`/ciudades/hermosillo/inventarios`, `components/almacen/AlmacenSeccion.tsx`, arriba de las piezas de órdenes; `/almacen` solo redirige hacia allá). Se pega el enlace de la hoja (compartida como
   «Cualquier persona con el enlace → Lector»). `lib/almacen-servidor.ts` la lee
   cada 30 min (`scheduleAlmacen`, arrancado en `instrumentation.ts`) o con «Leer la
   hoja ahora», **solo desde `docs.google.com`** (el id se extrae y la URL se arma
