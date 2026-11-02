@@ -113,7 +113,7 @@ export function HoseChangeLogRow({
         </span>
         <span className="text-xs text-primary">{expanded ? "Ocultar" : "Ver detalle"}</span>
       </button>
-      <VistoBuenoInsignia entidad="mangueras" registroId={log.id} />
+      <VistoBuenoInsignia entidad="mangueras" registroId={log.id} actualizadoEl={log.updatedAt} />
 
       {expanded && (
         <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 text-sm text-ink">
@@ -141,7 +141,7 @@ export function HoseChangeLogRow({
             </p>
             <div className="space-y-2">
               {canEdit && <UploadHoseChangeLogDocumentForm hoseChangeLogId={log.id} />}
-              <VistoBuenoControl entidad="mangueras" registroId={log.id} creadoPorId={log.createdById} />
+              <VistoBuenoControl entidad="mangueras" registroId={log.id} creadoPorId={log.createdById} actualizadoEl={log.updatedAt} />
               <DocumentList documents={log.documents} isAdmin={isAdmin} />
             </div>
           </div>

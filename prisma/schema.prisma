@@ -1934,15 +1934,18 @@ model LecturaCanal {
 // no agregar columnas a diez tablas; uno por registro. Quien capturó el
 // registro no puede darle visto bueno (regla de cuatro ojos).
 model VistoBueno {
-  id              String   @id @default(cuid())
-  entidad         String
-  registroId      String
-  vehicleRecordId String
-  userId          String?
-  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  username        String
-  comentario      String?
-  createdAt       DateTime @default(now())
+  id                    String    @id @default(cuid())
+  entidad               String
+  registroId            String
+  vehicleRecordId       String
+  userId                String?
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username              String
+  comentario            String?
+  // Última modificación del registro cuando se aprobó: si después alguien lo
+  // edita, el visto bueno deja de valer y se ve como "modificado después".
+  registroActualizadoEl DateTime?
+  createdAt             DateTime  @default(now())
 
   @@unique([entidad, registroId])
   @@index([vehicleRecordId])

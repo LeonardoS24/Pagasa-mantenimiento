@@ -678,6 +678,59 @@ en la bitácora de actividad. Mismo permiso que editar la ficha
 (`tieneEdicionAmpliada`). Ojo: la librería de Excel entrega las fechas a las
 23:59:59 del día anterior; `leerFecha` lo corrige (tiene prueba).
 
+## Estabilidad del servidor
+
+- **`servidor-iniciar.bat`** corre desde una copia en `%TEMP%` (un `git pull`
+  no le cambia el archivo mientras espera) y **revive el servidor si se
+  cae**: `servidor.mjs` sale con **3** en un error no controlado (se reinicia
+  a los 10 s), **2** si el puerto está ocupado o reservado (no reintenta) y
+  **1** cuando lo detiene `taskkill` en actualizar/restaurar/importar (NO lo
+  revive: si lo reviviera, abriría la base mientras se reemplaza o migra).
+  Actualizar y restaurar lo vuelven a arrancar con `start` en su propia
+  ventana "Servidor Pagasa" y terminan.
+- **Registro**: `scripts/registro-servidor.mjs` copia todo lo de la consola a
+  `logs/servidor-AAAA-MM-DD.log` (30 días) y arranques/caídas a
+  `logs/arranques.log`. `/admin/estado` los muestra con un semáforo de todo
+  (versión de git, integridad `quick_check`, disco, copia USB, respaldo,
+  correo, HTTPS, sesiones).
+- **Base**: se probaron 300 escrituras simultáneas sin error (Prisma espera 5 s
+  si está ocupada); **no se usa WAL** a propósito: los .bat copian `dev.db`
+  solo y con WAL esa copia podría quedar incompleta. 142 índices (78 nuevos en
+  llaves foráneas).
+- **Fotos**: `components/layout/ReductorDeFotos.tsx` (en el layout protegido)
+  reduce cualquier JPG/PNG/WEBP de más de 600 KB a 1920 px antes de subirlo, en
+  todos los formularios sin tocarlos; si se envía antes de terminar, espera
+  (una sola vez aunque toquen dos veces), descarta una reducción vieja si
+  cambiaron la foto y a los 15 s sube el original.
+
+## Expediente, programa anual y visto bueno
+
+- **`/ciudades/[c]/expediente`** (`lib/expediente.ts`): por unidad, cada
+  requisito con fundamento (`citaPara` deja solo la norma de ese tipo de
+  unidad), vencimiento, estado y documentos del último registro. Lo que la
+  norma pide y no tiene fecha (`requisitosEsperados`, conservador) sale como
+  «sin dato». Imprimible (una unidad por hoja, firmas), Excel y tarjetas en
+  celular. `?unidad=` siempre va combinado con las ciudades del usuario.
+- **`/ciudades/[c]/programa-anual`** (`lib/programa-anual.ts`): P = vence ese
+  mes (pendiente), R = se registró ese mes. Al registrar, el vencimiento se va
+  al siguiente ciclo y la P se vuelve R. Hoja horizontal, Excel, lista por mes
+  en celular, atrasados de años anteriores.
+- **Visto bueno** (`VistoBueno`, `lib/visto-bueno*.ts`,
+  `components/city/VistoBueno.tsx`): en 10 tipos de bitácora de la unidad.
+  Quien capturó no puede aprobar (registros viejos sin autor sí se pueden);
+  quitarlo, quien lo dio o un ADMIN. Guarda `updatedAt` del registro al
+  aprobar: si se edita después, se ve "modificado después del visto bueno" y
+  se puede volver a aprobar. No sale en la hoja `/imprimir` todavía.
+
+## App en el celular
+
+`app/manifest.ts`, íconos en `public/logos/icono-*.png`, `public/sw.js` (solo
+muestra `sin-conexion.html` si no hay red; **no guarda datos** en el teléfono)
+y `RegistrarApp` (el navegador solo registra el service worker con HTTPS). El
+middleware deja pasar `manifest.webmanifest`, `sw.js` y `sin-conexion.html` sin
+sesión. Las listas de unidades/estaciones y la búsqueda son tarjetas en
+celular solo con CSS (`data-etiqueta` + `before:content-[attr(data-etiqueta)]`).
+
 ## Celular
 
 El menú lateral se esconde en pantallas chicas y se abre con ☰

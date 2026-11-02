@@ -128,7 +128,7 @@ export function ExtinguisherChangeLogRow({
         </span>
         <span className="text-xs text-primary">{expanded ? "Ocultar" : "Ver detalle"}</span>
       </button>
-      <VistoBuenoInsignia entidad="extintor" registroId={log.id} />
+      <VistoBuenoInsignia entidad="extintor" registroId={log.id} actualizadoEl={log.updatedAt} />
 
       {expanded && (
         <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 text-sm text-ink">
@@ -149,7 +149,7 @@ export function ExtinguisherChangeLogRow({
               {canEdit && (
                 <UploadExtinguisherChangeLogDocumentForm extinguisherChangeLogId={log.id} />
               )}
-              <VistoBuenoControl entidad="extintor" registroId={log.id} creadoPorId={log.createdById} />
+              <VistoBuenoControl entidad="extintor" registroId={log.id} creadoPorId={log.createdById} actualizadoEl={log.updatedAt} />
               <DocumentList documents={log.documents} isAdmin={isAdmin} />
             </div>
           </div>

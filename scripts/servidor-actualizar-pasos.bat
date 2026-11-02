@@ -40,10 +40,14 @@ echo   Compilado.
 
 echo.
 echo ==========================================
-echo   Listo. Iniciando el servidor...
+echo   Listo. El servidor se inicia en su propia
+echo   ventana ("Servidor Pagasa"): dejala abierta.
 echo ==========================================
 echo.
-call "%~dp0servidor-iniciar.bat"
+REM En otra ventana y sin esperarla: esta ventana termina aqui y la
+REM siguiente actualizacion puede reemplazar estos archivos sin problema.
+start "Servidor Pagasa" "%~dp0servidor-iniciar.bat"
+timeout /t 5 /nobreak >nul
 exit /b 0
 
 :error_build

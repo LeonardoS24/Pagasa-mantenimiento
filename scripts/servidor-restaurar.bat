@@ -101,7 +101,7 @@ echo   Base anterior guardada en:
 echo   backups\antes-de-restaurar\%MARCA%\dev.db
 echo ==========================================
 echo.
-call "%~dp0servidor-iniciar.bat"
+start "Servidor Pagasa" "%~dp0servidor-iniciar.bat"
 goto :fin
 
 :error

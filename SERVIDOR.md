@@ -196,6 +196,23 @@ Equipos que todavía no tienen el certificado instalado ven "la conexión no es
 privada": pueden entrar con "Avanzado → Continuar", pero lo correcto es
 instalarlo.
 
+## Estado y reinicio automático
+
+- **Panel → Estado del servidor**: de un vistazo, si todo está en verde, con
+  los últimos errores y caídas.
+- Si el sistema se cae por un error, `servidor-iniciar.bat` lo vuelve a
+  levantar solo a los 10 segundos. Si lo detienes a propósito (actualizar,
+  restaurar) no lo revive.
+- Los registros quedan en la carpeta `logs\` (30 días).
+
+## Instalarlo en el celular
+
+En Android (Chrome): abrir el sistema → menú ⋮ → **Agregar a pantalla de
+inicio** / **Instalar app**. En iPhone (Safari): botón compartir → **Agregar a
+inicio**. Queda con el ícono de Pagasa y se abre a pantalla completa. Con
+HTTPS se instala como app completa; sin HTTPS queda como acceso directo (igual
+funciona).
+
 ## Si algo falla
 
 Doble clic en `scripts\servidor-diagnostico.bat`: crea `backups\diagnostico.txt`

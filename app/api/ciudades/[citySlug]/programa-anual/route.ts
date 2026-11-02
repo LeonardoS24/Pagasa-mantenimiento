@@ -18,7 +18,9 @@ export async function GET(request: NextRequest, { params }: { params: { citySlug
     if (!acceso) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
   const sp = request.nextUrl.searchParams;
-  const anio = Number(sp.get("anio")) || new Date().getFullYear();
+  const actual = new Date().getFullYear();
+  // Mismo límite que la página: un año absurdo daría una fecha inválida.
+  const anio = Math.min(actual + 10, Math.max(2000, Math.trunc(Number(sp.get("anio"))) || actual));
   const { filas } = await getProgramaAnual(await idsDeTrabajo(user, city), anio, sp.get("apartado") || undefined);
   const encabezados = ["Ciudad", "Número económico", "Apartado", "Actividad", "Detalle", ...MESES];
   const datos = filas.map((f) => {

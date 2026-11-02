@@ -68,3 +68,11 @@ test("expediente: cada unidad cita solo la norma que le aplica", () => {
   assert.equal(citaPara(norma, numeral, "semirremolques"), "NOM-EM-008-ASEA-2026, 7.4.4, Tabla 2");
   assert.equal(citaPara("NOM-005-SESH-2010", "9.6.4", "vehiculo-con-tanque-de-carburacion"), "NOM-005-SESH-2010, 9.6.4");
 });
+
+test("visto bueno: deja de valer si el registro se edita después", async () => {
+  const { modificadoDespues } = await import("../lib/visto-bueno-tipos");
+  const vb = { userId: "u", username: "sup", fecha: "2026-11-02T10:00:00Z", comentario: null, registroActualizadoEl: "2026-11-02T09:00:00Z" };
+  assert.equal(modificadoDespues(vb, "2026-11-02T09:00:00.500Z"), false);
+  assert.equal(modificadoDespues(vb, new Date("2026-11-02T11:00:00Z")), true);
+  assert.equal(modificadoDespues({ ...vb, registroActualizadoEl: null }, new Date()), false);
+});

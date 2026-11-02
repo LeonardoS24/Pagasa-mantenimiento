@@ -10,8 +10,8 @@ export { ENTIDADES_VISTO_BUENO, esEntidadVistoBueno, type EntidadVistoBueno, typ
 export async function registroDeBitacora(
   entidad: EntidadVistoBueno,
   id: string
-): Promise<{ vehicleRecordId: string; createdById: string | null } | null> {
-  const select = { vehicleRecordId: true, createdById: true } as const;
+): Promise<{ vehicleRecordId: string; createdById: string | null; updatedAt: Date } | null> {
+  const select = { vehicleRecordId: true, createdById: true, updatedAt: true } as const;
   const where = { id };
   switch (entidad) {
     case "mantenimiento":
@@ -42,6 +42,15 @@ export async function registroDeBitacora(
 export async function vistosBuenosDeUnidad(vehicleRecordId: string): Promise<Record<string, VistoBuenoVista>> {
   const filas = await prisma.vistoBueno.findMany({ where: { vehicleRecordId } });
   return Object.fromEntries(
-    filas.map((f) => [`${f.entidad}:${f.registroId}`, { userId: f.userId, username: f.username, fecha: f.createdAt.toISOString(), comentario: f.comentario }])
+    filas.map((f) => [
+      `${f.entidad}:${f.registroId}`,
+      {
+        userId: f.userId,
+        username: f.username,
+        fecha: f.createdAt.toISOString(),
+        comentario: f.comentario,
+        registroActualizadoEl: f.registroActualizadoEl?.toISOString() ?? null,
+      },
+    ])
   );
 }

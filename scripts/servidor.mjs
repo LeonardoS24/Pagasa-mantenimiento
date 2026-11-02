@@ -49,9 +49,12 @@ function ipDe(req) {
 // reintentar: se sale con código 2 y servidor-iniciar.bat se detiene y avisa.
 function alEscuchar(servidor, puerto) {
   servidor.on("error", (error) => {
-    if (error.code === "EADDRINUSE") {
-      console.error(`El puerto ${puerto} ya está ocupado: ¿hay otro servidor del sistema abierto?`);
-      arranques(`NO ARRANCÓ: puerto ${puerto} ocupado`);
+    // EACCES: en Windows, Hyper-V o WSL a veces reservan el rango donde cae
+    // el puerto. Reintentar tampoco arreglaría eso.
+    if (error.code === "EADDRINUSE" || error.code === "EACCES") {
+      const motivo = error.code === "EADDRINUSE" ? "ya está ocupado (¿hay otro servidor del sistema abierto?)" : "está reservado por Windows";
+      console.error(`El puerto ${puerto} ${motivo}.`);
+      arranques(`NO ARRANCÓ: puerto ${puerto} ${error.code === "EADDRINUSE" ? "ocupado" : "reservado"}`);
       process.exit(2);
     }
     throw error;

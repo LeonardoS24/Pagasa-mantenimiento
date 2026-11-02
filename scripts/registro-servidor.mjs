@@ -28,14 +28,16 @@ export function iniciarRegistro(raiz) {
   fs.mkdirSync(carpeta, { recursive: true });
 
   const limpiarViejos = () => {
-    const limite = Date.now() - DIAS_A_CONSERVAR * 24 * 60 * 60 * 1000;
-    for (const nombre of fs.readdirSync(carpeta)) {
-      if (!/^servidor-\d{4}-\d{2}-\d{2}\.log$/.test(nombre)) continue;
-      try {
+    // Todo dentro del try: corre en un setInterval y un error aquí (carpeta
+    // borrada o bloqueada por el antivirus) tumbaría al servidor.
+    try {
+      const limite = Date.now() - DIAS_A_CONSERVAR * 24 * 60 * 60 * 1000;
+      for (const nombre of fs.readdirSync(carpeta)) {
+        if (!/^servidor-\d{4}-\d{2}-\d{2}\.log$/.test(nombre)) continue;
         if (fs.statSync(path.join(carpeta, nombre)).mtimeMs < limite) fs.rmSync(path.join(carpeta, nombre));
-      } catch {
-        // Si no se puede borrar hoy, se intenta mañana.
       }
+    } catch {
+      // Si no se puede limpiar hoy, se intenta mañana.
     }
   };
   limpiarViejos();
@@ -67,11 +69,13 @@ export function iniciarRegistro(raiz) {
   };
 
   // Un error que nadie atrapó deja al proceso en un estado desconocido: se
-  // anota y se sale con código 1, y servidor-iniciar.bat lo vuelve a levantar.
+  // anota y se sale con código 3 ("se cayó"), y servidor-iniciar.bat lo
+  // vuelve a levantar. El 1 lo reserva para cuando lo detienen con taskkill
+  // (actualizar, restaurar): ese no se revive.
   process.on("uncaughtException", (error) => {
     console.error("Error no controlado:", error);
     arranques(`CAÍDA: ${error?.message ?? error}`);
-    process.exit(1);
+    process.exit(3);
   });
   process.on("unhandledRejection", (motivo) => {
     // Una promesa rechazada sin catch no deja el proceso roto: se anota y sigue.

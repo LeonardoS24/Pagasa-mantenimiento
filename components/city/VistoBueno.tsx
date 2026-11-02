@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { darVistoBueno, quitarVistoBueno } from "@/actions/visto-bueno-actions";
-import type { EntidadVistoBueno, VistoBuenoVista } from "@/lib/visto-bueno-tipos";
+import { modificadoDespues, type EntidadVistoBueno, type VistoBuenoVista } from "@/lib/visto-bueno-tipos";
 
 // Visto bueno de supervisor en cada registro de bitácora de la unidad. La
 // página de la unidad carga todos los de esa unidad una vez y los reparte con
@@ -22,10 +22,21 @@ function fecha(iso: string): string {
 }
 
 // La línea que se ve aunque el registro esté cerrado.
-export function VistoBuenoInsignia({ entidad, registroId }: { entidad: EntidadVistoBueno; registroId: string }) {
+export function VistoBuenoInsignia({
+  entidad,
+  registroId,
+  actualizadoEl,
+}: {
+  entidad: EntidadVistoBueno;
+  registroId: string;
+  actualizadoEl?: Date | string | null;
+}) {
   const ctx = useContext(Ctx);
   const vb = ctx?.vistos[`${entidad}:${registroId}`];
   if (!vb) return null;
+  if (modificadoDespues(vb, actualizadoEl)) {
+    return <p className="mt-1 text-xs font-medium text-amber-700">⚠ Modificado después del visto bueno de {vb.username}: falta revisarlo otra vez</p>;
+  }
   return (
     <p className="mt-1 text-xs font-medium text-green-700">
       ✓ Visto bueno de {vb.username} · {fecha(vb.fecha)}
@@ -38,10 +49,12 @@ export function VistoBuenoControl({
   entidad,
   registroId,
   creadoPorId,
+  actualizadoEl,
 }: {
   entidad: EntidadVistoBueno;
   registroId: string;
   creadoPorId: string | null;
+  actualizadoEl?: Date | string | null;
 }) {
   const ctx = useContext(Ctx);
   const router = useRouter();
@@ -49,7 +62,10 @@ export function VistoBuenoControl({
   const [error, setError] = useState<string | null>(null);
   const [pendiente, start] = useTransition();
   if (!ctx) return null;
-  const vb = ctx.vistos[`${entidad}:${registroId}`];
+  const vigente = ctx.vistos[`${entidad}:${registroId}`];
+  const modificado = vigente ? modificadoDespues(vigente, actualizadoEl) : false;
+  // Si se editó después de aprobarlo, se puede (y debe) volver a revisar.
+  const vb = modificado ? undefined : vigente;
 
   if (vb) {
     const puedeQuitar = vb.userId === ctx.userId || ctx.esAdmin;
@@ -80,12 +96,23 @@ export function VistoBuenoControl({
     );
   }
 
-  if (!ctx.puedeRevisar) return null;
+  const avisoModificado = modificado && vigente && (
+    <p className="w-full text-xs text-amber-700">
+      Tenía visto bueno de {vigente.username} el {fecha(vigente.fecha)}, pero se modificó después.
+    </p>
+  );
+  if (!ctx.puedeRevisar) return avisoModificado || null;
   if (creadoPorId && creadoPorId === ctx.userId) {
-    return <p className="text-xs text-gray-500">Este registro lo capturaste tú: el visto bueno lo da otra persona.</p>;
+    return (
+      <div className="space-y-1">
+        {avisoModificado}
+        <p className="text-xs text-gray-500">Este registro lo capturaste tú: el visto bueno lo da otra persona.</p>
+      </div>
+    );
   }
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-gray-300 px-3 py-2">
+      {avisoModificado}
       <input
         value={comentario}
         onChange={(e) => setComentario(e.target.value)}

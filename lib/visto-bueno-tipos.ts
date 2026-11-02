@@ -21,4 +21,16 @@ export function esEntidadVistoBueno(valor: string): valor is EntidadVistoBueno {
   return valor in ENTIDADES_VISTO_BUENO;
 }
 
-export type VistoBuenoVista = { userId: string | null; username: string; fecha: string; comentario: string | null };
+export type VistoBuenoVista = {
+  userId: string | null;
+  username: string;
+  fecha: string;
+  comentario: string | null;
+  registroActualizadoEl: string | null;
+};
+
+// ¿Se editó el registro después de aprobarlo? (1 s de tolerancia.)
+export function modificadoDespues(vb: VistoBuenoVista, actualizadoEl: Date | string | null | undefined): boolean {
+  if (!vb.registroActualizadoEl || !actualizadoEl) return false;
+  return new Date(actualizadoEl).getTime() > new Date(vb.registroActualizadoEl).getTime() + 1000;
+}

@@ -22,10 +22,29 @@ export async function darVistoBueno(entidad: string, registroId: string, comenta
   }
   const texto = String(comentario ?? "").trim().slice(0, 500) || null;
   const ya = await prisma.vistoBueno.findUnique({ where: { entidad_registroId: { entidad, registroId } } });
-  if (ya) return { error: `Ya tiene visto bueno de ${ya.username}.` };
-  await prisma.vistoBueno.create({
-    data: { entidad, registroId, vehicleRecordId: registro.vehicleRecordId, userId: user.userId, username: user.username, comentario: texto },
-  });
+  // Si ya tenía uno pero el registro se editó después, el nuevo lo reemplaza.
+  if (ya && !(ya.registroActualizadoEl && registro.updatedAt.getTime() > ya.registroActualizadoEl.getTime() + 1000)) {
+    return { error: `Ya tiene visto bueno de ${ya.username}.` };
+  }
+  try {
+    const datos = {
+      vehicleRecordId: registro.vehicleRecordId,
+      userId: user.userId,
+      username: user.username,
+      comentario: texto,
+      registroActualizadoEl: registro.updatedAt,
+      createdAt: new Date(),
+    };
+    await prisma.vistoBueno.upsert({
+      where: { entidad_registroId: { entidad, registroId } },
+      update: datos,
+      create: { entidad, registroId, ...datos },
+    });
+  } catch (error) {
+    // Dos personas aprobando al mismo tiempo: el índice único deja pasar a una.
+    if ((error as { code?: string }).code === "P2002") return { error: "Alguien más le acaba de dar visto bueno." };
+    throw error;
+  }
   const unidad = await prisma.vehicleRecord.findUnique({ where: { id: registro.vehicleRecordId }, include: { section: { include: { city: true } } } });
   await logActivity({
     user,
