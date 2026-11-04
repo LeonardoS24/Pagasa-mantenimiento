@@ -58,7 +58,7 @@ import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { ConfirmDeleteWithPassword } from "@/components/admin/ConfirmDeleteWithPassword";
 import { TraspasoUnidadForm } from "@/components/admin/TraspasoUnidadForm";
 import { TraspasosDeUnidad } from "@/components/city/TraspasosDeUnidad";
-import { getOpcionesDeTraspaso } from "@/lib/traspaso-unidades";
+import { esApartadoTraspasable, getOpcionesDeTraspaso } from "@/lib/traspaso-unidades";
 import { trasladarUnidadDeCiudad } from "@/actions/traspaso-actions";
 import {
   updateVehicleRecord,
@@ -231,12 +231,14 @@ export default async function VehicleDetailPage({
   const isEditor = canEdit(user.role);
 
   // Historial de ciudades (lo ve quien ve la ficha) y, solo para el ADMIN, a
-  // qué ciudades se puede pasar (ver lib/traspaso-unidades.ts).
+  // qué ciudades se puede pasar (ver lib/traspaso-unidades.ts). En estaciones,
+  // planta y lo que no es unidad de distribución no se muestra nada.
   const traspasos = await prisma.traspasoUnidad.findMany({
     where: { vehicleRecordId: vehicle.id },
     orderBy: { createdAt: "desc" },
   });
-  const opcionesTraspaso = user.role === "ADMIN" ? await getOpcionesDeTraspaso(vehicle.id) : null;
+  const opcionesTraspaso =
+    user.role === "ADMIN" && esApartadoTraspasable(vehicle.section.slug) ? await getOpcionesDeTraspaso(vehicle.id) : null;
 
   // Piezas disponibles en el inventario de esta ciudad, para poder elegirlas
   // directo desde "Registrar mantenimiento" (ver CreateMaintenanceLogForm) en
