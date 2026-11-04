@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -35,7 +36,7 @@ export function InsuranceAlertsPanel({ vehicles }: { vehicles: InsuranceAlertVeh
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${insuranceAlertRowStyles[vehicle.level]}`}
           >
             <span className="text-ink">
-              {insuranceAlertMessage(vehicle.level, vehicle.vencimiento, vehicle.numeroEconomico)}{" "}
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={insuranceAlertMessage(vehicle.level, vehicle.vencimiento, vehicle.numeroEconomico)} />}{" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>
             <span className="flex items-center gap-2">

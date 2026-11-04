@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -35,12 +36,12 @@ export function MaintenanceAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] 
             }`}
           >
             <span className="text-ink">
-              {maintenanceAlertMessage(
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={maintenanceAlertMessage(
                 vehicle.level,
                 vehicle.fechaProximoMantenimiento,
                 vehicle.numeroEconomico,
                 vehicle.kilometrajeProximoMantenimiento
-              )}
+              )} />}
               {" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>

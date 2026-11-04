@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -35,12 +36,12 @@ export function TightnessTestAlertsPanel({ vehicles }: { vehicles: AlertVehicle[
             }`}
           >
             <span className="text-ink">
-              {tightnessTestAlertMessage(
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={tightnessTestAlertMessage(
                 vehicle.level,
                 vehicle.fechaProximaPruebaHermeticidad,
                 vehicle.numeroEconomico,
                 vehicle.etiquetaTanque
-              )}
+              )} />}
               {" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>

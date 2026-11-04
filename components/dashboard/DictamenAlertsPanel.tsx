@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import { dictamenAlertLabel, dictamenAlertMessage } from "@/lib/dictamen-alerts";
@@ -39,7 +40,7 @@ export function DictamenAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) 
             }`}
           >
             <span className="text-ink">
-              {dictamenAlertMessage(vehicle.level, vehicle.vencimiento, vehicle.numeroEconomico, vehicle.dictamen)}{" "}
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={dictamenAlertMessage(vehicle.level, vehicle.vencimiento, vehicle.numeroEconomico, vehicle.dictamen)} />}{" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>
             <span className="flex items-center gap-2">

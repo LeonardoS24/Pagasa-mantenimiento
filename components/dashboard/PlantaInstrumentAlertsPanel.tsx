@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
@@ -32,13 +33,13 @@ export function PlantaInstrumentAlertsPanel({ vehicles }: { vehicles: PlantaInst
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${valveAlertRowStyles[vehicle.level]}`}
           >
             <span className="text-ink">
-              {getPlantaInstrumentAlertMessage(
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={getPlantaInstrumentAlertMessage(
                 vehicle.level,
                 vehicle.vencimiento,
                 vehicle.numeroEconomico,
                 vehicle.campo,
                 vehicle.etiquetaTanque
-              )}
+              )} />}
               {" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>

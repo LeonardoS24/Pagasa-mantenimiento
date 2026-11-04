@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
@@ -37,7 +38,7 @@ export function HoseAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
             }`}
           >
             <span className="text-ink">
-              {hoseAlertMessage(vehicle.level, vehicle.vencimiento, vehicle.numeroEconomico, vehicle.elemento)}
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={hoseAlertMessage(vehicle.level, vehicle.vencimiento, vehicle.numeroEconomico, vehicle.elemento)} />}
               {" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>

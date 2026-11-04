@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
@@ -33,13 +34,13 @@ export function StationValveAlertsPanel({ vehicles }: { vehicles: StationValveAl
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${valveAlertRowStyles[vehicle.level]}`}
           >
             <span className="text-ink">
-              {getStationValveAlertMessage(
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={getStationValveAlertMessage(
                 vehicle.level,
                 vehicle.vencimiento,
                 vehicle.numeroEconomico,
                 vehicle.valvulaMasAntigua,
                 vehicle.etiquetaTanque
-              )}
+              )} />}
               {" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>

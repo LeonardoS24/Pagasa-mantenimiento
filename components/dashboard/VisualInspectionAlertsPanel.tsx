@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -35,12 +36,12 @@ export function VisualInspectionAlertsPanel({ vehicles }: { vehicles: AlertVehic
             }`}
           >
             <span className="text-ink">
-              {visualInspectionAlertMessage(
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={visualInspectionAlertMessage(
                 vehicle.level,
                 vehicle.fechaProximaInspeccionVisual,
                 vehicle.numeroEconomico,
                 vehicle.etiquetaTanque
-              )}
+              )} />}
               {" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>

@@ -1,3 +1,4 @@
+import { MensajeDeAlerta } from "./MensajeDeAlerta";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -35,12 +36,12 @@ export function UltrasoundAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }
             }`}
           >
             <span className="text-ink">
-              {ultrasoundAlertMessage(
+              {<MensajeDeAlerta level={vehicle.level} numeroEconomico={vehicle.numeroEconomico} texto={ultrasoundAlertMessage(
                 vehicle.level,
                 vehicle.fechaProximoUltrasonido,
                 vehicle.numeroEconomico,
                 vehicle.etiquetaTanque
-              )}
+              )} />}
               {" "}
               <span className="text-gray-500">({vehicle.cityName})</span>
             </span>
