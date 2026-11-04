@@ -1,5 +1,5 @@
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { asegurarPlazos } from "@/lib/requisitos-runtime";
@@ -56,6 +56,10 @@ import { CreateHoseChangeLogForm } from "@/components/admin/CreateHoseChangeLogF
 import { HoseChangeLogTable } from "@/components/city/HoseChangeLogTable";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { ConfirmDeleteWithPassword } from "@/components/admin/ConfirmDeleteWithPassword";
+import { TraspasoUnidadForm } from "@/components/admin/TraspasoUnidadForm";
+import { TraspasosDeUnidad } from "@/components/city/TraspasosDeUnidad";
+import { getOpcionesDeTraspaso } from "@/lib/traspaso-unidades";
+import { trasladarUnidadDeCiudad } from "@/actions/traspaso-actions";
 import {
   updateVehicleRecord,
   deleteVehicleRecord,
@@ -129,6 +133,17 @@ export default async function VehicleDetailPage({
 }) {
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
+
+  // Una etiqueta QR impresa antes de que la unidad cambiara de ciudad trae la
+  // ciudad vieja en la dirección: se manda a la ciudad actual (que vuelve a
+  // revisar el acceso; quien no lo tenga ahí verá "no encontrado").
+  const ubicacion = await prisma.vehicleRecord.findUnique({
+    where: { id: params.vehicleId },
+    select: { section: { select: { city: { select: { slug: true } } } } },
+  });
+  if (ubicacion && ubicacion.section.city.slug !== params.citySlug) {
+    redirect(`/ciudades/${ubicacion.section.city.slug}/vehiculo/${params.vehicleId}`);
+  }
 
   await assertCityAccess(user, params.citySlug);
   // Plazos normativos vigentes (ver /admin/normas) antes de calcular alertas.
@@ -214,6 +229,14 @@ export default async function VehicleDetailPage({
   const isAdmin =
     user.role === "ADMIN" || (user.role === "USUARIO" && (await hasActiveElevatedAccess(user.userId)));
   const isEditor = canEdit(user.role);
+
+  // Historial de ciudades (lo ve quien ve la ficha) y, solo para el ADMIN, a
+  // qué ciudades se puede pasar (ver lib/traspaso-unidades.ts).
+  const traspasos = await prisma.traspasoUnidad.findMany({
+    where: { vehicleRecordId: vehicle.id },
+    orderBy: { createdAt: "desc" },
+  });
+  const opcionesTraspaso = user.role === "ADMIN" ? await getOpcionesDeTraspaso(vehicle.id) : null;
 
   // Piezas disponibles en el inventario de esta ciudad, para poder elegirlas
   // directo desde "Registrar mantenimiento" (ver CreateMaintenanceLogForm) en
@@ -1231,6 +1254,25 @@ export default async function VehicleDetailPage({
                 Reactivar {tipoRegistroLabel(vehicle.section.slug)}
               </button>
             </form>
+          )}
+        </div>
+      )}
+
+      <TraspasosDeUnidad traspasos={traspasos} />
+
+      {opcionesTraspaso && (
+        <div id="cambiar-de-ciudad" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Ciudad de la unidad</h2>
+          {opcionesTraspaso.bloqueo ? (
+            <p className="text-sm text-ink">{opcionesTraspaso.bloqueo}</p>
+          ) : (
+            <TraspasoUnidadForm
+              nombre={vehicle.numeroEconomico}
+              ciudadActual={vehicle.section.city.name}
+              ciudades={opcionesTraspaso.ciudades}
+              par={opcionesTraspaso.par}
+              action={trasladarUnidadDeCiudad.bind(null, vehicle.id)}
+            />
           )}
         </div>
       )}

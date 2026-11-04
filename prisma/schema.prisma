@@ -83,6 +83,8 @@ model User {
   sealLogsDeactivated            SealLog[]                       @relation("SealLogDeactivatedBy")
   lotesDocumentos                LoteDocumentos[]
 
+  traspasosUnidad TraspasoUnidad[]
+
   @@map("users")
 }
 
@@ -347,6 +349,8 @@ model VehicleRecord {
   // encabezar varios conjuntos; un semirremolque está en uno solo a la vez.
   conjuntosComoTractocamion ConjuntoTransporte[]      @relation("ConjuntoTractocamion")
   conjuntoSemirremolque     ConjuntoSemirremolque?
+  // Cada vez que la unidad cambió de ciudad (ver TraspasoUnidad).
+  traspasos                 TraspasoUnidad[]
 
   @@index([sectionId])
   @@index([createdById])
@@ -2071,4 +2075,37 @@ model VistoBueno {
   @@unique([entidad, registroId])
   @@index([vehicleRecordId])
   @@index([userId])
+}
+
+// Cambio de ciudad de una unidad de distribución (ver lib/traspaso-unidades.ts).
+// La unidad conserva su id, su ficha, sus bitácoras y sus documentos: solo
+// cambia de apartado, al del mismo tipo en la ciudad destino. Aquí queda el
+// rastro (de dónde a dónde, quién y por qué). Los nombres y slugs de las
+// ciudades se copian a propósito: si una ciudad se renombra o se elimina, el
+// historial sigue diciendo lo que pasó. Si la unidad se elimina, el renglón se
+// queda con su número económico (vehicleRecordId pasa a null).
+model TraspasoUnidad {
+  id String @id @default(cuid())
+
+  vehicleRecordId String?
+  vehicleRecord   VehicleRecord? @relation(fields: [vehicleRecordId], references: [id], onDelete: SetNull)
+  numeroEconomico String
+  apartadoSlug    String
+
+  origenCiudadNombre  String
+  origenCiudadSlug    String
+  destinoCiudadNombre String
+  destinoCiudadSlug   String
+
+  motivo String?
+
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username String
+
+  createdAt DateTime @default(now())
+
+  @@index([vehicleRecordId])
+  @@index([userId])
+  @@map("traspasos_unidad")
 }

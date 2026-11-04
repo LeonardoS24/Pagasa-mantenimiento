@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { assertCityAccess } from "@/lib/access";
@@ -319,6 +319,15 @@ export default async function PrintVehiclePage({
 
   const session = await getSession();
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
+
+  // Dirección de antes de que la unidad cambiara de ciudad (QR o enlace viejo).
+  const ubicacion = await prisma.vehicleRecord.findUnique({
+    where: { id: params.vehicleId },
+    select: { section: { select: { city: { select: { slug: true } } } } },
+  });
+  if (ubicacion && ubicacion.section.city.slug !== params.citySlug) {
+    redirect(`/ciudades/${ubicacion.section.city.slug}/vehiculo/${params.vehicleId}/imprimir?historial=${historial}`);
+  }
 
   await assertCityAccess(user, params.citySlug);
 

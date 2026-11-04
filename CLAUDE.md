@@ -387,6 +387,37 @@ prueba hidrostática del tanque de carga (Auto-Tanques y Semirremolques) se
 repite cada 10 años** (EM-009 Tabla 3 / EM-008 Tabla 2): `aniosCicloHidrostatica`
 en `hydrostatic-test-actions.ts`; Planta, Estaciones y carburación siguen en 5.
 
+## Cambiar una unidad de ciudad
+
+Botón **"Cambiar de ciudad"** en la ficha de la unidad (sección "Ciudad de la
+unidad", solo **ADMIN**, pide su contraseña). Lógica en
+`lib/traspaso-unidades.ts` (`getOpcionesDeTraspaso`, `trasladarUnidad`), acción
+en `actions/traspaso-actions.ts`. Una unidad pertenece a un apartado y este a una
+ciudad, así que **moverla es cambiarle `sectionId` al apartado del mismo slug
+dentro de "Unidad de distribución" de la ciudad destino**: conserva su id, ficha,
+bitácoras y documentos (los archivos en disco van por id de unidad/bitácora, no
+se tocan); lo único que se actualiza es `Document.sectionId` de lo suyo, porque
+"Documentos de pruebas" filtra por la ciudad de ese apartado. Alertas, calendario
+y tablero cambian de ciudad solos.
+
+- **Solo unidades de distribución** (`SLUGS_TRASPASABLES`): auto-tanques, reparto,
+  vehículo con tanque de carburación, utilitarias, tractocamiones y
+  semirremolques. Estaciones y planta no.
+- **La pareja se va junta**: Auto-Tanque + Vehículo con tanque de carburación con
+  el mismo número económico en la ciudad. Si el destino no tiene el apartado de
+  alguno, no se mueve nada. Todo va en una transacción.
+- **Kino**: un tractocamión o semirremolque que está en un conjunto no se mueve
+  (el conjunto es de la ciudad): hay que sacarlo antes. El formulario solo ofrece
+  ciudades que tengan el apartado (Kino no tiene los de reparto, y viceversa).
+- Rechaza ciudad igual, Administración y un número económico repetido en el apartado
+  destino (compara sin mayúsculas, espacios ni guiones).
+- **Historial**: tabla `TraspasoUnidad` (de dónde a dónde, quién, motivo; copia los
+  nombres de las ciudades) que la ficha muestra como "Historial de ciudades", y un
+  renglón en la bitácora de actividad.
+- **QR viejos**: la ficha y `/imprimir` redirigen a la ciudad actual cuando la
+  dirección trae la anterior, así que las etiquetas ya impresas siguen sirviendo
+  (quien las escanee necesita acceso a la ciudad nueva).
+
 ## Seguridad — dos capas, ambas obligatorias
 
 **1. Rol** (`lib/auth.ts`): `requireUser` / `requireEditor` / `requireAdmin` /
