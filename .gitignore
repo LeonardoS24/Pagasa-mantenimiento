@@ -50,3 +50,6 @@ next-env.d.ts
 # postinstall a partir de node_modules, así que no se versiona (si se
 # versionara, quedaría desfasada al actualizar la librería).
 /public/pdf.worker.min.mjs
+
+# Fuentes, cmaps, perfiles ICC y wasm de pdfjs-dist: los copia el mismo script.
+/public/pdfjs/

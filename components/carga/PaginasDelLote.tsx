@@ -1,6 +1,7 @@
 "use client";
 
 import "@/lib/pdfjs-compat";
+import { RECURSOS_PDFJS } from "@/lib/pdfjs-recursos";
 import { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 
@@ -17,7 +18,7 @@ function cargarPdf(src: string): Promise<PDFDocumentProxy> {
     promesa = (async () => {
       const pdfjsLib = await import("pdfjs-dist");
       pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-      return pdfjsLib.getDocument({ url: src }).promise;
+      return pdfjsLib.getDocument({ url: src, ...RECURSOS_PDFJS }).promise;
     })();
     // Si falla (p. ej. se cayó la red), el siguiente intento vuelve a pedirlo.
     promesa.catch(() => documentos.delete(src));

@@ -863,3 +863,19 @@ El menú lateral se esconde en pantallas chicas y se abre con ☰
 (`components/layout/MenuMovil.tsx`, contexto compartido entre Header y
 Sidebar; se cierra solo al navegar). "Mi contraseña" pasa al menú. Se revisó a
 390 px que ninguna página se desborde a lo ancho.
+
+## Visor de PDF y pantallas de error
+
+- **pdfjs necesita sus recursos por URL** (`lib/pdfjs-recursos.ts` → `RECURSOS_PDFJS`,
+  se pasa en TODO `getDocument`): fuentes estándar, cmaps, perfiles ICC y wasm
+  (JPEG 2000 / JBIG2). `scripts/copy-pdf-worker.mjs` los copia a `public/pdfjs/`
+  en `postinstall` (no se versionan, como el worker). Sin ellos los PDF con
+  fuentes no incrustadas (manuales) o escaneos JBIG2/JPX salían en blanco o sin
+  texto, sin ningún error. Si se agrega otro lector de PDF, pasar `RECURSOS_PDFJS`.
+- `PdfViewer` ajusta cada página al ancho, dibuja con la densidad de la pantalla
+  (hasta 2x), solo dibuja las páginas cercanas a lo que se ve y tiene zoom.
+- Pantallas: `app/error.tsx`, `app/(protected)/error.tsx` (con menú),
+  `app/not-found.tsx`, `app/(protected)/not-found.tsx`.
+- **No agregar `app/(protected)/loading.tsx`**: en Next 14.2 con `notFound()`
+  (p. ej. `/ciudades/no-existe`) hace que el navegador truene con "Application
+  error: a client-side exception" (React #310) y la respuesta sale 200 en vez de 404.

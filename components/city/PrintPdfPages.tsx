@@ -1,6 +1,7 @@
 "use client";
 
 import "@/lib/pdfjs-compat";
+import { RECURSOS_PDFJS } from "@/lib/pdfjs-recursos";
 import { useEffect, useRef, useState } from "react";
 
 const RENDER_TIMEOUT_MS = 60000;
@@ -49,7 +50,7 @@ export function PrintPdfPages({ documents }: { documents: PrintablePdf[] }) {
         containerRef.current.innerHTML = "";
 
         for (const doc of documents) {
-          const pdf = await pdfjsLib.getDocument({ url: `/api/documents/${doc.id}` }).promise;
+          const pdf = await pdfjsLib.getDocument({ url: `/api/documents/${doc.id}`, ...RECURSOS_PDFJS }).promise;
           if (cancelled || !containerRef.current) return;
 
           for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
