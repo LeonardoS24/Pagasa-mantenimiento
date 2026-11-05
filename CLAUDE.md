@@ -189,7 +189,8 @@ y cita de cada requisito.
   puede citar dos normas cuando cada una rige un tipo de unidad. Estaciones de
   carburación: **NOM-003-SEDG-2004** (cotejada; ver arriba). Su sustituta solo
   existe como proyecto (PROY-NOM-012-ASEA-2021, DOF 29-abr-2021) y la
-  Secretaría de Economía la marca vigente (revisado el 27-oct-2026).
+  Secretaría de Economía la marca vigente (revisado el 27-oct-2026; el usuario
+  confirmó el 4-nov-2026 que la definitiva no ha salido: sigue rigiendo la 003).
   **Las de emergencia vencen el 5-abr-2027** (6 meses desde el 6-oct-2026,
   prorrogables una vez por la LICal art. 31): `NORMAS_VIGENTES[].vigenteHasta`
   y `avisosDeVigencia()` avisan al ADMIN 60 días antes en `/admin/normas` y en
@@ -879,3 +880,21 @@ Sidebar; se cierra solo al navegar). "Mi contraseña" pasa al menú. Se revisó 
 - **No agregar `app/(protected)/loading.tsx`**: en Next 14.2 con `notFound()`
   (p. ej. `/ciudades/no-existe`) hace que el navegador truene con "Application
   error: a client-side exception" (React #310) y la respuesta sale 200 en vez de 404.
+
+## Pruebas de permisos y arranque automático
+
+- `tests/permisos-y-traspaso.test.ts`: crea una base **temporal** (migraciones
+  reales vía `prisma migrate deploy`, en la carpeta temporal del sistema; se
+  niega a correr si `DATABASE_URL` no apunta ahí) y prueba el aislamiento por
+  ciudad (`getAccessibleCities`, `assertCityAccess`, `assertVehicleAccess` y
+  compañía), edición ampliada y el traspaso de unidades (pareja, documentos,
+  historial, duplicados, transacción). Cargar `lib/*` con `import()` dentro de
+  `before()`, después de fijar `DATABASE_URL`; `lib/auth` necesita un
+  `React.cache` de mentira fuera de Next (ya está en el test).
+- `tests/acciones-con-guarda.test.ts`: lee `actions/*.ts` y falla si una función
+  exportada no pide sesión/rol (directo o por una ayuda del mismo archivo). Una
+  acción nueva sin `requireUser/requireAdmin/requireEditor/requireElevatedEditor`
+  rompe la prueba. Excepciones con su razón en `EXCEPCIONES`.
+- Arranque automático del servidor: `scripts/servidor-instalar-arranque.bat`
+  (ver SERVIDOR.md). `servidor-actualizar-pasos.bat` reinicia por la tarea
+  `Servidor Pagasa` si existe; si no, abre la ventana como antes.

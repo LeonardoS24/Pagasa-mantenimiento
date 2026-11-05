@@ -41,7 +41,24 @@ New-NetFirewallRule -DisplayName "Pagasa Mantenimiento" -Direction Inbound -Loca
 > el sistema va por HTTP sin cifrar (ver "Seguridad" abajo) y no debe quedar
 > expuesto fuera de la red de la empresa.
 
-## Montar el servidor (Programador de tareas de Windows)
+## Forma rápida: el instalador
+
+En la computadora del servidor, doble clic en
+`scripts\servidor-instalar-arranque.bat` (pide permiso de administrador). Crea
+la tarea `Servidor Pagasa` (arranca con Windows, sin sesión abierta, y se
+levanta de nuevo si se cae), abre el firewall (puertos 3000 y 3443, solo red
+privada) y avisa si la IP no es fija. Pide la contraseña de Windows una vez; la
+guarda Windows. Corre con tu usuario, no como SYSTEM.
+
+- Primero se puede probar sin cambiar nada: `scripts\servidor-instalar-arranque.bat -SoloVerificar`.
+- Para quitarlo: `scripts\servidor-instalar-arranque.bat -Quitar`.
+- Después `servidor-actualizar.bat` reinicia el sistema **por esa tarea**, así que
+  sigue prendido aunque se cierre la ventana o la sesión de Windows.
+- Si cambia la contraseña de Windows, hay que volver a correr el instalador.
+
+Lo de abajo es lo mismo hecho a mano, por si se prefiere.
+
+## Montar el servidor a mano (Programador de tareas de Windows)
 
 Es la forma más simple: no hay que instalar nada, viene en Windows y sobrevive
 a reinicios y a cerrar sesión.

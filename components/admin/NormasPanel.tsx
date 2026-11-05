@@ -215,8 +215,9 @@ export function NormasPanel({
           </table>
         </div>
         <p className="text-xs text-gray-500">
-          Cotejadas con el texto publicado en el DOF (21-oct-2026). Estaciones de carburación revisado el 27-oct-2026: la
-          NOM-012-ASEA-2021 sigue siendo proyecto, por eso rige la NOM-003-SEDG-2004.
+          Cotejadas con el texto publicado en el DOF (21-oct-2026). Estaciones de carburación revisado el 27-oct-2026 y
+          confirmado de nuevo el 4-nov-2026: la NOM-012-ASEA-2021 sigue siendo proyecto (no hay versión definitiva),
+          por eso rige la NOM-003-SEDG-2004.
         </p>
       </section>
 

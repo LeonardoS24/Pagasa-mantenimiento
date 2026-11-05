@@ -40,13 +40,26 @@ echo   Compilado.
 
 echo.
 echo ==========================================
-echo   Listo. El servidor se inicia en su propia
-echo   ventana ("Servidor Pagasa"): dejala abierta.
+echo   Listo. El servidor se inicia solo. Si no esta
+echo   instalado como tarea programada, se abre en su
+echo   propia ventana ("Servidor Pagasa"): dejala abierta.
 echo ==========================================
 echo.
-REM En otra ventana y sin esperarla: esta ventana termina aqui y la
+REM Si el servidor esta instalado como tarea programada (scripts\
+REM servidor-instalar-arranque.bat), se levanta por esa tarea: asi sigue
+REM prendido aunque se cierre esta ventana o la sesion de Windows. Si no hay
+REM tarea, en otra ventana y sin esperarla: esta ventana termina aqui y la
 REM siguiente actualizacion puede reemplazar estos archivos sin problema.
+schtasks /Query /TN "Servidor Pagasa" >nul 2>&1
+if errorlevel 1 goto :iniciar_en_ventana
+echo   Iniciando con la tarea programada "Servidor Pagasa"...
+schtasks /End /TN "Servidor Pagasa" >nul 2>&1
+schtasks /Run /TN "Servidor Pagasa" >nul 2>&1
+if not errorlevel 1 goto :iniciado
+echo   No se pudo usar la tarea programada: se inicia en una ventana.
+:iniciar_en_ventana
 start "Servidor Pagasa" "%~dp0servidor-iniciar.bat"
+:iniciado
 timeout /t 5 /nobreak >nul
 exit /b 0
 
