@@ -707,14 +707,31 @@ alta** en vez de ignorarlo:
   nuevo en rojo (clave + fecha en `avisoRojoNotificados`). Lo revisa el mismo
   programador del reporte semanal.
 
-## Carga de fechas desde Excel
+## Datos desde Excel (antes "Carga de fechas")
 
-`/ciudades/[citySlug]/carga-de-fechas` (botón "Fechas desde Excel"): plantilla
+`/ciudades/[citySlug]/carga-de-fechas` (botón "Datos desde Excel"; la ruta y los
+archivos conservan el nombre viejo): plantilla
 (`/api/ciudades/[citySlug]/plantilla-fechas`) con una hoja por tipo de unidad
-y las fechas actuales; al subirla, vista previa antes → después y nada se guarda
-sin confirmar (`actions/carga-fechas-actions.ts`). Columnas por apartado en
-`columnasDeApartado` (`lib/carga-fechas.ts`); estaciones y planta no entran (van
-por tanque). Celda vacía no borra, `BORRAR` sí. Al aplicar se revalida todo
+(Auto-Tanques, Semirremolques, Carburación, Tractocamiones, Reparto,
+Utilitarias) y los datos actuales; al subirla, vista previa antes → después y
+nada se guarda sin confirmar (`actions/carga-fechas-actions.ts`). Fechas por
+apartado en `columnasDeApartado`; **texto** en `columnasDeTextoDeApartado`
+(`lib/carga-fechas.ts`): Marca (`sucursal`), Año, Placas, Observaciones,
+Automóvil (marca, línea, modelo, serie), chofer, póliza, inciso y datos del
+tanque, con los mismos límites del formulario; marca/año/placas no se pueden
+BORRAR. Estaciones y planta no entran (van por tanque). Celda vacía no borra,
+`BORRAR` sí. Un dato viejo con dobles espacios que nadie tocó no cuenta como
+cambio.
+
+- **Pareja** (`resolverParejas` en `lib/carga-fechas-servidor.ts`): lo marcado
+  `pareja` (Automóvil, chofer y póliza = `AUTOMOVIL_SYNC_FIELDS`) se copia a la
+  pareja carburación como renglón propio de la vista previa; si las dos hojas
+  dicen cosas distintas, se quitan las dos y se avisa.
+- **Ciudad**: escribir otra ciudad en la columna «Ciudad» la traslada con
+  `trasladarUnidad` (mismas reglas que el botón de la ficha: pareja junta,
+  conjuntos de Kino bloquean, número repetido). **Solo ADMIN**; se valida con
+  `getOpcionesDeTraspaso` en la vista previa y los traspasos se aplican al
+  final, después de los datos. Al aplicar se revalida todo
 (ciudad, campo permitido, que no haya cambiado desde la vista previa) y queda
 en la bitácora de actividad. Mismo permiso que editar la ficha
 (`tieneEdicionAmpliada`). Ojo: la librería de Excel entrega las fechas a las

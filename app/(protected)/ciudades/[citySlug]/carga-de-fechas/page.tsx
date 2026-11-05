@@ -13,16 +13,21 @@ export default async function CargaDeFechasPage({ params }: { params: { citySlug
   const puede = await tieneEdicionAmpliada(user);
   return (
     <div className="space-y-4">
-      <Breadcrumb items={[{ label: "Inicio", href: "/dashboard" }, { label: city.name, href: `/ciudades/${city.slug}` }, { label: "Carga de fechas desde Excel" }]} />
-      <h1 className="text-2xl font-semibold text-primary">Carga de fechas desde Excel</h1>
+      <Breadcrumb items={[{ label: "Inicio", href: "/dashboard" }, { label: city.name, href: `/ciudades/${city.slug}` }, { label: "Datos desde Excel" }]} />
+      <h1 className="text-2xl font-semibold text-primary">Datos desde Excel</h1>
       <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
         <li>
-          Descarga la plantilla: trae todas las unidades de {city.name} con las fechas que tienen hoy (pruebas, válvulas,
-          mangueras, conector, dictámenes).
+          Descarga la plantilla: trae todas las unidades de {city.name} con lo que tienen hoy: marca, año, placas,
+          observaciones, automóvil (marca, línea, modelo, serie), chofer y póliza, datos del tanque, ciudad y fechas
+          (pruebas, válvulas, mangueras, conector, dictámenes).
         </li>
         <li>
-          Corrige o llena las fechas en Excel (dd/mm/aaaa). Una celda vacía no borra nada; para borrar una fecha escribe{" "}
-          <span className="font-mono">{PALABRA_BORRAR}</span>.
+          Corrige o llena los datos en Excel (fechas en dd/mm/aaaa). Una celda vacía no borra nada; para borrar un dato
+          escribe <span className="font-mono">{PALABRA_BORRAR}</span>.
+        </li>
+        <li>
+          Para cambiar una unidad de ciudad escribe la ciudad nueva en la columna «Ciudad» (solo lo aplica un
+          administrador; el Auto-Tanque y su carburación se mueven juntos).
         </li>
         <li>Súbela aquí, revisa cada cambio y confírmalo.</li>
       </ol>
@@ -36,7 +41,7 @@ export default async function CargaDeFechasPage({ params }: { params: { citySlug
         <CargaFechasPanel citySlug={city.slug} />
       ) : (
         <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-ink">
-          Subir fechas es como editar la ficha técnica: lo puede hacer un administrador (o un usuario dentro de su horario
+          Subir datos es como editar la ficha técnica: lo puede hacer un administrador (o un usuario dentro de su horario
           de acceso ampliado). Puedes descargar la plantilla para revisar.
         </p>
       )}

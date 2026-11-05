@@ -7,9 +7,11 @@ import {
 } from "./ficha-campos";
 import { DICTAMENES } from "./dictamen-alerts";
 
-// Carga masiva de fechas desde Excel (ver /ciudades/[citySlug]/carga-de-fechas):
-// qué columnas lleva la plantilla de cada apartado y cómo se leen las fechas
-// que regresan. Sin Prisma: se prueba con datos inventados.
+// Carga masiva de datos desde Excel (ver /ciudades/[citySlug]/carga-de-fechas;
+// empezó solo con fechas, de ahí el nombre): qué columnas lleva la plantilla
+// de cada apartado y cómo se leen los valores que regresan. Sin Prisma: se
+// prueba con datos inventados. Los datos de texto están más abajo
+// (columnasDeTextoDeApartado); la ciudad la resuelve carga-fechas-servidor.ts.
 //
 // Solo fechas de la ficha técnica que ya se editan a mano en el formulario
 // (pruebas próximas, válvulas, manguera, conector, manómetro, acoplamiento y
@@ -32,12 +34,95 @@ const PRUEBAS: ColumnaFecha[] = [
 
 const fab = (etiqueta: string) => `${etiqueta} — fabricación`;
 
+// Reparto y utilitarias no tienen fechas en la plantilla, pero sí datos de
+// texto (marca, placas, chofer...) y ciudad.
 export const APARTADOS_CON_PLANTILLA = [
   "auto-tanques",
   "semirremolques",
   "vehiculo-con-tanque-de-carburacion",
   "tractocamiones",
+  "vehiculo-de-reparto",
+  "unidades-utilitarias",
 ] as const;
+
+// ── Datos de texto ───────────────────────────────────────────────────────
+// Además de fechas, la plantilla trae datos de texto: los generales de la
+// unidad (VehicleRecord: marca, año, placas, observaciones) y los de la ficha
+// técnica (Automóvil, Chofer y póliza, Tanque). Mismos límites que el
+// formulario (actions/vehicle-actions.ts: vehicleSchema y technicalSheetSchema).
+
+export type ColumnaTexto = {
+  tabla: "unidad" | "ficha";
+  campo: string;
+  encabezado: string;
+  max: number;
+  // Obligatorio en el formulario: no se puede BORRAR.
+  requerido?: boolean;
+  // Dato del "Automóvil" que el formulario copia a la pareja Auto-Tanque /
+  // carburación (AUTOMOVIL_SYNC_FIELDS en actions/vehicle-actions.ts).
+  pareja?: boolean;
+};
+
+const DATOS_GENERALES: ColumnaTexto[] = [
+  // En una unidad, la columna "sucursal" es la Marca (ver el schema).
+  { tabla: "unidad", campo: "sucursal", encabezado: "Marca", max: 2000, requerido: true },
+  { tabla: "unidad", campo: "anio", encabezado: "Año", max: 20, requerido: true },
+  { tabla: "unidad", campo: "placas", encabezado: "Placas", max: 50, requerido: true },
+  { tabla: "unidad", campo: "observaciones", encabezado: "Observaciones", max: 1000 },
+];
+
+const AUTOMOVIL: ColumnaTexto[] = [
+  { tabla: "ficha", campo: "marca", encabezado: "Automóvil — Marca", max: 100, pareja: true },
+  { tabla: "ficha", campo: "linea", encabezado: "Automóvil — Línea", max: 100, pareja: true },
+  { tabla: "ficha", campo: "modelo", encabezado: "Automóvil — Modelo", max: 100, pareja: true },
+  { tabla: "ficha", campo: "serie", encabezado: "Automóvil — Serie", max: 100, pareja: true },
+  { tabla: "ficha", campo: "chofer", encabezado: "Chofer", max: 150, pareja: true },
+  { tabla: "ficha", campo: "numeroPoliza", encabezado: "Número de póliza", max: 100, pareja: true },
+  { tabla: "ficha", campo: "inciso", encabezado: "Inciso", max: 50, pareja: true },
+];
+
+const TANQUE: ColumnaTexto[] = [
+  { tabla: "ficha", campo: "numeroSerieTanque", encabezado: "Tanque — número de serie", max: 100 },
+  { tabla: "ficha", campo: "capacidadTanque", encabezado: "Tanque — capacidad (Lts)", max: 50 },
+  { tabla: "ficha", campo: "marcaTanque", encabezado: "Tanque — marca", max: 100 },
+  { tabla: "ficha", campo: "anioFabricacionTanque", encabezado: "Tanque — año de fabricación", max: 20 },
+];
+
+export function columnasDeTextoDeApartado(slug: string): ColumnaTexto[] {
+  if (!(APARTADOS_CON_PLANTILLA as readonly string[]).includes(slug)) return [];
+  // Igual que la ficha: reparto no lleva recuadro de tanque y el tractocamión
+  // no tiene tanque.
+  const conTanque = slug !== "vehiculo-de-reparto" && slug !== "tractocamiones";
+  return [...DATOS_GENERALES, ...AUTOMOVIL, ...(conTanque ? TANQUE : [])];
+}
+
+export type ValorTexto = { tipo: "vacio" } | { tipo: "borrar" } | { tipo: "texto"; texto: string } | { tipo: "error"; texto: string };
+
+// Celda de texto: vacía no cambia nada, BORRAR lo borra. Un número (Excel
+// guarda "2018" o "500" como número) se toma como texto. Los espacios
+// repetidos se juntan, como hace el formulario.
+export function leerTexto(valor: unknown, columna: ColumnaTexto): ValorTexto {
+  if (valor === null || valor === undefined) return { tipo: "vacio" };
+  if (valor instanceof Date) return { tipo: "error", texto: "aquí va texto, no una fecha" };
+  const texto = String(valor).replace(/\s+/g, " ").trim();
+  if (!texto) return { tipo: "vacio" };
+  if (texto.toUpperCase() === PALABRA_BORRAR) {
+    return columna.requerido ? { tipo: "error", texto: "es obligatorio, no se puede borrar" } : { tipo: "borrar" };
+  }
+  if (texto.length > columna.max) return { tipo: "error", texto: `es demasiado largo (máximo ${columna.max} caracteres)` };
+  return { tipo: "texto", texto };
+}
+
+// Para comparar nombres de ciudad sin que importen mayúsculas ni acentos
+// ("Cd. Obregón" = "cd. obregon").
+export function claveDeCiudad(nombre: string): string {
+  return nombre
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export function columnasDeApartado(slug: string): ColumnaFecha[] {
   const dictamenes = DICTAMENES.filter((d) => d.apartados.includes(slug)).map((d) => ({
@@ -128,14 +213,20 @@ export function textoFecha(fecha: Date | null | undefined): string {
   return `${d(fecha.getUTCDate())}/${d(fecha.getUTCMonth() + 1)}/${fecha.getUTCFullYear()}`;
 }
 
-export type CambioFecha = {
+// Un cambio de la vista previa. Según el tipo, antes/después son:
+// fecha → ISO o null; texto → el texto o null (borrar); ciudad → nombre de la
+// ciudad (en "ciudad", campo lleva el id de la ciudad destino).
+export type CambioCarga = {
   vehicleId: string;
   numeroEconomico: string;
   apartado: string;
+  tipo: "fecha" | "texto" | "ciudad";
   campo: string;
   etiqueta: string;
-  antes: string | null; // ISO o null
-  despues: string | null; // ISO o null (borrar)
+  antes: string | null;
+  despues: string | null;
+  // Aclaración para la vista previa (p. ej. "se copia de su pareja").
+  nota?: string;
 };
 
 export type ProblemaCarga = { hoja: string; fila: number; mensaje: string };

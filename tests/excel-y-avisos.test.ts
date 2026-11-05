@@ -1,7 +1,7 @@
 // Lectura de la plantilla de fechas, aviso de lo que pasa a rojo y el correo.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { columnasDeApartado, leerFecha, textoFecha } from "../lib/carga-fechas";
+import { claveDeCiudad, columnasDeApartado, columnasDeTextoDeApartado, leerFecha, leerTexto, textoFecha } from "../lib/carga-fechas";
 import { claveDeAviso, nuevosEnRojo } from "../lib/aviso-rojo";
 import { armarReporte } from "../lib/reporte-vencimientos";
 import type { Vencimiento } from "../lib/vencimientos";
@@ -34,6 +34,35 @@ test("plantilla: columnas según el tipo de unidad", () => {
   assert.deepEqual(columnasDeApartado("estaciones-de-carburacion"), []);
   const encabezados = columnasDeApartado("auto-tanques").map((c) => c.encabezado);
   assert.equal(new Set(encabezados).size, encabezados.length, "encabezados repetidos");
+});
+
+test("plantilla: datos de texto según el tipo de unidad", () => {
+  const campos = (slug: string) => columnasDeTextoDeApartado(slug).map((c) => c.campo);
+  assert.ok(campos("auto-tanques").includes("sucursal") && campos("auto-tanques").includes("marcaTanque"));
+  // Reparto no lleva recuadro de tanque; el tractocamión no tiene tanque.
+  assert.ok(campos("vehiculo-de-reparto").includes("placas") && !campos("vehiculo-de-reparto").includes("marcaTanque"));
+  assert.ok(!campos("tractocamiones").includes("capacidadTanque"));
+  assert.deepEqual(columnasDeTextoDeApartado("estaciones-de-carburacion"), []);
+  // Ningún encabezado de texto choca con uno de fecha en la misma hoja.
+  for (const slug of ["auto-tanques", "semirremolques", "vehiculo-con-tanque-de-carburacion", "tractocamiones"]) {
+    const todos = [...columnasDeTextoDeApartado(slug), ...columnasDeApartado(slug)].map((c) => c.encabezado);
+    assert.equal(new Set(todos).size, todos.length, `encabezados repetidos en ${slug}`);
+  }
+});
+
+test("plantilla: lee texto, número, BORRAR y respeta obligatorios y largo", () => {
+  const [marca] = columnasDeTextoDeApartado("auto-tanques"); // sucursal = Marca, obligatoria
+  const obs = columnasDeTextoDeApartado("auto-tanques").find((c) => c.campo === "observaciones")!;
+  const anio = columnasDeTextoDeApartado("auto-tanques").find((c) => c.campo === "anio")!;
+  assert.deepEqual(leerTexto("  International   4400 ", marca), { tipo: "texto", texto: "International 4400" });
+  assert.deepEqual(leerTexto(2018, anio), { tipo: "texto", texto: "2018" });
+  assert.equal(leerTexto("", obs).tipo, "vacio");
+  assert.equal(leerTexto(null, obs).tipo, "vacio");
+  assert.equal(leerTexto("borrar", obs).tipo, "borrar");
+  assert.equal(leerTexto("BORRAR", marca).tipo, "error");
+  assert.equal(leerTexto("x".repeat(21), anio).tipo, "error");
+  assert.equal(leerTexto(new Date(), obs).tipo, "error");
+  assert.equal(claveDeCiudad("  Cd.  Obregón "), claveDeCiudad("cd. obregon"));
 });
 
 function venc(clave: string, dias: number): Vencimiento {

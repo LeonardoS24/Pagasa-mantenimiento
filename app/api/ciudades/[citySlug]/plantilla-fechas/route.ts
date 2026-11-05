@@ -17,7 +17,7 @@ export async function GET(_request: NextRequest, { params }: { params: { citySlu
     if (!acceso) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
   const buffer = await armarPlantilla(await idsDeTrabajo(user, city));
-  const nombre = `Plantilla de fechas - ${city.name}.xlsx`;
+  const nombre = `Plantilla de datos - ${city.name}.xlsx`;
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

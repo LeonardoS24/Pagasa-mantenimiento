@@ -2,16 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { aplicarFechas, previsualizarFechas } from "@/actions/carga-fechas-actions";
-import type { CambioFecha, ProblemaCarga } from "@/lib/carga-fechas";
+import type { CambioCarga, ProblemaCarga } from "@/lib/carga-fechas";
 
-function fecha(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
+function valor(c: CambioCarga, v: string | null): string {
+  if (!v) return "—";
+  if (c.tipo !== "fecha") return v;
+  const d = new Date(v);
   return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
 }
 
 export function CargaFechasPanel({ citySlug }: { citySlug: string }) {
-  const [cambios, setCambios] = useState<CambioFecha[] | null>(null);
+  const [cambios, setCambios] = useState<CambioCarga[] | null>(null);
   const [problemas, setProblemas] = useState<ProblemaCarga[]>([]);
   const [filas, setFilas] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +78,7 @@ export function CargaFechasPanel({ citySlug }: { citySlug: string }) {
 
       {cambios && cambios.length === 0 && !error && (
         <p className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-ink">
-          Se leyeron {filas} unidad(es) y no hay ninguna fecha distinta a la que ya tiene el sistema.
+          Se leyeron {filas} unidad(es) y no hay ningún dato distinto al que ya tiene el sistema.
         </p>
       )}
 
@@ -85,7 +86,7 @@ export function CargaFechasPanel({ citySlug }: { citySlug: string }) {
         <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-medium text-ink">
-              {cambios.length} fecha(s) cambian en {unidades} unidad(es). Revisa antes de aplicar.
+              {cambios.length} dato(s) cambian en {unidades} unidad(es). Revisa antes de aplicar.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -109,7 +110,10 @@ export function CargaFechasPanel({ citySlug }: { citySlug: string }) {
                       return;
                     }
                     setContrasena("");
-                    setResultado(`Listo: se guardaron ${r.aplicados} fecha(s) en ${r.unidades} unidad(es). Quedó en la bitácora de actividad a tu nombre.`);
+                    const movidas = r.traspasos > 0 ? ` ${r.traspasos} unidad(es) cambiaron de ciudad.` : "";
+                    setResultado(
+                      `Listo: se guardaron ${r.aplicados} dato(s) en ${r.unidades} unidad(es).${movidas} Quedó en la bitácora de actividad a tu nombre.`
+                    );
                     setOmitidos(r.omitidos);
                     setCambios(null);
                     setProblemas([]);
@@ -126,7 +130,7 @@ export function CargaFechasPanel({ citySlug }: { citySlug: string }) {
               <thead className="sticky top-0 bg-white text-left text-xs text-gray-500">
                 <tr>
                   <th className="py-1 pr-3">Unidad</th>
-                  <th className="py-1 pr-3">Fecha</th>
+                  <th className="py-1 pr-3">Dato</th>
                   <th className="py-1 pr-3">Antes</th>
                   <th className="py-1">Después</th>
                 </tr>
@@ -137,9 +141,13 @@ export function CargaFechasPanel({ citySlug }: { citySlug: string }) {
                     <td className="py-1 pr-3 font-medium text-ink">
                       {c.numeroEconomico} <span className="text-xs font-normal text-gray-500">{c.apartado}</span>
                     </td>
-                    <td className="py-1 pr-3">{c.etiqueta}</td>
-                    <td className="py-1 pr-3 text-gray-500">{fecha(c.antes)}</td>
-                    <td className={`py-1 font-medium ${c.despues ? "text-primary" : "text-red-700"}`}>{c.despues ? fecha(c.despues) : "Se borra"}</td>
+                    <td className="py-1 pr-3">
+                      {c.etiqueta}
+                      {c.tipo === "ciudad" && <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-900">cambio de ciudad</span>}
+                      {c.nota && <span className="block text-xs text-gray-500">{c.nota}</span>}
+                    </td>
+                    <td className="py-1 pr-3 text-gray-500">{valor(c, c.antes)}</td>
+                    <td className={`py-1 font-medium ${c.despues ? "text-primary" : "text-red-700"}`}>{c.despues ? valor(c, c.despues) : "Se borra"}</td>
                   </tr>
                 ))}
               </tbody>

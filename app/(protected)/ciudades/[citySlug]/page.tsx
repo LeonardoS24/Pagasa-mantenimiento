@@ -95,7 +95,7 @@ export default async function CityPage({
               <rect x="3" y="5" width="18" height="16" rx="1" />
               <path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4" />
             </svg>
-            Fechas desde Excel
+            Datos desde Excel
           </Link>
         )}
         {canEdit(user.role) && (
