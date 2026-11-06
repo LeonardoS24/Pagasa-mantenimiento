@@ -34,7 +34,8 @@ import {
 } from "@/lib/ficha-campos";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { FormMessage } from "./FormMessage";
-import { SECTION_STYLES } from "@/lib/section-colors";
+import { CLASE_CUADRICULA_FICHA, propsDeRecuadro, type DisenoFicha } from "@/lib/diseno-ficha";
+import type { SectionColorKey } from "@/lib/section-colors";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { VEHICLE_BRAND_CATALOG, findBrandOption } from "@/lib/vehicle-brand-catalog";
 import type { CustomFieldDef, CustomSectionDef } from "@/lib/custom-fields";
@@ -364,6 +365,7 @@ export function TechnicalSheetForm({
   lockCombustibleGasLpGasolina = false,
   camposExtra = [],
   seccionesExtra = [],
+  diseno,
   valoresExtra = {},
 }: {
   // Plazos normativos vigentes (ver lib/plazos.ts): el aviso de este formulario
@@ -424,6 +426,8 @@ export function TechnicalSheetForm({
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
   camposExtra?: CustomFieldDef[];
   seccionesExtra?: CustomSectionDef[];
+  // Cómo acomodó el ADMIN los recuadros de este apartado (lib/diseno-ficha.ts).
+  diseno?: DisenoFicha;
   valoresExtra?: Record<string, string>;
 }) {
   fijarPlazos(plazos);
@@ -438,6 +442,7 @@ export function TechnicalSheetForm({
   const acoplamientoInicial = !!(sheet?.tieneAcoplamientoSeco || sheet?.fechaFabricacionAcoplamientoSeco || sheet?.codigoAcoplamientoSeco);
   const [tieneAcoplamiento, setTieneAcoplamiento] = useState(acoplamientoInicial);
   const formRef = useRef<HTMLFormElement>(null);
+  const rec = (clave: string, color: SectionColorKey) => propsDeRecuadro(diseno, clave, color);
 
   function handleCancel() {
     formRef.current?.reset();
@@ -516,8 +521,8 @@ export function TechnicalSheetForm({
   const hoseVencimiento = getHoseVencimiento(sheet?.fechaFabricacionManguera);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-2">
+    <form ref={formRef} action={formAction} className={CLASE_CUADRICULA_FICHA}>
+      <div className="col-span-full flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-2">
         <p className="text-sm text-ink">
           {locked
             ? "La ficha técnica está bloqueada para evitar cambios por accidente."
@@ -538,9 +543,9 @@ export function TechnicalSheetForm({
         )}
       </div>
 
-      <fieldset disabled={locked} className="space-y-6">
+      <fieldset disabled={locked} className="contents">
       {showAutomovilSection && (
-      <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+      <div {...rec("automovil", "automovil")}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Automóvil
         </h3>
@@ -618,7 +623,7 @@ export function TechnicalSheetForm({
       )}
 
       {showAutomovilSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+        <div {...rec("chofer-poliza", "automovil")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             Chofer y póliza
           </h3>
@@ -638,7 +643,7 @@ export function TechnicalSheetForm({
       )}
 
       {showTractocamionSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+        <div {...rec("tractocamion", "automovil")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Datos del tractocamión</h3>
           <div className="space-y-4">
             {CAMPOS_TRACTOCAMION.map((grupo) => (
@@ -654,7 +659,7 @@ export function TechnicalSheetForm({
       )}
 
       {showGobernadorSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+        <div {...rec("gobernador", "automovil")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Gobernador de velocidad</h3>
           <input type="hidden" name="tieneGobernadorPresente" value="1" />
           <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneGobernador">
@@ -678,7 +683,7 @@ export function TechnicalSheetForm({
       )}
 
       {showTankSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+        <div {...rec("tanque", "tanque")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
           </h3>
@@ -797,7 +802,7 @@ export function TechnicalSheetForm({
       )}
 
       {showSemirremolqueSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+        <div {...rec("semirremolque", "tanque")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Datos del semirremolque</h3>
           <div className="space-y-4">
             {CAMPOS_SEMIRREMOLQUE.map((grupo) => (
@@ -813,7 +818,7 @@ export function TechnicalSheetForm({
       )}
 
       {showMaintenancePreventiveSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
+        <div {...rec("mantenimiento", "mantenimiento")}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Mantenimiento preventivo
@@ -861,7 +866,7 @@ export function TechnicalSheetForm({
 
       </fieldset>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
+      <div {...rec("extintor", "extintor")}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase text-primary-bright">Extintor</h3>
           {extinguisherAlertLevel !== "none" && isAlertVisibleForSection("extintor", sectionSlug) && (
@@ -960,10 +965,10 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <fieldset disabled={locked} className="space-y-6">
+      <fieldset disabled={locked} className="contents">
 
       {showHoseSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.mangueras}`}>
+        <div {...rec("mangueras", "mangueras")}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Cambio de mangueras
@@ -999,7 +1004,7 @@ export function TechnicalSheetForm({
       )}
 
       {showValveSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+        <div {...rec("valvulas", "valvulas")}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Cambio de válvulas
@@ -1113,7 +1118,7 @@ export function TechnicalSheetForm({
       )}
 
       {dictamenesDeApartado(sectionSlug).length > 0 && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+        <div {...rec("dictamenes", "valvulas")}>
           <h3 className="mb-1 text-sm font-semibold uppercase text-primary-bright">Dictámenes (vigencia de 1 año)</h3>
           <p className="mb-3 text-xs text-ink">
             Captura la fecha de emisión del último dictamen; el sistema avisa cuando se cumple el año. El PDF se sube como
@@ -1142,7 +1147,7 @@ export function TechnicalSheetForm({
 
       {showInspeccionesSection && (
       <>
-      <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
+      <div {...rec("visual-externa", "visualExterna")}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Inspección Visual Externa
         </h3>
@@ -1173,7 +1178,7 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
+      <div {...rec("hermeticidad", "hermeticidad")}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Prueba de Hermeticidad
         </h3>
@@ -1204,7 +1209,7 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
+      <div {...rec("visual-interna", "visualInterna")}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Inspección Visual Interna
         </h3>
@@ -1236,7 +1241,7 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
+      <div {...rec("ultrasonido", "ultrasonido")}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Ultrasonido
         </h3>
@@ -1267,7 +1272,7 @@ export function TechnicalSheetForm({
         </p>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
+      <div {...rec("hidrostatica", "hidrostatica")}>
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
           Prueba Hidrostática
         </h3>
@@ -1299,12 +1304,14 @@ export function TechnicalSheetForm({
       </>
       )}
 
-      <CustomSectionInputs secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} />
+      <CustomSectionInputs secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} diseno={diseno} />
       </fieldset>
 
-      <FormMessage state={state} />
+      <div className="col-span-full space-y-6" style={{ order: 100000 }}>
+        <FormMessage state={state} />
 
-      {!locked && <SubmitButton />}
+        {!locked && <SubmitButton />}
+      </div>
     </form>
   );
 }

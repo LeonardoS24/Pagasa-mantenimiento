@@ -1,3 +1,4 @@
+import { getDisenoFicha } from "@/lib/diseno-ficha-servidor";
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -275,6 +276,7 @@ export default async function VehicleDetailPage({
   const seccionesVehiculo = await getCustomSections("VEHICULO", vehicle.section.slug);
   const seccionesEstacion = await getCustomSections("ESTACION", vehicle.section.slug);
   const valoresCampos = await getCustomFieldValues(vehicle.id);
+  const diseno = await getDisenoFicha(vehicle.section.slug);
   // Piezas con más mantenimiento de esta unidad en el año en curso (mismo
   // gráfico que Bitácora de unidades, pero acotado a una sola unidad y
   // reiniciado cada año en vez de cada mes — ver PieceMaintenanceChart).
@@ -714,6 +716,7 @@ export default async function VehicleDetailPage({
             camposExtra={camposVehiculo}
             seccionesExtra={seccionesVehiculo}
             valoresExtra={valoresCampos}
+            diseno={diseno}
           />
         ) : (
           <TechnicalSheetView
@@ -733,6 +736,7 @@ export default async function VehicleDetailPage({
             camposExtra={camposVehiculo}
             seccionesExtra={seccionesVehiculo}
             valoresExtra={valoresCampos}
+            diseno={diseno}
           />
         )}
       </div>

@@ -953,3 +953,30 @@ entrando por `http://IP:3000`.
 - **Recuperación**: otro administrador la restablece en la ficha del usuario
   (`restablecerDobleVerificacion`, con su contraseña); si es el único administrador,
   `node scripts/desactivar-2fa.mjs usuario` en el servidor.
+
+## Editar sistema → Acomodar fichas
+
+La pestaña «Editar sistema» (antes «Recuadros de fichas», `/admin/campos`) tiene dos
+partes: «Campos y recuadros» (agregar campos y recuadros propios) y «Acomodar
+fichas» (`/admin/campos/acomodar?apartado=`): el ADMIN arrastra los recuadros de
+la ficha técnica de un apartado y les cambia **orden, ancho (completo/mitad) y
+color**. Pide la contraseña para abrir el editor y otra vez al guardar
+(`actions/diseno-ficha-actions.ts`, `verifySessionPassword`); queda en la
+bitácora de actividad ("Diseño de ficha").
+
+- Tabla `DisenoFicha` (una fila por apartado, `datos` = JSON validado con
+  `leerDiseno`); sin fila = la ficha se ve como de fábrica. **Solo es
+  presentación**: no cambia campos, alertas ni datos, y los recuadros de fábrica se
+  mueven pero no se borran ni se ocultan.
+- `lib/diseno-ficha.ts` (puro, también lo usa el formulario): catálogo
+  `RECUADROS_FICHA` (claves en el orden de siempre) y `propsDeRecuadro`, que le da
+  a cada `<div>` su clase de color, `order` y `gridColumn`. La ficha (vista y
+  formulario) es una **cuadrícula** de 2 columnas (1 en celular); cada recuadro
+  lleva `{...rec("clave", "colorBase")}`. **Un recuadro nuevo en la ficha debe
+  agregarse a `RECUADROS_FICHA` y usar `rec(...)`**, o no se podrá acomodar. En el
+  formulario los `<fieldset>` son `display: contents` para que el orden cruce
+  entre ellos; el botón de guardar va con `order: 100000`.
+- Solo apartados de unidades (`APARTADOS_ACOMODABLES`); estaciones, planta y la
+  hoja impresa siguen con el orden de fábrica por ahora. `getDisenoFicha(slug)`
+  (`lib/diseno-ficha-servidor.ts`) lo lee en la página de la unidad.
+- Pestañas del panel: la activa va rellena de color (`AdminTabs`, `CamposSubTabs`).

@@ -2121,3 +2121,17 @@ model TraspasoUnidad {
   @@index([userId])
   @@map("traspasos_unidad")
 }
+
+// Cómo acomoda el ADMIN la ficha técnica de un apartado (orden, ancho y color
+// de cada recuadro). `datos` es un JSON validado con leerDiseno
+// (lib/diseno-ficha.ts). Sin fila = la ficha se ve como de fábrica.
+model DisenoFicha {
+  id           String   @id @default(cuid())
+  apartadoSlug String   @unique
+  datos        String
+  updatedById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("diseno_fichas")
+}

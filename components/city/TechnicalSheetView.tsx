@@ -56,7 +56,8 @@ import {
   type ValvulaDef,
 } from "@/lib/ficha-campos";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
-import { SECTION_STYLES } from "@/lib/section-colors";
+import { CLASE_CUADRICULA_FICHA, propsDeRecuadro, type DisenoFicha } from "@/lib/diseno-ficha";
+import type { SectionColorKey } from "@/lib/section-colors";
 import type { CustomFieldDef, CustomSectionDef } from "@/lib/custom-fields";
 import { CustomFieldItems, CustomSectionItems } from "@/components/admin/CustomFieldInputs";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
@@ -98,6 +99,7 @@ export function TechnicalSheetView({
   showUnidadAsignada = false,
   camposExtra = [],
   seccionesExtra = [],
+  diseno,
   valoresExtra = {},
 }: {
   sheet: VehicleTechnicalSheet | null;
@@ -144,12 +146,15 @@ export function TechnicalSheetView({
   // Recuadros extra agregados desde /admin/campos (ver lib/custom-fields.ts).
   camposExtra?: CustomFieldDef[];
   seccionesExtra?: CustomSectionDef[];
+  // Cómo acomodó el ADMIN los recuadros de este apartado (lib/diseno-ficha.ts).
+  diseno?: DisenoFicha;
   valoresExtra?: Record<string, string>;
 }) {
   if (!sheet) {
     return <p className="text-sm text-ink">Sin ficha técnica registrada.</p>;
   }
 
+  const rec = (clave: string, color: SectionColorKey) => propsDeRecuadro(diseno, clave, color);
   const alertLevel = getUltrasoundAlertLevel(sheet.fechaProximoUltrasonido);
   const visualAlertLevel = getVisualInspectionAlertLevel(sheet.fechaProximaInspeccionVisual);
   const tightnessAlertLevel = getTightnessTestAlertLevel(sheet.fechaProximaPruebaHermeticidad);
@@ -169,9 +174,9 @@ export function TechnicalSheetView({
   const hoseVencimiento = getHoseVencimiento(sheet.fechaFabricacionManguera);
 
   return (
-    <div className="space-y-6">
+    <div className={CLASE_CUADRICULA_FICHA}>
       {showAutomovilSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+        <div {...rec("automovil", "automovil")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             Automóvil
           </h3>
@@ -208,7 +213,7 @@ export function TechnicalSheetView({
       )}
 
       {showAutomovilSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+        <div {...rec("chofer-poliza", "automovil")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             Chofer y póliza
           </h3>
@@ -228,7 +233,7 @@ export function TechnicalSheetView({
       )}
 
       {showTractocamionSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+        <div {...rec("tractocamion", "automovil")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Datos del tractocamión</h3>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {CAMPOS_TRACTOCAMION.flatMap((grupo) => grupo.campos).map(({ campo, etiqueta }) => (
@@ -239,7 +244,7 @@ export function TechnicalSheetView({
       )}
 
       {showGobernadorSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.automovil}`}>
+        <div {...rec("gobernador", "automovil")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Gobernador de velocidad</h3>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Item label="¿Tiene gobernador?" value={sheet.tieneGobernador ? "Sí" : "No"} />
@@ -254,7 +259,7 @@ export function TechnicalSheetView({
       )}
 
       {showTankSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+        <div {...rec("tanque", "tanque")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
             {useDeliveryFormat ? "Tanque de carburación" : "Tanque"}
           </h3>
@@ -296,7 +301,7 @@ export function TechnicalSheetView({
       )}
 
       {showSemirremolqueSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.tanque}`}>
+        <div {...rec("semirremolque", "tanque")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Datos del semirremolque</h3>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {CAMPOS_SEMIRREMOLQUE.flatMap((grupo) => grupo.campos).map(({ campo, etiqueta }) => (
@@ -307,7 +312,7 @@ export function TechnicalSheetView({
       )}
 
       {showMaintenancePreventiveSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.mantenimiento}`}>
+        <div {...rec("mantenimiento", "mantenimiento")}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Mantenimiento preventivo
@@ -357,7 +362,7 @@ export function TechnicalSheetView({
       )}
 
       {showExtintorSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.extintor}`}>
+        <div {...rec("extintor", "extintor")}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold uppercase text-primary-bright">Extintor</h3>
             {extinguisherAlertLevel !== "none" && isAlertVisibleForSection("extintor", sectionSlug) && (
@@ -391,7 +396,7 @@ export function TechnicalSheetView({
       )}
 
       {showHoseSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.mangueras}`}>
+        <div {...rec("mangueras", "mangueras")}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Cambio de mangueras
@@ -420,7 +425,7 @@ export function TechnicalSheetView({
       )}
 
       {showValveSection && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+        <div {...rec("valvulas", "valvulas")}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold uppercase text-primary-bright">
               Cambio de válvulas
@@ -494,7 +499,7 @@ export function TechnicalSheetView({
       )}
 
       {dictamenesDeApartado(sectionSlug).some((d) => sheet[d.campo]) && (
-        <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+        <div {...rec("dictamenes", "valvulas")}>
           <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Dictámenes (vigencia de 1 año)</h3>
           <dl className="grid gap-4 sm:grid-cols-2">
             {dictamenesDeApartado(sectionSlug).map((d) => {
@@ -516,7 +521,7 @@ export function TechnicalSheetView({
 
       {showInspeccionesSection && (
       <>
-      <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
+      <div {...rec("visual-externa", "visualExterna")}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Externa
@@ -543,7 +548,7 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
+      <div {...rec("hermeticidad", "hermeticidad")}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Prueba de Hermeticidad
@@ -570,7 +575,7 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
+      <div {...rec("visual-interna", "visualInterna")}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Interna
@@ -603,7 +608,7 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
+      <div {...rec("ultrasonido", "ultrasonido")}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Ultrasonido
@@ -630,7 +635,7 @@ export function TechnicalSheetView({
         </dl>
       </div>
 
-      <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
+      <div {...rec("hidrostatica", "hidrostatica")}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold uppercase text-primary-bright">
             Prueba Hidrostática
@@ -659,7 +664,7 @@ export function TechnicalSheetView({
       </>
       )}
 
-      <CustomSectionItems secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} />
+      <CustomSectionItems secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} diseno={diseno} />
     </div>
   );
 }

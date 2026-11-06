@@ -10,7 +10,7 @@ const TABS = [
   { href: "/admin/normas", label: "Normas y plazos" },
   { href: "/admin/reportes", label: "Reportes por correo" },
   { href: "/admin/piezas", label: "Piezas y refacciones" },
-  { href: "/admin/campos", label: "Recuadros de fichas" },
+  { href: "/admin/campos", label: "Editar sistema" },
   { href: "/admin/estado", label: "Estado del servidor" },
   { href: "/admin/respaldos", label: "Respaldos" },
   { href: "/admin/actividad", label: "Actividad del sistema" },
@@ -22,17 +22,18 @@ export function AdminTabs() {
   const pathname = usePathname();
 
   return (
-    <div className="mb-6 flex flex-wrap gap-x-2 border-b border-gray-200">
+    <div className="mb-6 flex flex-wrap gap-2 border-b-2 border-primary pb-2">
       {TABS.map((tab) => {
         const active = pathname.startsWith(tab.href);
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+            aria-current={active ? "page" : undefined}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition ${
               active
-                ? "border-accent text-primary"
-                : "border-transparent text-ink hover:text-primary"
+                ? "bg-primary text-white shadow"
+                : "bg-gray-100 text-ink hover:bg-gray-200 hover:text-primary"
             }`}
           >
             {tab.label}
