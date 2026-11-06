@@ -21,6 +21,9 @@ export type ElementoExpediente = {
   requisito: string;
   detalle?: string;
   fundamento: string;
+  // Lo que dice la norma (cita corta del catálogo), para quien audita; en las
+  // alertas y la ficha solo va la norma y el plazo.
+  queDice: string | null;
   vence: Date | null;
   dias: number | null;
   estado: EstadoRequisito;
@@ -71,6 +74,12 @@ export function citaPara(norma: string, numeral: string, slug: string): string {
   return `${escoger(norma, / y (?=NOM)/)}, ${escoger(numeral, / · /)}`;
 }
 
+
+// La cita del requisito cuyo fundamento (norma y numeral) es este texto.
+function queDice(texto: string, slug: string, req: Map<string, RequisitoVigente>): string | null {
+  for (const r of req.values()) if (citaPara(r.norma, r.numeral, slug) === texto) return r.cita || null;
+  return null;
+}
 
 function normaDeArea(slug: string): string {
   const area =
@@ -247,6 +256,7 @@ export async function getExpediente(
         requisito: v.tipo === "dictamen" && v.detalle ? v.detalle : NOMBRE_TIPO[v.tipo],
         detalle: v.tipo === "dictamen" ? undefined : v.detalle,
         fundamento: fundamento(v.tipo, slug, v.detalle, req),
+        queDice: queDice(fundamento(v.tipo, slug, v.detalle, req), slug, req),
         vence: v.fecha,
         dias: v.dias,
         estado: estadoDe(v.dias),
@@ -268,6 +278,7 @@ export async function getExpediente(
         requisito: esperado.tipo === "dictamen" && esperado.detalle ? esperado.detalle : NOMBRE_TIPO[esperado.tipo],
         detalle: esperado.tipo === "dictamen" ? undefined : esperado.detalle,
         fundamento: fundamento(esperado.tipo, slug, esperado.detalle, req),
+        queDice: queDice(fundamento(esperado.tipo, slug, esperado.detalle, req), slug, req),
         vence: null,
         dias: null,
         estado: "sinDato",

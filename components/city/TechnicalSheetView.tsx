@@ -467,7 +467,7 @@ export function TechnicalSheetView({
                   value={valvulaTexto(sheet, valvula)}
                 />
               ))}
-              {sectionSlug === "auto-tanques" && sheet.fechaFabricacionAcoplamientoSeco && (
+              {sectionSlug === "auto-tanques" && (sheet.tieneAcoplamientoSeco || sheet.fechaFabricacionAcoplamientoSeco || sheet.codigoAcoplamientoSeco) && (
                 <Item
                   label={ACOPLAMIENTO_DESCONEXION_SECA.etiqueta}
                   value={valvulaTexto(sheet, ACOPLAMIENTO_DESCONEXION_SECA)}

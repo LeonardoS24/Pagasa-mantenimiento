@@ -435,6 +435,8 @@ export function TechnicalSheetForm({
   const [locked, setLocked] = useState(true);
   const [tieneValvula85, setTieneValvula85] = useState(sheet?.tieneValvulaMaximoLlenado85 ?? false);
   const [tieneGobernador, setTieneGobernador] = useState(sheet?.tieneGobernador ?? false);
+  const acoplamientoInicial = !!(sheet?.tieneAcoplamientoSeco || sheet?.fechaFabricacionAcoplamientoSeco || sheet?.codigoAcoplamientoSeco);
+  const [tieneAcoplamiento, setTieneAcoplamiento] = useState(acoplamientoInicial);
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleCancel() {
@@ -442,6 +444,7 @@ export function TechnicalSheetForm({
     setLocked(true);
     setTieneValvula85(sheet?.tieneValvulaMaximoLlenado85 ?? false);
     setTieneGobernador(sheet?.tieneGobernador ?? false);
+    setTieneAcoplamiento(acoplamientoInicial);
   }
 
   // Calidad del extintor: se puede cambiar sin desbloquear toda la ficha
@@ -1037,14 +1040,23 @@ export function TechnicalSheetForm({
               </div>
               {sectionSlug === "auto-tanques" && (
                 <div className="mt-3 rounded-md border border-dashed border-gray-300 p-3">
-                  <p className="mb-1 text-sm font-medium text-ink">Acoplamiento de llenado de desconexión seca (si tiene)</p>
-                  <p className="mb-2 text-xs text-gray-500">
-                    Solo lo exige la norma si la unidad carga en plantas de las zonas metropolitanas del Apéndice C de la
-                    NOM-EM-009 (ninguna ciudad de Sonora ni de Baja California está ahí). Si se captura, entra al aviso de válvulas.
-                  </p>
-                  <div className="max-w-md">
-                    <ValvulaInputs valvula={ACOPLAMIENTO_DESCONEXION_SECA} sheet={sheet} />
-                  </div>
+                  <input type="hidden" name="tieneAcoplamientoSecoPresente" value="1" />
+                  <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneAcoplamientoSeco">
+                    <input
+                      id="tieneAcoplamientoSeco"
+                      name="tieneAcoplamientoSeco"
+                      type="checkbox"
+                      checked={tieneAcoplamiento}
+                      onChange={(event) => setTieneAcoplamiento(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+                    />
+                    ¿Esta unidad tiene acoplamiento de llenado de desconexión seca?
+                  </label>
+                  {tieneAcoplamiento && (
+                    <div className="mt-3 max-w-md">
+                      <ValvulaInputs valvula={ACOPLAMIENTO_DESCONEXION_SECA} sheet={sheet} />
+                    </div>
+                  )}
                 </div>
               )}
               <div className="mt-3 rounded-md border border-dashed border-gray-300 p-3">

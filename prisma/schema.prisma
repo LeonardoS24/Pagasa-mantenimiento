@@ -568,6 +568,9 @@ model VehicleTechnicalSheet {
   // captura, entra a la alerta de válvulas.
   fechaFabricacionAcoplamientoSeco DateTime?
   codigoAcoplamientoSeco           String?
+  // La casilla «¿tiene acoplamiento de desconexión seca?» de la ficha (como la
+  // del máximo llenado al 85%). Sin marcar, la ficha no pide ni muestra sus datos.
+  tieneAcoplamientoSeco            Boolean   @default(false)
 
   // Dictámenes con vigencia de 1 año: aquí va la fecha de emisión del último
   // (el vencimiento se calcula sumando un año, ver lib/dictamen-alerts.ts); el

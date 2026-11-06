@@ -514,6 +514,7 @@ const technicalSheetSchema = z.object({
   fechaDictamenInstalacion: optionalDateConservable,
   fechaDictamenEstacion: optionalDateConservable,
   tieneGobernador: z.boolean().optional(),
+  tieneAcoplamientoSeco: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   // Una válvula no se puede instalar antes de existir. Si la fecha de
   // instalación queda antes que la de fabricación de cualquiera de ellas es
@@ -709,6 +710,9 @@ export async function upsertTechnicalSheet(
     tieneGobernador: formData.has("tieneGobernadorPresente")
       ? formData.get("tieneGobernador") === "on"
       : undefined,
+    tieneAcoplamientoSeco: formData.has("tieneAcoplamientoSecoPresente")
+      ? formData.get("tieneAcoplamientoSeco") === "on"
+      : undefined,
   });
 
   if (!parsed.success) {
@@ -735,6 +739,13 @@ export async function upsertTechnicalSheet(
       return { error: `El campo "${campo}" es demasiado largo (máximo 150 caracteres).` };
     }
     if (resultado.data !== undefined) textosConservables[campo] = resultado.data;
+  }
+
+  // Casilla del acoplamiento de desconexión seca sin marcar: sus datos no
+  // aplican a esta unidad, igual que pasa con la válvula del 85%.
+  if (data.tieneAcoplamientoSeco === false) {
+    data.fechaFabricacionAcoplamientoSeco = null;
+    textosConservables.codigoAcoplamientoSeco = null;
   }
 
   if (data.fechaFabricacionTanque && !data.fechaProximaInspeccionVisualInterna) {

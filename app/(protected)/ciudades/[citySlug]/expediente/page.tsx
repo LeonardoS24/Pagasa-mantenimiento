@@ -136,7 +136,9 @@ export default async function ExpedientePage({
                       {e.requisito}
                       {e.detalle && <span className="block text-xs font-normal text-gray-500">{e.detalle}</span>}
                     </span>
-                    <span className="col-span-2 font-serif text-xs italic text-gray-700 sm:col-span-1 print:col-span-1">{e.fundamento}</span>
+                    <span className="col-span-2 font-serif text-xs italic text-gray-700 sm:col-span-1 print:col-span-1">{e.fundamento}
+                      {e.queDice && <span className="mt-0.5 block not-italic text-gray-500">“{e.queDice}”</span>}
+                    </span>
                     <span>
                       <span className="text-[11px] text-gray-500 sm:hidden print:hidden">Vence: </span>
                       {fecha(e.vence)}
