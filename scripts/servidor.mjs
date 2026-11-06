@@ -5,7 +5,10 @@
 //    encabezado X-Forwarded-For que mande el navegador: cualquiera podría
 //    inventarse la IP con la que queda en la bitácora de acceso y saltarse el
 //    freno de intentos fallidos por equipo. Aquí no hay ningún proxy delante,
-//    así que la IP real es la del socket y se escribe siempre esa.
+//    así que la IP real es la del socket y se escribe siempre esa. Con el túnel
+//    de Cloudflare (CONFIAR_TUNEL=cloudflare) la IP real y el esquema https se
+//    leen de lo que entrega el túnel, y solo si la conexión viene de este
+//    mismo equipo (ver scripts/ip-cliente.mjs).
 //
 // 2. HTTPS opcional. Si existen certificados/servidor.crt y servidor.key
 //    (scripts/crear-certificado-https.mjs), sirve por HTTPS en HTTPS_PORT
@@ -24,6 +27,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import next from "next";
 import { iniciarRegistro } from "./registro-servidor.mjs";
+import { confiaEnElTunel, datosDeConexion } from "./ip-cliente.mjs";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // uploads/, backups/ y la base se buscan desde la carpeta de trabajo: si se
@@ -40,10 +44,6 @@ const conHttps = !process.argv.includes("--sin-https") && fs.existsSync(CRT) && 
 // Con HTTPS la cookie de sesión va marcada "secure" (solo viaja cifrada).
 // Se fija antes de cargar Next: lib/session.ts lo lee al importarse.
 if (conHttps) process.env.COOKIE_SECURE = "true";
-
-function ipDe(req) {
-  return (req.socket.remoteAddress ?? "").replace(/^::ffff:/, "");
-}
 
 // Si el puerto ya está ocupado (otro servidor quedó abierto) no tiene caso
 // reintentar: se sale con código 2 y servidor-iniciar.bat se detiene y avisa.
@@ -68,8 +68,11 @@ const manejar = app.getRequestHandler();
 
 function atender(protocolo) {
   return (req, res) => {
-    req.headers["x-forwarded-for"] = ipDe(req);
-    req.headers["x-forwarded-proto"] = protocolo;
+    // process.env se lee en cada petición: Next carga el .env al preparar.
+    const conexion = datosDeConexion(req, { confiarTunel: confiaEnElTunel(process.env.CONFIAR_TUNEL) });
+    req.headers["x-forwarded-for"] = conexion.ip;
+    // https = HTTPS propio de este servidor o petición que llegó por el túnel.
+    req.headers["x-forwarded-proto"] = protocolo === "https" || conexion.https ? "https" : "http";
     manejar(req, res).catch((error) => {
       console.error(error);
       res.statusCode = 500;

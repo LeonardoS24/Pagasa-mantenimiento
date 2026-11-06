@@ -45,6 +45,13 @@ export async function fallo(userId: string, numero: number): Promise<boolean> {
   return true;
 }
 
+// Devuelve el intento apartado cuando no debe contar contra la cuenta: la
+// contraseña correcta de quien tiene doble verificación todavía no es un
+// acceso; el segundo paso aparta y cuenta sus propios intentos.
+export async function devolverIntentoDeCuenta(userId: string): Promise<void> {
+  await prisma.user.updateMany({ where: { id: userId, intentosFallidosLogin: { gt: 0 } }, data: { intentosFallidosLogin: { decrement: 1 } } });
+}
+
 export async function acierto(userId: string): Promise<void> {
   await prisma.user.update({ where: { id: userId }, data: { intentosFallidosLogin: 0, bloqueadoHasta: null } });
 }

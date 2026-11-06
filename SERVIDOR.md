@@ -246,8 +246,9 @@ una vez borrando `.next` y deja el error completo en `backups\ultimo-build.log`.
   sesión**.
 - `SESSION_SECRET` del `.env` es lo que firma las sesiones: no se comparte y no
   se sube a ningún lado. Si se cambia, se cierran todas las sesiones abiertas.
-- No expongas el puerto 3000 a internet. Para entrar desde fuera, lo correcto
-  es una VPN a la red de la empresa.
+- No expongas el puerto 3000 a internet. Para entrar desde fuera sin abrir
+  puertos, usa el túnel de Cloudflare descrito en `ACCESO-POR-INTERNET.md` (o,
+  si lo prefieres, una VPN a la red de la empresa).
 
 ## Qué equipo hace falta
 

@@ -19,7 +19,7 @@ export async function cambiarMiContrasena(
   _prev: CambioContrasenaState,
   formData: FormData
 ): Promise<CambioContrasenaState> {
-  const usuario = await requireUser({ aunqueDebaCambiarContrasena: true });
+  const usuario = await requireUser({ aunqueDebaCambiarContrasena: true, aunqueFalte2fa: true });
   const actual = String(formData.get("actual") ?? "");
   const nueva = String(formData.get("nueva") ?? "");
   const confirmar = String(formData.get("confirmar") ?? "");

@@ -9,6 +9,7 @@ import { ChangeRoleForm } from "@/components/admin/ChangeRoleForm";
 import { CityAccessCheckboxes } from "@/components/admin/CityAccessCheckboxes";
 import { ConfirmDeleteRecordWithPassword } from "@/components/admin/ConfirmDeleteRecordWithPassword";
 import { ElevatedAccessForm } from "@/components/admin/ElevatedAccessForm";
+import { RestablecerDobleVerificacion } from "@/components/admin/RestablecerDobleVerificacion";
 import { roleLabels, type Role } from "@/lib/roles";
 import { parseElevatedAccessSchedule } from "@/lib/elevated-access";
 
@@ -52,6 +53,15 @@ export default async function UserDetailPage({
         </h3>
         <ChangeRoleForm userId={user.id} currentRole={user.role as Role} esMiCuenta={esMiCuenta} />
       </section>
+
+      {user.totpActivo && !esMiCuenta && (
+        <section className="rounded-lg border border-gray-200 bg-white p-5">
+          <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
+            Doble verificación
+          </h3>
+          <RestablecerDobleVerificacion userId={user.id} username={user.username} />
+        </section>
+      )}
 
       <section className="rounded-lg border border-gray-200 bg-white p-5">
         <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">

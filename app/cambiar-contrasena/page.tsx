@@ -10,7 +10,7 @@ import { CambiarContrasenaForm } from "@/components/cuenta/CambiarContrasenaForm
 // También es donde cualquiera cambia su contraseña cuando quiera (enlace
 // "Mi contraseña" de la barra superior).
 export default async function CambiarContrasenaPage({ searchParams }: { searchParams?: { from?: string } }) {
-  const usuario = await requireUser({ aunqueDebaCambiarContrasena: true });
+  const usuario = await requireUser({ aunqueDebaCambiarContrasena: true, aunqueFalte2fa: true });
   const registro = await prisma.user.findUnique({
     where: { id: usuario.userId },
     select: { debeCambiarContrasena: true },

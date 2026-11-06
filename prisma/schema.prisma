@@ -47,6 +47,15 @@ model User {
   // (lib/politica-contrasena.ts), que se detecta al iniciar sesión.
   debeCambiarContrasena      Boolean   @default(false)
   contrasenaCambiadaEl       DateTime?
+  // Doble verificación con código de 6 dígitos (ver lib/totp.ts). El secreto va
+  // cifrado (lib/secretos.ts) y solo vale mientras totpActivo sea true: antes
+  // es el secreto de una activación a medias. totpPaso es el último paso de 30 s
+  // aceptado (un código no se puede usar dos veces); totpRespaldo, un JSON con
+  // las huellas de los códigos de recuperación que quedan sin usar.
+  totpSecreto                String?
+  totpActivo                 Boolean   @default(false)
+  totpPaso                   Int?
+  totpRespaldo               String?
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt
 

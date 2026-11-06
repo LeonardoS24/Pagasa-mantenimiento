@@ -13,6 +13,10 @@ export interface SessionData {
   // Tiene que cambiar su contraseña antes de usar el sistema (ver
   // User.debeCambiarContrasena): el middleware lo manda a /cambiar-contrasena.
   debeCambiarContrasena?: boolean;
+  // Es administrador y la empresa exige doble verificación (EXIGIR_2FA_ADMIN)
+  // pero todavía no la activa: el middleware solo lo deja entrar a
+  // /doble-verificacion hasta que la active.
+  debeActivar2fa?: boolean;
   username: string;
   role: Role;
   // Puesto de la persona (ver User.puesto en el schema): no se guarda en la
@@ -52,6 +56,10 @@ export type UsuarioSesion = Pick<SessionData, "userId" | "username" | "role" | "
 // (ver la nota de despliegue en .env.example).
 const servidoPorHttps = process.env.COOKIE_SECURE === "true";
 
+// En la práctica "secure" se decide por petición (opcionesDeSesion): el mismo
+// servidor atiende por http en la red local y por https cuando llega por el
+// túnel de Cloudflare (ver scripts/ip-cliente.mjs). Un cookie "secure" que
+// se mandara por http no la guardaría el navegador y nadie podría entrar.
 export const sessionOptions: SessionOptions = {
   password: process.env.SESSION_SECRET!,
   cookieName: "pagasa_session",
@@ -67,3 +75,12 @@ export const sessionOptions: SessionOptions = {
     maxAge: undefined,
   },
 };
+
+// Las opciones de la sesión para esta petición. `protocolo` es el valor de
+// X-Forwarded-Proto que scripts/servidor.mjs escribe en cada petición ("https"
+// si llegó cifrada: HTTPS propio del servidor o túnel de confianza). Con
+// COOKIE_SECURE=true en el .env siempre va marcada.
+export function opcionesDeSesion(protocolo?: string | null): SessionOptions {
+  const seguro = servidoPorHttps || protocolo === "https";
+  return { ...sessionOptions, cookieOptions: { ...sessionOptions.cookieOptions, secure: seguro } };
+}

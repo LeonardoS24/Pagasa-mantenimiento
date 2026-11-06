@@ -915,3 +915,41 @@ Sidebar; se cierra solo al navegar). "Mi contraseña" pasa al menú. Se revisó 
 - Arranque automático del servidor: `scripts/servidor-instalar-arranque.bat`
   (ver SERVIDOR.md). `servidor-actualizar-pasos.bat` reinicia por la tarea
   `Servidor Pagasa` si existe; si no, abre la ventana como antes.
+
+## Acceso por internet y doble verificación
+
+Las demás plazas entran por un **túnel de Cloudflare** que corre en el mismo
+servidor (guía paso a paso: `ACCESO-POR-INTERNET.md`). No se abre ningún puerto
+del router; el servidor sigue siendo esta computadora y la red local sigue
+entrando por `http://IP:3000`.
+
+- **IP real y https detrás del túnel** (`scripts/ip-cliente.mjs`, usado por
+  `scripts/servidor.mjs`): con `CONFIAR_TUNEL=cloudflare` en el `.env`, la IP sale de
+  `CF-Connecting-IP` y el esquema de `CF-Visitor`, **solo si la conexión viene de
+  loopback** (cloudflared corre en el mismo equipo); una computadora de la red
+  local no puede hacerse pasar por el túnel. Sin esa variable, la IP es la del
+  socket y se ignora todo encabezado del navegador. **Sin esto, todos los
+  usuarios del túnel aparecerían como 127.0.0.1 y el freno de 20 intentos por
+  equipo bloquearía a todos a la vez.** Probado en `tests/acceso-por-tunel.test.ts`.
+- **Cookie `secure` por petición** (`opcionesDeSesion` en `lib/session.ts`): va marcada
+  cuando X-Forwarded-Proto es https (túnel o HTTPS propio) y no cuando se entra por
+  http en la red local; así conviven sin que nadie se quede sin poder iniciar
+  sesión. Todo lugar que abra la cookie de sesión debe usarla (nunca
+  `sessionOptions` a secas).
+- **Doble verificación (TOTP)**: `lib/totp.ts` (puro, probado con los vectores de la
+  RFC 6238 en `tests/totp.test.ts`), campos `totp*` en `User`, secreto cifrado con
+  `lib/secretos.ts`. Cualquier cuenta puede activarla en `/doble-verificacion`; con
+  `EXIGIR_2FA_ADMIN=true` es obligatoria para ADMIN (`falta2fa` en
+  `lib/doble-verificacion.ts`; lo aplican el middleware con `session.debeActivar2fa` y
+  `requireUser`, que acepta `aunqueFalte2fa` solo en la pantalla y acciones de activarla).
+- **Login en dos pasos** (`actions/auth-actions.ts`): con contraseña correcta y 2FA
+  activa NO se crea sesión; se guarda una marca firmada de 5 min en otra cookie
+  (`lib/pendiente-2fa.ts`) y se manda a `/login/verificar` (cuelga de `/login` para que
+  el middleware lo deje pasar sin sesión). El paso de la contraseña **devuelve** su
+  intento al freno (`devolverIntentoDeCuenta`) y el del código aparta y cuenta los
+  suyos: así quien conoce la contraseña tampoco puede probar códigos sin límite. Un
+  código solo sirve una vez (`totpPaso`, guardado con `updateMany` atómico); los 8
+  códigos de recuperación se guardan como huellas y cada uno sirve una vez.
+- **Recuperación**: otro administrador la restablece en la ficha del usuario
+  (`restablecerDobleVerificacion`, con su contraseña); si es el único administrador,
+  `node scripts/desactivar-2fa.mjs usuario` en el servidor.

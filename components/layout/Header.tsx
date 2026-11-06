@@ -52,6 +52,9 @@ export function Header({ user }: { user: UsuarioSesion }) {
         <a href="/cambiar-contrasena" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
           Mi contraseña
         </a>
+        <a href="/doble-verificacion" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
+          Doble verificación
+        </a>
         <form action="/api/logout" method="POST">
           <button
             type="submit"

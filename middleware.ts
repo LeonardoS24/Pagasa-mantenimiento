@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
-import { sessionOptions, type SessionData } from "@/lib/session";
+import { opcionesDeSesion, type SessionData } from "@/lib/session";
 import { RENOVAR_CADA_MS, estadoDeVigencia } from "@/lib/sesion-vigencia";
 
 export const config = {
@@ -22,10 +22,11 @@ export const config = {
 const RUTAS_PASIVAS = ["/api/avisos", "/api/mensajes"];
 
 const RUTAS_SIN_CAMBIO_DE_CONTRASENA = ["/cambiar-contrasena", "/api/logout", "/api/sesion/ping"];
+const RUTAS_SIN_DOBLE_VERIFICACION = ["/doble-verificacion", "/api/doble-verificacion/listo", "/api/logout", "/api/sesion/ping"];
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
-  const session = await getIronSession<SessionData>(request, response, sessionOptions);
+  const session = await getIronSession<SessionData>(request, response, opcionesDeSesion(request.headers.get("x-forwarded-proto")));
 
   const aLogin = (motivo?: string) => {
     const loginUrl = new URL("/login", request.url);
@@ -56,6 +57,12 @@ export async function middleware(request: NextRequest) {
     const destino = new URL("/cambiar-contrasena", request.url);
     if (!request.nextUrl.pathname.startsWith("/api/")) destino.searchParams.set("from", request.nextUrl.pathname);
     return NextResponse.redirect(destino);
+  }
+
+  // Administrador sin doble verificación cuando la empresa la exige: hasta
+  // activarla no se puede hacer nada más (sí cerrar sesión).
+  if (session.debeActivar2fa && !session.debeCambiarContrasena && !RUTAS_SIN_DOBLE_VERIFICACION.includes(request.nextUrl.pathname)) {
+    return NextResponse.redirect(new URL("/doble-verificacion", request.url));
   }
 
   if (request.nextUrl.pathname.startsWith("/admin") && session.role !== "ADMIN") {

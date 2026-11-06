@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { getIronSession } from "iron-session";
-import { sessionOptions, type SessionData } from "@/lib/session";
+import { opcionesDeSesion, type SessionData } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { rutaInternaSegura } from "@/lib/ruta-segura";
 import { registrarAcceso, type EventoAcceso } from "@/lib/registro-acceso";
+import { redireccionRelativa } from "@/lib/redireccion";
 
 const MOTIVOS = ["cuenta-eliminada", "inactividad", "expirada"];
 const EVENTO_DE_MOTIVO: Record<string, EventoAcceso | undefined> = {
@@ -19,14 +20,12 @@ const EVENTO_DE_MOTIVO: Record<string, EventoAcceso | undefined> = {
 export async function GET(request: NextRequest) {
   const pedido = request.nextUrl.searchParams.get("motivo") ?? "";
   const motivo = MOTIVOS.includes(pedido) ? pedido : "expirada";
-  const login = new URL("/login", request.url);
-  login.searchParams.set("motivo", motivo);
+  const parametros = new URLSearchParams({ motivo });
   const desde = rutaInternaSegura(request.nextUrl.searchParams.get("from"));
-  if (desde) login.searchParams.set("from", desde);
+  if (desde) parametros.set("from", desde);
 
-  const response = NextResponse.redirect(login);
-  response.headers.set("Cache-Control", "no-store");
-  const session = await getIronSession<SessionData>(request, response, sessionOptions);
+  const response = redireccionRelativa(`/login?${parametros.toString()}`, 307);
+  const session = await getIronSession<SessionData>(request, response, opcionesDeSesion(request.headers.get("x-forwarded-proto")));
   if (session.sesionId) {
     const { count } = await prisma.sesionActiva.deleteMany({ where: { id: session.sesionId } });
     // Solo se anota si la sesión seguía viva: así una pestaña vieja que

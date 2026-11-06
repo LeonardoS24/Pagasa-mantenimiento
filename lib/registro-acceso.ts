@@ -21,6 +21,10 @@ export const EVENTOS_ACCESO = {
   CAMBIO_ROL: "Cambio de rol",
   CAMBIO_CIUDADES: "Cambio de ciudades con acceso",
   CAMBIO_ACCESO_AMPLIADO: "Cambio de acceso ampliado",
+  DOBLE_VERIFICACION_ACTIVADA: "Activó la doble verificación",
+  DOBLE_VERIFICACION_QUITADA: "Quitó la doble verificación",
+  DOBLE_VERIFICACION_RESTABLECIDA: "Doble verificación restablecida por el administrador",
+  CODIGO_RESPALDO_USADO: "Entró con un código de recuperación",
 } as const;
 
 export type EventoAcceso = keyof typeof EVENTOS_ACCESO;

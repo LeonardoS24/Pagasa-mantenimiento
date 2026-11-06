@@ -1,12 +1,13 @@
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getIronSession, type IronSession } from "iron-session";
-import { sessionOptions, type SessionData, type UsuarioSesion } from "./session";
+import { opcionesDeSesion, type SessionData, type UsuarioSesion } from "./session";
 import { estadoDeVigencia } from "./sesion-vigencia";
 import { canEdit, roleSchema } from "./roles";
 import { prisma } from "./prisma";
 import { parseElevatedAccessSchedule, isWithinElevatedAccessWindow } from "./elevated-access";
+import { falta2fa } from "./doble-verificacion";
 
 // A dónde manda requireUser cuando la sesión ya no sirve (cuenta eliminada,
 // inactividad, sesión cerrada o vencida). Esa ruta borra la cookie y regresa
@@ -33,7 +34,7 @@ const sesionExiste = cache(async (sesionId: string, userId: string) => {
 const cargarUsuarioDeSesion = cache(async (userId: string) => {
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, username: true, role: true, puesto: true, debeCambiarContrasena: true },
+    select: { id: true, username: true, role: true, puesto: true, debeCambiarContrasena: true, totpActivo: true },
   });
 });
 
@@ -46,7 +47,7 @@ export async function leerSesion(): Promise<{
   session: IronSession<SessionData>;
   perdida: MotivoSesionPerdida | null;
 }> {
-  const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+  const session = await getIronSession<SessionData>(cookies(), opcionesDeSesion(headers().get("x-forwarded-proto")));
   if (!session.userId) return { session, perdida: null };
 
   const estado = estadoDeVigencia(session);
@@ -81,8 +82,10 @@ export async function getSession(): Promise<IronSession<SessionData>> {
 
 // `aunqueDebaCambiarContrasena`: solo para la página y la acción de cambiar la
 // contraseña, que son lo único que se puede usar mientras está pendiente.
+// `aunqueFalte2fa`: igual, para la pantalla y las acciones de activar la doble
+// verificación cuando la empresa la exige a los administradores.
 export async function requireUser(
-  opciones: { aunqueDebaCambiarContrasena?: boolean } = {}
+  opciones: { aunqueDebaCambiarContrasena?: boolean; aunqueFalte2fa?: boolean } = {}
 ): Promise<UsuarioSesion> {
   const { session, perdida } = await leerSesion();
   if (perdida) {
@@ -101,6 +104,9 @@ export async function requireUser(
   }
   if (user.debeCambiarContrasena && !opciones.aunqueDebaCambiarContrasena) {
     redirect("/cambiar-contrasena");
+  }
+  if (!opciones.aunqueFalte2fa && falta2fa(user)) {
+    redirect("/doble-verificacion");
   }
 
   // La base manda sobre la cookie: si a alguien le cambian el rol, el cambio
