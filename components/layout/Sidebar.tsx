@@ -100,17 +100,16 @@ export function Sidebar({ cities, isAdmin }: { cities: City[]; isAdmin: boolean 
             Panel de administración
           </Link>
         )}
-        {/* En celular la barra superior no tiene espacio para esto. Los
-            administradores las tienen en Administración → Mi cuenta. */}
+        {/* Quien no tiene panel de administración llega a su cuenta (contraseña y
+            doble verificación) desde aquí; los administradores, desde la pestaña
+            «Mi cuenta» del panel. En celular el nombre de la barra no se ve. */}
         {!isAdmin && (
-          <>
-            <Link href="/cambiar-contrasena" className="mx-2 mt-5 rounded-md px-3 py-2 text-sm text-ink hover:bg-gray-50 md:hidden">
-              Mi contraseña
-            </Link>
-            <Link href="/doble-verificacion" className="mx-2 mt-1 rounded-md px-3 py-2 text-sm text-ink hover:bg-gray-50 md:hidden">
-              Doble verificación
-            </Link>
-          </>
+          <Link
+            href="/mi-cuenta"
+            className={`mx-2 mt-5 rounded-md px-3 py-2 text-sm ${pathname.startsWith("/mi-cuenta") ? "bg-accent/10 font-medium text-accent" : "text-ink hover:bg-gray-50"}`}
+          >
+            Mi cuenta
+          </Link>
         )}
       </nav>
     </aside>

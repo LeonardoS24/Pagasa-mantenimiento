@@ -44,23 +44,18 @@ export function Header({ user }: { user: UsuarioSesion }) {
         </form>
       )}
       <div className="flex items-center gap-3 text-sm sm:gap-4">
-        <span className="hidden lg:inline">
+        {/* El nombre lleva a «Mi cuenta» (contraseña y doble verificación): ya no
+            hay enlaces sueltos en la barra. Los administradores van a la
+            pestaña del panel; los demás, a la página para todos. */}
+        <a
+          href={user.role === "ADMIN" ? "/admin/mi-cuenta" : "/mi-cuenta"}
+          title="Mi cuenta"
+          className="hidden hover:underline lg:inline"
+        >
           {user.username}
           {user.puesto && <span className="text-blue-200"> — {user.puesto}</span>}
-        </span>
+        </a>
         <CentroDeAvisos />
-        {/* Los administradores las tienen en Administración → Mi cuenta; quien no
-            entra al panel las conserva aquí, porque no tiene otro lugar. */}
-        {user.role !== "ADMIN" && (
-          <>
-            <a href="/cambiar-contrasena" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
-              Mi contraseña
-            </a>
-            <a href="/doble-verificacion" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
-              Doble verificación
-            </a>
-          </>
-        )}
         <form action="/api/logout" method="POST">
           <button
             type="submit"
