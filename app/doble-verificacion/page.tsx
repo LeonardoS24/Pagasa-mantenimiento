@@ -6,13 +6,15 @@ import { requireUser } from "@/lib/auth";
 import { descifrarSecreto } from "@/lib/secretos";
 import { exige2faAAdmins } from "@/lib/doble-verificacion";
 import { leerHuellas, uriOtpauth } from "@/lib/totp";
+import { rutaInternaSegura } from "@/lib/ruta-segura";
 import { ConfirmarActivacion, EmpezarActivacion, QuitarActivacion } from "@/components/cuenta/DobleVerificacionPanel";
 
 // Fuera de (protected) a propósito, igual que cambiar-contrasena: cuando la
 // empresa la exige a los administradores, mientras no la activen no se muestra
 // el menú ni nada del sistema (middleware.ts solo deja pasar aquí).
-export default async function DobleVerificacionPage() {
+export default async function DobleVerificacionPage({ searchParams }: { searchParams?: { from?: string } }) {
   const usuario = await requireUser({ aunqueFalte2fa: true });
+  const desde = rutaInternaSegura(searchParams?.from);
   const registro = await prisma.user.findUnique({
     where: { id: usuario.userId },
     select: { totpActivo: true, totpSecreto: true, totpRespaldo: true },
@@ -63,7 +65,7 @@ export default async function DobleVerificacionPage() {
 
         <div className="mt-5 flex justify-between text-sm">
           {!obligatoria ? (
-            <Link href="/dashboard" className="text-primary hover:underline">
+            <Link href={desde ?? "/dashboard"} className="text-primary hover:underline">
               Volver
             </Link>
           ) : (

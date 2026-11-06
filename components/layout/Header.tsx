@@ -49,12 +49,18 @@ export function Header({ user }: { user: UsuarioSesion }) {
           {user.puesto && <span className="text-blue-200"> — {user.puesto}</span>}
         </span>
         <CentroDeAvisos />
-        <a href="/cambiar-contrasena" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
-          Mi contraseña
-        </a>
-        <a href="/doble-verificacion" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
-          Doble verificación
-        </a>
+        {/* Los administradores las tienen en Administración → Mi cuenta; quien no
+            entra al panel las conserva aquí, porque no tiene otro lugar. */}
+        {user.role !== "ADMIN" && (
+          <>
+            <a href="/cambiar-contrasena" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
+              Mi contraseña
+            </a>
+            <a href="/doble-verificacion" className="hidden text-blue-100 hover:text-white hover:underline sm:inline">
+              Doble verificación
+            </a>
+          </>
+        )}
         <form action="/api/logout" method="POST">
           <button
             type="submit"
