@@ -10,7 +10,7 @@ const TABS = [
   { href: "/admin/normas", label: "Normas y plazos" },
   { href: "/admin/reportes", label: "Reportes por correo" },
   { href: "/admin/piezas", label: "Piezas y refacciones" },
-  { href: "/admin/campos", label: "Editar sistema" },
+  { href: "/admin/campos/acomodar", label: "Editar sistema", prefijo: "/admin/campos" },
   { href: "/admin/estado", label: "Estado del servidor" },
   { href: "/admin/respaldos", label: "Respaldos" },
   { href: "/admin/actividad", label: "Actividad del sistema" },
@@ -24,7 +24,7 @@ export function AdminTabs() {
   return (
     <div className="mb-6 flex flex-wrap gap-2 border-b-2 border-primary pb-2">
       {TABS.map((tab) => {
-        const active = pathname.startsWith(tab.href);
+        const active = pathname.startsWith(("prefijo" in tab && tab.prefijo) || tab.href);
         return (
           <Link
             key={tab.href}

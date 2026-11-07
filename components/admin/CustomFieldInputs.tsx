@@ -58,6 +58,26 @@ export function CustomFieldInputs({
   );
 }
 
+// Los campos propios de un recuadro de fábrica que no tenía su propia
+// cuadrícula de campos (Chofer y póliza, Gobernador, Dictámenes...): salen
+// abajo, en su propia cuadrícula. Sin campos no pinta nada.
+export function CamposExtraBloque({
+  campos,
+  seccion,
+  valores,
+}: {
+  campos: CustomFieldDef[];
+  seccion: string;
+  valores: Record<string, string>;
+}) {
+  if (!campos.some((c) => c.seccion === seccion)) return null;
+  return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <CustomFieldInputs campos={campos} seccion={seccion} valores={valores} />
+    </div>
+  );
+}
+
 // Recuadros nuevos que el ADMIN creó para este apartado (ver /admin/campos):
 // cada uno sale como su propio recuadro, con el título y los campos que tenga.
 // Un recuadro sin campos no se dibuja. Va dentro del <fieldset> de la ficha.
@@ -66,13 +86,16 @@ export function CustomSectionInputs({
   campos,
   valores,
   diseno,
+  mostrarVacios = false,
 }: {
   secciones: CustomSectionDef[];
   campos: CustomFieldDef[];
   valores: Record<string, string>;
   diseno?: DisenoFicha;
+  // Editor de fichas: también los recuadros que todavía no tienen campos.
+  mostrarVacios?: boolean;
 }) {
-  const conCampos = secciones.filter((s) => campos.some((c) => c.seccion === seccionDePropia(s.id)));
+  const conCampos = mostrarVacios ? secciones : secciones.filter((s) => campos.some((c) => c.seccion === seccionDePropia(s.id)));
   if (conCampos.length === 0) return null;
   return (
     <>
@@ -82,6 +105,9 @@ export function CustomSectionInputs({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <CustomFieldInputs campos={campos} seccion={seccionDePropia(s.id)} valores={valores} />
           </div>
+          {mostrarVacios && !campos.some((c) => c.seccion === seccionDePropia(s.id)) && (
+            <p className="text-xs text-gray-500">Sin campos todavía: agrégale campos para que aparezca en la ficha.</p>
+          )}
         </div>
       ))}
     </>

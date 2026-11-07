@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const SUBTABS = [
-  { href: "/admin/campos", label: "Campos y recuadros", exacto: true },
-  { href: "/admin/campos/acomodar", label: "Acomodar fichas", exacto: false },
+  { href: "/admin/campos/acomodar", label: "Fichas de unidades", exacto: false },
+  { href: "/admin/campos", label: "Estaciones, planta y lista de campos", exacto: true },
 ];
 
 export function CamposSubTabs() {

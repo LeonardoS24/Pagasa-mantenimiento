@@ -1,7 +1,7 @@
 "use client";
 
 import { fijarPlazos, type Plazos } from "@/lib/plazos";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { VehicleTechnicalSheet } from "@prisma/client";
 import { upsertTechnicalSheet, updateCalidadExtintor } from "@/actions/vehicle-actions";
@@ -39,7 +39,7 @@ import type { SectionColorKey } from "@/lib/section-colors";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { VEHICLE_BRAND_CATALOG, findBrandOption } from "@/lib/vehicle-brand-catalog";
 import type { CustomFieldDef, CustomSectionDef } from "@/lib/custom-fields";
-import { CustomFieldInputs, CustomSectionInputs } from "./CustomFieldInputs";
+import { CamposExtraBloque, CustomFieldInputs, CustomSectionInputs } from "./CustomFieldInputs";
 import { dictamenesDeApartado, getDictamenVencimiento, getDictamenAlertLevel, dictamenAlertLabel } from "@/lib/dictamen-alerts";
 
 const initialState: ActionState = {};
@@ -367,6 +367,7 @@ export function TechnicalSheetForm({
   seccionesExtra = [],
   diseno,
   valoresExtra = {},
+  vistaPrevia = false,
 }: {
   // Plazos normativos vigentes (ver lib/plazos.ts): el aviso de este formulario
   // se calcula en el navegador y debe usar los mismos que el servidor.
@@ -429,6 +430,9 @@ export function TechnicalSheetForm({
   // Cómo acomodó el ADMIN los recuadros de este apartado (lib/diseno-ficha.ts).
   diseno?: DisenoFicha;
   valoresExtra?: Record<string, string>;
+  // Solo para el editor de fichas (/admin/campos/acomodar): la ficha vacía de
+  // ejemplo, sin poder escribir ni guardar nada (el formulario queda «inert»).
+  vistaPrevia?: boolean;
 }) {
   fijarPlazos(plazos);
   const action = upsertTechnicalSheet.bind(null, vehicleId);
@@ -443,6 +447,9 @@ export function TechnicalSheetForm({
   const [tieneAcoplamiento, setTieneAcoplamiento] = useState(acoplamientoInicial);
   const formRef = useRef<HTMLFormElement>(null);
   const rec = (clave: string, color: SectionColorKey) => propsDeRecuadro(diseno, clave, color);
+  useEffect(() => {
+    if (vistaPrevia) formRef.current?.setAttribute("inert", "");
+  }, [vistaPrevia]);
 
   function handleCancel() {
     formRef.current?.reset();
@@ -521,8 +528,8 @@ export function TechnicalSheetForm({
   const hoseVencimiento = getHoseVencimiento(sheet?.fechaFabricacionManguera);
 
   return (
-    <form ref={formRef} action={formAction} className={CLASE_CUADRICULA_FICHA}>
-      <div className="col-span-full flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-2">
+    <form ref={formRef} action={vistaPrevia ? undefined : formAction} className={CLASE_CUADRICULA_FICHA}>
+      <div className={`col-span-full ${vistaPrevia ? "hidden" : "flex"} flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-2`}>
         <p className="text-sm text-ink">
           {locked
             ? "La ficha técnica está bloqueada para evitar cambios por accidente."
@@ -639,6 +646,7 @@ export function TechnicalSheetForm({
               />
             )}
           </div>
+          <CamposExtraBloque campos={camposExtra} seccion="chofer-poliza" valores={valoresExtra} />
         </div>
       )}
 
@@ -655,6 +663,7 @@ export function TechnicalSheetForm({
               </div>
             ))}
           </div>
+          <CamposExtraBloque campos={camposExtra} seccion="tractocamion" valores={valoresExtra} />
         </div>
       )}
 
@@ -679,6 +688,7 @@ export function TechnicalSheetForm({
               <Field id="empresaGobernador" label="Empresa que lo instaló" defaultValue={sheet?.empresaGobernador} />
             </div>
           )}
+          <CamposExtraBloque campos={camposExtra} seccion="gobernador" valores={valoresExtra} />
         </div>
       )}
 
@@ -814,6 +824,7 @@ export function TechnicalSheetForm({
               </div>
             ))}
           </div>
+          <CamposExtraBloque campos={camposExtra} seccion="semirremolque" valores={valoresExtra} />
         </div>
       )}
 
@@ -861,6 +872,7 @@ export function TechnicalSheetForm({
               mantenimiento tipo &quot;Preventivo&quot; (ver Bitácora de mantenimiento).
             </p>
           )}
+          <CamposExtraBloque campos={camposExtra} seccion="mantenimiento" valores={valoresExtra} />
         </div>
       )}
 
@@ -1142,6 +1154,7 @@ export function TechnicalSheetForm({
               );
             })}
           </div>
+          <CamposExtraBloque campos={camposExtra} seccion="dictamenes" valores={valoresExtra} />
         </div>
       )}
 
@@ -1304,7 +1317,7 @@ export function TechnicalSheetForm({
       </>
       )}
 
-      <CustomSectionInputs secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} diseno={diseno} />
+      <CustomSectionInputs secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} diseno={diseno} mostrarVacios={vistaPrevia} />
       </fieldset>
 
       <div className="col-span-full space-y-6" style={{ order: 100000 }}>

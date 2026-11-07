@@ -227,7 +227,7 @@ export function TechnicalSheetView({
                 value={sheet.unidadAsignada}
               />
             )}
-            <CustomFieldItems campos={camposExtra} seccion="automovil" valores={valoresExtra} />
+            <CustomFieldItems campos={camposExtra} seccion="chofer-poliza" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -239,6 +239,7 @@ export function TechnicalSheetView({
             {CAMPOS_TRACTOCAMION.flatMap((grupo) => grupo.campos).map(({ campo, etiqueta }) => (
               <Item key={campo} label={etiqueta} value={sheet[campo]} />
             ))}
+          <CustomFieldItems campos={camposExtra} seccion="tractocamion" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -254,6 +255,7 @@ export function TechnicalSheetView({
                 <Item label="Empresa que lo instaló" value={sheet.empresaGobernador} />
               </>
             )}
+          <CustomFieldItems campos={camposExtra} seccion="gobernador" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -307,6 +309,7 @@ export function TechnicalSheetView({
             {CAMPOS_SEMIRREMOLQUE.flatMap((grupo) => grupo.campos).map(({ campo, etiqueta }) => (
               <Item key={campo} label={etiqueta} value={sheet[campo]} />
             ))}
+          <CustomFieldItems campos={camposExtra} seccion="semirremolque" valores={valoresExtra} />
           </dl>
         </div>
       )}
@@ -515,6 +518,7 @@ export function TechnicalSheetView({
                 />
               );
             })}
+          <CustomFieldItems campos={camposExtra} seccion="dictamenes" valores={valoresExtra} />
           </dl>
         </div>
       )}

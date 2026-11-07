@@ -51,6 +51,11 @@ export function parseOpcionesTexto(texto: string | null | undefined): string[] {
 // campo salga del mismo color que el recuadro donde vive.
 export const CAMPO_SECCIONES_VEHICULO = [
   { id: "automovil", label: "Automóvil" },
+  { id: "chofer-poliza", label: "Chofer y póliza" },
+  { id: "tractocamion", label: "Datos del tractocamión" },
+  { id: "gobernador", label: "Gobernador de velocidad" },
+  { id: "semirremolque", label: "Datos del semirremolque" },
+  { id: "dictamenes", label: "Dictámenes" },
   { id: "tanque", label: "Tanque" },
   { id: "extintor", label: "Extintor" },
   { id: "mantenimiento", label: "Mantenimiento preventivo" },

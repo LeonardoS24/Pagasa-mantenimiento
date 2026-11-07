@@ -954,7 +954,22 @@ entrando por `http://IP:3000`.
   (`restablecerDobleVerificacion`, con su contraseña); si es el único administrador,
   `node scripts/desactivar-2fa.mjs usuario` en el servidor.
 
-## Editar sistema → Acomodar fichas
+## Editar sistema → Fichas de unidades
+
+**Todo se edita en un solo lugar** (`/admin/campos/acomodar`, componente
+`AcomodarFicha`): recuadros nuevos en el lugar que se elige («¿Dónde va?»),
+renombrar y eliminar los propios (con sus campos y datos, avisando cuántos),
+ocultar los de fábrica (`oculto` en el diseño: `display:none`, el formulario
+sigue enviando sus datos tal cual y las alertas siguen), y campos nuevos,
+editados, quitados y su orden en cualquier recuadro. **Nada se guarda hasta
+«Guardar cambios» con la contraseña**: `guardarEditorFicha` aplica todo en una
+transacción (ids temporales `n1`, `x:n2` → reales). Cada recuadro de fábrica
+tiene `seccionCampos` (la `CustomField.seccion` de sus campos); Chofer y
+póliza, Tractocamión, Gobernador, Semirremolque y Dictámenes ya aceptan campos
+propios (`CamposExtraBloque`). «Estaciones, planta y lista de campos»
+(`/admin/campos`) sigue siendo el panel anterior.
+
+### Detalle del acomodo
 
 La pestaña «Editar sistema» (antes «Recuadros de fichas», `/admin/campos`) tiene dos
 partes: «Campos y recuadros» (agregar campos y recuadros propios) y «Acomodar
