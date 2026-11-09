@@ -138,7 +138,11 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
    (`getStationValveVencimiento`: más antigua del juego, instalación del juego
    `fechaInstalacionValvulas`). Sin fecha de instalación se cuentan 5 años desde
    la fabricación, para no avisar tarde. Son dos plazos editables
-   (`valvulasEstacion` = 5, `valvulasEstacionFabricacion` = 7).
+   (`valvulasEstacion` = 5, `valvulasEstacionFabricacion` = 7). **Los 5 años
+   de instaladas solo aplican si la estación NO lleva bitácora de mantenimiento
+   del tanque y de las válvulas** (casilla `tieneBitacoraMantenimientoValvulas`
+   en la ficha del tanque, pedido del usuario el 9-nov-2026); con bitácora solo
+   cuenta el tope desde la fabricación.
 3. **Planta** (mismas columnas de `StationTankTechnicalSheet`,
    `lib/planta-tank-instruments.ts`) — 5 instrumentos (máximo llenado, manómetro,
    termómetro, exceso de flujo/no retroceso, relevo de presión), cada uno con
@@ -995,3 +999,48 @@ bitácora de actividad ("Diseño de ficha").
   hoja impresa siguen con el orden de fábrica por ahora. `getDisenoFicha(slug)`
   (`lib/diseno-ficha-servidor.ts`) lo lee en la página de la unidad.
 - Pestañas del panel: la activa va rellena de color (`AdminTabs`, `CamposSubTabs`).
+
+## Alertas y términos de referencia que edita el ADMIN (sin tocar código)
+
+Pedido del usuario (9-nov-2026): que un administrador agregue, renombre y quite
+alertas y términos de referencia desde el panel, **con su contraseña**, para
+seguir usando el sistema cuando cambien las normas.
+
+- **Alertas → «Agregar, renombrar o quitar alertas»** (`/admin/alertas/configurar`,
+  `ConfigAlertasPanel`, `actions/alertas-config-actions.ts`). Catálogo puro en
+  `lib/alertas-catalogo.ts`; lo que lee la base en `lib/alertas-servidor.ts`.
+  - **De fábrica** (13 tipos, `ALERTAS_DE_FABRICA`): tabla `AlertaAjuste` (nombre y
+    `activa`; sin fila = de fábrica). Quitada = vacía en `getAllVehicleAlerts`, fuera
+    de `getVencimientos` (calendario, tablero, correos, avisos) y de
+    `countValveRedAlerts`. El título sale en los cuadros por la prop `titulo`.
+  - **Agregadas** (tabla `AlertaPropia`): vigilan una fecha de la ficha
+    (`camposFechaDeFicha`), de un campo agregado tipo FECHA o del último registro
+    de una bitácora (`REGISTROS_PARA_ALERTAS`); vencen en la fecha o a N años/meses;
+    amarillo con `diasAviso`, rojo a 7. Salen en su cuadro (`AlertasPropiasPanel`),
+    en el calendario (tipo `propia`) y en el expediente.
+  - **Los tres tableros pintan `PanelesDeAlertas`** (una sola lista): un cuadro nuevo
+    va ahí, no en cada página.
+- **Normas y términos de referencia** (`/admin/normas`): además de editar, agregar
+  términos (`RequisitoPropio`, clave `p-<id>`), quitar los de fábrica
+  (`RequisitoNormativoAjuste.oculto`, se reponen; su plazo sigue igual) y cambiar
+  nombre, «aplica a», «se cuenta desde» y nota. **Las normas que rigen hoy** se editan
+  ahí también: la lista completa queda en `AjusteSistema.normasVigentes` (JSON,
+  `getNormasVigentes`); sin guardar, se usan las del código. Cada norma lleva `clave`
+  estable (el expediente la busca por clave, no por el nombre del área).
+  `getRequisitos({ incluirQuitados })`; `cargarPlazos` siempre incluye los quitados.
+
+## Página de la unidad: secciones que se minimizan y enlaces de las alertas
+
+- `PlegadoDeSecciones` (envuelve la página): barra fija «Ir a» con un botón por
+  apartado, «Minimizar todo / Abrir todo», y cualquier `[data-plegable]` se minimiza
+  al tocar su título (`data-plegado`; CSS en `globals.css`). Los registros llegan
+  minimizados; los recuadros de la ficha, abiertos (`propsDeRecuadro` les pone
+  `id="r-<clave>"` y `data-plegable`). Lo que cada quien abre/cierra se recuerda en
+  localStorage. Lo minimizado se sigue enviando en el formulario; si falta un
+  obligatorio, se abre solo.
+- **«Ver unidad» lleva al apartado de la alerta** (`lib/anclas-unidad.ts`,
+  `enlaceDeAlerta`): ultrasonido a `#ultrasonido`, válvulas a `#valvulas`, manguera
+  de surtir y conector a `#r-valvulas`, dictámenes a `#r-dictamenes`... Al llegar
+  con ancla (o con `?mantenimiento=`) se abre esa sección.
+- **Conector flexible con casilla** (`tieneConectorFlexible`), como la válvula del
+  85% y el acoplamiento: sin marcar se borra la fecha y no alerta.

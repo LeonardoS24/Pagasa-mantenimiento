@@ -560,6 +560,8 @@ model VehicleTechnicalSheet {
   // Conector flexible (el más antiguo, si hay varios): se sustituye a los 5
   // años de su fabricación. Su alerta sale junto con la de mangueras.
   fechaFabricacionConectorFlexible DateTime?
+  // Casilla «¿tiene conector flexible?»: sin marcar no se pide la fecha.
+  tieneConectorFlexible            Boolean   @default(false)
 
   // Acoplamiento de llenado de desconexión seca (solo Auto-Tanques): lo
   // exige la NOM-EM-009-ASEA-2026 (Tabla 4 d iv) a los que cargan en plantas
@@ -680,6 +682,10 @@ model StationTankTechnicalSheet {
   // Como en las unidades, se guarda la fecha de fabricación grabada en cada
   // válvula más la fecha en que se instaló el juego completo.
   fechaInstalacionValvulas           DateTime?
+  // ¿Lleva bitácora de mantenimiento del tanque y de las válvulas? Sin ella,
+  // el juego se cambia a los 5 años de instalado; con ella, solo cuenta el
+  // tope desde la fabricación (lib/station-valves.ts).
+  tieneBitacoraMantenimientoValvulas Boolean   @default(false)
   fechaFabricacionValvulaExcesoFlujo DateTime?
   fechaFabricacionValvulaNoRetroceso DateTime?
   // Cuántas válvulas de seguridad tiene este tanque (1, 2 o 3, ver
@@ -1925,12 +1931,85 @@ model RequisitoNormativoAjuste {
   numeral        String?
   cita           String?
   verificado     Boolean?
+  // Nombre y textos que el ADMIN cambió (null = el del catálogo).
+  nombre         String?
+  aplicaA        String?
+  cuentaDesde    String?
+  nota           String?
+  // Quitado del catálogo por el ADMIN (se puede volver a poner). No apaga
+  // ninguna alerta: eso se hace en Alertas → Configurar.
+  oculto         Boolean  @default(false)
   // Quién lo editó por última vez (nombre de usuario, se conserva aunque
   // después se elimine la cuenta).
   actualizadoPor String?
   updatedAt      DateTime @updatedAt
 
   @@map("requisitos_normativos_ajustes")
+}
+
+// Términos de referencia (requisitos normativos) que agrega el ADMIN desde
+// /admin/normas, además de los del catálogo del código. Ver
+// lib/requisitos-runtime.ts.
+model RequisitoPropio {
+  id             String   @id @default(cuid())
+  nombre         String
+  aplicaA        String
+  norma          String
+  numeral        String
+  cita           String
+  cuentaDesde    String
+  nota           String?
+  verificado     Boolean  @default(false)
+  // Plazo de referencia en años (lo puede usar una alerta agregada).
+  plazoAnios     Int?
+  creadoPor      String?
+  actualizadoPor String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("requisitos_propios")
+}
+
+// Alertas de fábrica (ultrasonido, válvulas, póliza...): el ADMIN les cambia
+// el nombre o las quita (activa = false) desde /admin/alertas/configurar.
+// Sin fila = como de fábrica. Ver lib/alertas-servidor.ts.
+model AlertaAjuste {
+  tipo           String   @id
+  nombre         String?
+  activa         Boolean  @default(true)
+  actualizadoPor String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("alertas_ajustes")
+}
+
+// Alertas que agrega el ADMIN sin tocar el código: toman una fecha (un campo
+// de la ficha, un campo agregado o el último registro de una bitácora) y
+// avisan cuando se acerca el vencimiento. Ver lib/alertas-catalogo.ts.
+model AlertaPropia {
+  id             String   @id @default(cuid())
+  nombre         String
+  // JSON con los slugs de los apartados donde aplica.
+  apartados      String
+  // "FICHA" | "CAMPO" | "REGISTRO"
+  fuente         String
+  // Campo de la ficha, id del campo agregado o tipo de registro.
+  fuenteClave    String
+  // "VENCE" (la fecha ya es el vencimiento) | "PLAZO" (fecha + años y meses)
+  modo           String   @default("PLAZO")
+  plazoAnios     Int      @default(0)
+  plazoMeses     Int      @default(0)
+  // Con cuántos días de anticipación sale en amarillo (rojo: 7 o menos).
+  diasAviso      Int      @default(30)
+  // Requisito del catálogo que la fundamenta (opcional).
+  requisitoClave String?
+  activa         Boolean  @default(true)
+  creadoPor      String?
+  actualizadoPor String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("alertas_propias")
 }
 
 // Reporte semanal de vencimientos por correo (ver lib/reportes-programados.ts).

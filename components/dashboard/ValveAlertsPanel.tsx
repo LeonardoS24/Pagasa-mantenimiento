@@ -1,4 +1,5 @@
 import { MensajeDeAlerta } from "./MensajeDeAlerta";
+import { enlaceDeAlerta } from "@/lib/anclas-unidad";
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
@@ -40,7 +41,7 @@ const GRUPOS: { id: GrupoValvulas; titulo: string; slugPlazo: string; fundamento
   { id: "otras", titulo: "Otras unidades", slugPlazo: "", fundamento: [] },
 ];
 
-export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
+export function ValveAlertsPanel({ vehicles, titulo }: { vehicles: AlertVehicle[]; titulo?: string }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -51,7 +52,7 @@ export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
         return (
           <div key={grupo.id} className="mb-8 rounded-lg border border-red-200 bg-white p-5">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
-              Alertas de cambio de válvulas — {grupo.titulo}
+              {titulo ?? "Alertas de cambio de válvulas"} — {grupo.titulo}
               <span className="ml-2 text-xs font-normal normal-case text-gray-500">
                 (vencen a los {aniosVigenciaValvulas(grupo.slugPlazo)} años de fabricación)
               </span>
@@ -78,7 +79,7 @@ export function ValveAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
                       {valveAlertLabel(vehicle.level, vehicle.vencimiento)}
                     </span>
                     <Link
-                      href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}`}
+                      href={enlaceDeAlerta(vehicle.citySlug, vehicle.id, "valvulas", vehicle.sectionSlug)}
                       className="text-xs font-medium text-primary hover:underline"
                     >
                       {verRecordLabel(vehicle.sectionSlug)} →

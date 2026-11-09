@@ -1,4 +1,5 @@
 import { MensajeDeAlerta } from "./MensajeDeAlerta";
+import { enlaceDeAlerta } from "@/lib/anclas-unidad";
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
@@ -19,13 +20,13 @@ type StationValveAlertVehicle = {
 // Estación de carburación / Planta (ver lib/station-valves.ts) — vive en su
 // propia ficha del tanque, no en la del vehículo, así que necesita su propio
 // cálculo y su propio texto (getStationValveAlertMessage).
-export function StationValveAlertsPanel({ vehicles }: { vehicles: StationValveAlertVehicle[] }) {
+export function StationValveAlertsPanel({ vehicles, titulo }: { vehicles: StationValveAlertVehicle[]; titulo?: string }) {
   if (vehicles.length === 0) return null;
 
   return (
     <div className="mb-8 rounded-lg border border-red-200 bg-white p-5">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
-        Alertas de cambio de válvulas — Estaciones
+        {titulo ?? "Alertas de cambio de válvulas — Estaciones"}
       </h2>
       <ul className="space-y-2">
         {vehicles.map((vehicle, i) => (
@@ -51,7 +52,7 @@ export function StationValveAlertsPanel({ vehicles }: { vehicles: StationValveAl
                 {valveAlertLabel(vehicle.level, vehicle.vencimiento)}
               </span>
               <Link
-                href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}#valvulas`}
+                href={enlaceDeAlerta(vehicle.citySlug, vehicle.id, "valvulasEstacion", "estaciones-de-carburacion")}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 Ver estación →

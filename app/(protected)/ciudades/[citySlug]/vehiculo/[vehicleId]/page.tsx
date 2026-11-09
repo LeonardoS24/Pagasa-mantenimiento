@@ -126,6 +126,7 @@ import { tipoRegistro, tipoRegistroLabel } from "@/lib/section-labels";
 import { hasActiveElevatedAccess } from "@/lib/elevated-access";
 import { vistosBuenosDeUnidad } from "@/lib/visto-bueno";
 import { VistosBuenosProvider } from "@/components/city/VistoBueno";
+import { PlegadoDeSecciones } from "@/components/city/PlegadoDeSecciones";
 
 export default async function VehicleDetailPage({
   params,
@@ -420,6 +421,32 @@ export default async function VehicleDetailPage({
 
   const vistosBuenos = await vistosBuenosDeUnidad(vehicle.id);
 
+  // Barra «Ir a» de la página: un botón por cada apartado que se pinta abajo
+  // (mismas condiciones). Los recuadros de la ficha van como r-<clave>.
+  const tieneValvulasDeUnidad = isTanqueCarburacion || isTanqueDeCarga;
+  const enlacesDeLaUnidad = [
+    { ancla: isEstacionLike ? "valvulas" : "ficha", texto: "Ficha técnica" },
+    ...(tieneValvulasDeUnidad && !isEstacionLike ? [{ ancla: "r-valvulas", texto: "Válvulas (ficha)" }] : []),
+    ...(isEstacionCarburacion ? [{ ancla: "sellos", texto: "Sellos" }] : []),
+    ...(!isEstacionLike ? [{ ancla: "documentacion", texto: "Póliza" }] : []),
+    ...(isEstacionCarburacion ? [{ ancla: "equipos", texto: "Equipos" }] : []),
+    { ancla: "mantenimiento", texto: "Mantenimiento" },
+    { ancla: "extintor", texto: "Extintor" },
+    ...(isTanqueCarburacion ? [{ ancla: "mangueras", texto: "Mangueras" }] : []),
+    ...(tieneValvulasDeUnidad ? [{ ancla: "valvulas", texto: "Cambio de válvulas" }, { ancla: "valvulas-correctivo", texto: "Correctivo de válvulas" }] : []),
+    ...(showInspeccionesSection
+      ? [
+          { ancla: "visual-externa", texto: "Visual externa" },
+          { ancla: "hermeticidad", texto: "Hermeticidad" },
+          { ancla: "visual-interna", texto: "Visual interna" },
+          { ancla: "ultrasonido", texto: "Ultrasonido" },
+          { ancla: "hidrostatica", texto: "Hidrostática" },
+        ]
+      : []),
+    ...(isEstacionCarburacion ? [{ ancla: "permisos", texto: "Permisos" }] : []),
+    { ancla: "documentos", texto: "Documentos" },
+  ];
+
   return (
     <VistosBuenosProvider vistos={vistosBuenos} userId={user.userId} puedeRevisar={canEdit(user.role)} esAdmin={user.role === "ADMIN"}>
     <div>
@@ -546,6 +573,7 @@ export default async function VehicleDetailPage({
         </div>
       </div>
 
+      <PlegadoDeSecciones enlaces={enlacesDeLaUnidad}>
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         {/* Para una Estación de carburación, esto es "la ficha técnica de la
             estación" (Nombre, Permisionaria, Permiso y Dirección juntos, sin
@@ -616,7 +644,7 @@ export default async function VehicleDetailPage({
         )}
       </div>
 
-      <div id={isEstacionLike ? "valvulas" : undefined} className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+      <div id={isEstacionLike ? "valvulas" : "ficha"} className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         {isEstacionLike && (
           <div className="mb-6 space-y-6">
             {tanquesAMostrar.map(({ etiqueta, sheet }, i) => (
@@ -783,7 +811,7 @@ export default async function VehicleDetailPage({
           cortarse o por mantenimiento), a diferencia del resto de la ficha
           técnica — por eso necesita quedar de fácil acceso. */}
       {isEstacionCarburacion && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div id="sellos" data-plegable="" data-plegado="" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">Sellos</h2>
           <div className="space-y-3">
             {isEditor && <CreateSealLogForm vehicleId={vehicle.id} />}
@@ -810,7 +838,7 @@ export default async function VehicleDetailPage({
           Estaciones ni Planta: son instalaciones fijas, no vehículos con
           seguro propio. */}
       {!isEstacionLike && (
-        <div id="documentacion" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div id="documentacion" data-plegable="" data-plegado="" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">Documentación</h2>
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-ink">Póliza de seguro</h3>
@@ -825,7 +853,7 @@ export default async function VehicleDetailPage({
       )}
 
       {isEstacionCarburacion && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div id="equipos" data-plegable="" data-plegado="" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Equipos de la estación
           </h2>
@@ -844,7 +872,7 @@ export default async function VehicleDetailPage({
         Hermeticidad, Inspección Visual Interna, Ultrasonido y Prueba
         Hidrostática (solo Auto-Tanques).
       */}
-      <div id="mantenimiento" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.mantenimiento}`}>
+      <div id="mantenimiento" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.mantenimiento}`}>
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Bitácora de mantenimiento
         </h2>
@@ -872,7 +900,7 @@ export default async function VehicleDetailPage({
         </div>
       </div>
 
-      <div id="extintor" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.extintor}`}>
+      <div id="extintor" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.extintor}`}>
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Cambio de extintor
         </h2>
@@ -888,7 +916,7 @@ export default async function VehicleDetailPage({
       </div>
 
       {isTanqueCarburacion && (
-        <div id="mangueras" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.mangueras}`}>
+        <div id="mangueras" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.mangueras}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Cambio de mangueras
           </h2>
@@ -900,7 +928,7 @@ export default async function VehicleDetailPage({
       )}
 
       {(isTanqueCarburacion || isTanqueDeCarga) && (
-        <div id="valvulas" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
+        <div id="valvulas" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Cambio de válvulas
           </h2>
@@ -925,7 +953,7 @@ export default async function VehicleDetailPage({
       )}
 
       {(isTanqueCarburacion || isTanqueDeCarga) && (
-        <div id="valvulas-correctivo" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
+        <div id="valvulas-correctivo" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.valvulas}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Mantenimiento correctivo de válvulas
           </h2>
@@ -947,7 +975,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div id="visual-externa" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualExterna}`}>
+        <div id="visual-externa" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualExterna}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Externa
           </h2>
@@ -996,7 +1024,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div id="hermeticidad" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hermeticidad}`}>
+        <div id="hermeticidad" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hermeticidad}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba de Hermeticidad
           </h2>
@@ -1045,7 +1073,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div id="visual-interna" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualInterna}`}>
+        <div id="visual-interna" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.visualInterna}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Inspección Visual Interna
           </h2>
@@ -1096,7 +1124,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div id="ultrasonido" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.ultrasonido}`}>
+        <div id="ultrasonido" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.ultrasonido}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Registro de ultrasonido
           </h2>
@@ -1139,7 +1167,7 @@ export default async function VehicleDetailPage({
       )}
 
       {showInspeccionesSection && (
-        <div id="hidrostatica" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hidrostatica}`}>
+        <div id="hidrostatica" data-plegable="" data-plegado="" className={`mb-8 rounded-lg p-5 ${SECTION_STYLES.hidrostatica}`}>
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
             Prueba Hidrostática
           </h2>
@@ -1192,7 +1220,7 @@ export default async function VehicleDetailPage({
           aquí — sus documentos regulatorios ya se cubren con el checklist de
           cumplimiento de normatividad (ver lib/compliance-checklist.ts). */}
       {isEstacionCarburacion && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div id="permisos" data-plegable="" data-plegado="" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">Permisos</h2>
           <div className="space-y-3">
             {isEditor && <UploadStationPermitForm vehicleRecordId={vehicle.id} />}
@@ -1204,7 +1232,7 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+      <div id="documentos" data-plegable="" data-plegado="" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase text-primary-bright">
           Documentos (PDF o imagen)
         </h2>
@@ -1299,6 +1327,8 @@ export default async function VehicleDetailPage({
           </ConfirmDeleteWithPassword>
         </div>
       )}
+
+      </PlegadoDeSecciones>
 
       <p className="mt-6 text-sm">
         <Link href={basePath} className="text-primary hover:underline">

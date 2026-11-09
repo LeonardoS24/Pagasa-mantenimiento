@@ -22,6 +22,8 @@ import {
   plantaInstrumentLabels,
 } from "@/lib/planta-tank-instruments";
 import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
+import { calcularAlertasPropias, getConfigAlertas } from "@/lib/alertas-servidor";
+import type { TipoAlertaFabrica } from "@/lib/alertas-catalogo";
 
 // Todos los vencimientos con fecha del sistema en UNA lista plana, sin el
 // recorte de 30 días de las alertas: es lo que alimenta el calendario y los
@@ -42,7 +44,10 @@ export type TipoVencimiento =
   | "valvulas"
   | "mangueras"
   | "dictamen"
-  | "poliza";
+  | "poliza"
+  // Alertas que agregó el ADMIN (lib/alertas-catalogo.ts); su nombre va en
+  // tipoNombre.
+  | "propia";
 
 export const TIPOS_VENCIMIENTO: { tipo: TipoVencimiento; nombre: string }[] = [
   { tipo: "ultrasonido", nombre: "Ultrasonido" },
@@ -55,6 +60,7 @@ export const TIPOS_VENCIMIENTO: { tipo: TipoVencimiento; nombre: string }[] = [
   { tipo: "mangueras", nombre: "Cambio de manguera o conector" },
   { tipo: "dictamen", nombre: "Vencimiento de dictamen" },
   { tipo: "poliza", nombre: "Póliza de seguro" },
+  { tipo: "propia", nombre: "Alertas agregadas" },
 ];
 
 export function nombreTipoVencimiento(tipo: TipoVencimiento): string {
@@ -87,7 +93,19 @@ export type Vencimiento = {
   nivel: NivelVencimiento;
   // Qué tanque / qué válvula o instrumento, cuando hace falta distinguir.
   detalle?: string;
+  // Solo alertas agregadas: su fundamento y a qué parte de la unidad lleva.
+  fundamento?: string | null;
+  ancla?: string;
 };
+
+// A qué alerta de fábrica pertenece un vencimiento (para quitar las que el
+// ADMIN quitó). Las válvulas de estación y planta son alertas aparte.
+function alertaDeVencimiento(v: Vencimiento): TipoAlertaFabrica | null {
+  if (v.tipo === "propia") return null;
+  if (v.tipo === "valvulas" && v.sectionSlug === "estaciones-de-carburacion") return "valvulasEstacion";
+  if (v.tipo === "valvulas" && v.sectionSlug === "planta-ficha-tecnica") return "instrumentosPlanta";
+  return v.tipo;
+}
 
 // Día de calendario (AAAA-MM-DD) de una fecha guardada. Las fechas del
 // sistema se guardan a medianoche UTC, por eso se leen con getUTC*.
@@ -205,5 +223,32 @@ export async function getVencimientos(cityIds: string[]): Promise<Vencimiento[]>
     if (visible("poliza")) agregar("poliza", r.insurancePolicyLogs[0]?.fechaVencimiento);
   }
 
-  return lista.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+  // Alertas agregadas por el ADMIN.
+  for (const a of await calcularAlertasPropias(cityIds)) {
+    lista.push({
+      clave: `propia:${a.alertaId}:${a.id}`,
+      tipo: "propia",
+      tipoNombre: a.alertaNombre,
+      vehicleId: a.id,
+      numeroEconomico: a.numeroEconomico,
+      sectionSlug: a.sectionSlug,
+      sectionName: a.sectionName,
+      citySlug: a.citySlug,
+      cityName: a.cityName,
+      fecha: a.vencimiento,
+      dias: a.dias,
+      nivel: nivelDeDias(a.dias),
+      fundamento: a.fundamento,
+      ancla: a.ancla,
+    });
+  }
+
+  // Las alertas de fábrica que el ADMIN quitó no salen en ningún lado.
+  const { activa } = await getConfigAlertas();
+  return lista
+    .filter((v) => {
+      const tipo = alertaDeVencimiento(v);
+      return tipo === null || activa[tipo];
+    })
+    .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 }

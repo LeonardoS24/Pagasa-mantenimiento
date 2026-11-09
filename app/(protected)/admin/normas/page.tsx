@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getRequisitos } from "@/lib/requisitos-runtime";
+import { getNormasVigentes, getRequisitos } from "@/lib/requisitos-runtime";
 import { avisosDeVigencia } from "@/lib/requisitos-normativos";
 import { NormasPanel } from "@/components/admin/NormasPanel";
 
@@ -16,10 +16,12 @@ export default async function AdminNormasPage() {
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+  const normas = await getNormasVigentes();
   return (
     <NormasPanel
-      requisitos={await getRequisitos()}
-      avisos={avisosDeVigencia()}
+      requisitos={await getRequisitos({ incluirQuitados: true })}
+      normas={normas}
+      avisos={avisosDeVigencia(new Date(), normas)}
       historial={cambios.map((c) => ({
         id: c.id,
         fecha: c.createdAt.toISOString(),

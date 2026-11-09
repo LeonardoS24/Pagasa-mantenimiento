@@ -6,6 +6,7 @@ import { PIECE_ORDER_UNRESOLVED_STATES } from "./inventory-enums";
 import { getStationValveAlertLevel, getStationValveVencimiento } from "./station-valves";
 import { PLANTA_INSTRUMENT_FIELDS, getPlantaInstrumentVencimiento, getPlantaInstrumentAlertLevel } from "./planta-tank-instruments";
 import { ESTACION_LIKE_SECTION_SLUGS } from "./estacion-sections";
+import { getConfigAlertas } from "./alertas-servidor";
 
 // Cuántas órdenes de prioridad ALTA (unidad en mal estado, ver
 // createPieceOrder en actions/piece-order-actions.ts) siguen sin resolver en
@@ -30,6 +31,8 @@ export async function countPendingHighPriorityOrders(cityIds: string[]): Promise
 export async function countValveRedAlerts(cityIds: string[]): Promise<number> {
   if (cityIds.length === 0) return 0;
   await asegurarPlazos();
+  // Las alertas que el ADMIN quitó (Alertas → Configurar) no cuentan.
+  const { activa } = await getConfigAlertas();
 
   const records = await prisma.vehicleRecord.findMany({
     where: { activo: true, section: { cityId: { in: cityIds } } },
@@ -56,6 +59,7 @@ export async function countValveRedAlerts(cityIds: string[]): Promise<number> {
 
   let count = 0;
   for (const record of records) {
+    if (!activa.valvulas) break;
     if (!record.technicalSheet) continue;
     if (!isAlertVisibleForSection("valvulas", record.section.slug)) continue;
     if (getValveAlertLevel(record.technicalSheet, aniosVigenciaValvulas(record.section.slug)) === "red") count++;
@@ -72,6 +76,7 @@ export async function countValveRedAlerts(cityIds: string[]): Promise<number> {
   });
   for (const record of stationRecords) {
     if (!isAlertVisibleForSection("valvulas", record.section.slug)) continue;
+    if (!activa[record.section.slug === "planta-ficha-tecnica" ? "instrumentosPlanta" : "valvulasEstacion"]) continue;
     for (const tanque of record.stationTankTechnicalSheets) {
       if (getStationValveAlertLevel(getStationValveVencimiento(tanque)) === "red") count++;
     }
@@ -85,6 +90,7 @@ export async function countValveRedAlerts(cityIds: string[]): Promise<number> {
     select: { section: { select: { slug: true } }, stationTankTechnicalSheets: true },
   });
   for (const record of plantaRecords) {
+    if (!activa.instrumentosPlanta) break;
     if (!isAlertVisibleForSection("valvulas", record.section.slug)) continue;
     for (const tanque of record.stationTankTechnicalSheets) {
       for (const campo of PLANTA_INSTRUMENT_FIELDS) {

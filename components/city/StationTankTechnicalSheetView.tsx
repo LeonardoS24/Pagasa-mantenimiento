@@ -97,7 +97,7 @@ export function StationTankTechnicalSheetView({
 
       {isPlanta
         ? tieneInstrumentos && (
-            <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+            <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
               <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
                 Válvulas e instrumentos del tanque
               </h3>
@@ -137,7 +137,7 @@ export function StationTankTechnicalSheetView({
             </div>
           )
         : tieneValvulas && (
-            <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+            <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de válvulas</h3>
                 {valveAlertLevel !== "none" && vencimiento && (
@@ -185,8 +185,9 @@ export function StationTankTechnicalSheetView({
                   })}
               </dl>
               <p className="mt-3 text-xs text-gray-500">
-                La vigencia real del juego de válvulas depende de lo que indique el fabricante en su
-                hoja de especificaciones; los 5 años son un ciclo de referencia, no un límite fijo.
+                {sheet?.tieneBitacoraMantenimientoValvulas
+                  ? "Con bitácora de mantenimiento del tanque y de las válvulas: el juego vence por los años desde la fabricación de la más antigua."
+                  : "Sin bitácora de mantenimiento del tanque y de las válvulas: el juego se cambia a los 5 años de instalado."}
               </p>
             </div>
           )}
@@ -203,7 +204,7 @@ export function StationTankTechnicalSheetView({
             const hydrostaticAlertLevel = getHydrostaticTestAlertLevel(sheet.fechaProximaPruebaHidrostatica);
             return (
               <>
-                <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
+                <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold uppercase text-primary-bright">
                       Inspección Visual Externa
@@ -229,7 +230,7 @@ export function StationTankTechnicalSheetView({
                   </dl>
                 </div>
 
-                <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
+                <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold uppercase text-primary-bright">
                       Prueba de Hermeticidad
@@ -255,7 +256,7 @@ export function StationTankTechnicalSheetView({
                   </dl>
                 </div>
 
-                <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
+                <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold uppercase text-primary-bright">
                       Inspección Visual Interna
@@ -293,7 +294,7 @@ export function StationTankTechnicalSheetView({
                   </dl>
                 </div>
 
-                <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
+                <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold uppercase text-primary-bright">Ultrasonido</h3>
                     {ultrasoundAlertLevel !== "none" && sheet.fechaProximoUltrasonido && (
@@ -317,7 +318,7 @@ export function StationTankTechnicalSheetView({
                   </dl>
                 </div>
 
-                <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
+                <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold uppercase text-primary-bright">
                       Prueba Hidrostática

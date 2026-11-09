@@ -1,4 +1,5 @@
 import { MensajeDeAlerta } from "./MensajeDeAlerta";
+import { enlaceDeAlerta } from "@/lib/anclas-unidad";
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
@@ -21,13 +22,13 @@ type AlertVehicle = {
   elemento?: string;
 };
 
-export function HoseAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
+export function HoseAlertsPanel({ vehicles, titulo }: { vehicles: AlertVehicle[]; titulo?: string }) {
   if (vehicles.length === 0) return null;
 
   return (
     <div className="mb-8 rounded-lg border border-red-200 bg-white p-5">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
-        Alertas de cambio de mangueras y conectores flexibles
+        {titulo ?? "Alertas de cambio de mangueras y conectores flexibles"}
       </h2>
       <ul className="space-y-2">
         {vehicles.map((vehicle) => (
@@ -49,7 +50,7 @@ export function HoseAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
                 {hoseAlertLabel(vehicle.level, vehicle.vencimiento, vehicle.elemento)}
               </span>
               <Link
-                href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}`}
+                href={enlaceDeAlerta(vehicle.citySlug, vehicle.id, "mangueras", vehicle.sectionSlug)}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 {verRecordLabel(vehicle.sectionSlug)} →

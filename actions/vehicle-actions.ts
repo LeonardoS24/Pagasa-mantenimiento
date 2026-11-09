@@ -515,6 +515,7 @@ const technicalSheetSchema = z.object({
   fechaDictamenEstacion: optionalDateConservable,
   tieneGobernador: z.boolean().optional(),
   tieneAcoplamientoSeco: z.boolean().optional(),
+  tieneConectorFlexible: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   // Una válvula no se puede instalar antes de existir. Si la fecha de
   // instalación queda antes que la de fabricación de cualquiera de ellas es
@@ -713,6 +714,9 @@ export async function upsertTechnicalSheet(
     tieneAcoplamientoSeco: formData.has("tieneAcoplamientoSecoPresente")
       ? formData.get("tieneAcoplamientoSeco") === "on"
       : undefined,
+    tieneConectorFlexible: formData.has("tieneConectorFlexiblePresente")
+      ? formData.get("tieneConectorFlexible") === "on"
+      : undefined,
   });
 
   if (!parsed.success) {
@@ -746,6 +750,10 @@ export async function upsertTechnicalSheet(
   if (data.tieneAcoplamientoSeco === false) {
     data.fechaFabricacionAcoplamientoSeco = null;
     textosConservables.codigoAcoplamientoSeco = null;
+  }
+  // Igual con el conector flexible: sin casilla no hay fecha ni alerta.
+  if (data.tieneConectorFlexible === false) {
+    data.fechaFabricacionConectorFlexible = null;
   }
 
   if (data.fechaFabricacionTanque && !data.fechaProximaInspeccionVisualInterna) {
@@ -935,6 +943,7 @@ const stationTankTechnicalSheetSchema = z.object({
   // válvulas de seguridad la elige el formulario (1 a 3); un valor fuera de
   // ese rango cae a 1, igual que cuando no viene.
   fechaInstalacionValvulas: optionalDate,
+  tieneBitacoraMantenimientoValvulas: z.boolean().optional(),
   fechaFabricacionValvulaExcesoFlujo: optionalDate,
   fechaFabricacionValvulaNoRetroceso: optionalDate,
   cantidadValvulasSeguridad: z.preprocess((value) => {
@@ -1080,6 +1089,9 @@ export async function upsertStationTankTechnicalSheet(
     diametroInterior: formData.get("diametroInterior"),
     tara: formData.get("tara"),
     fechaInstalacionValvulas: formData.get("fechaInstalacionValvulas"),
+    tieneBitacoraMantenimientoValvulas: formData.has("tieneBitacoraMantenimientoValvulasPresente")
+      ? formData.get("tieneBitacoraMantenimientoValvulas") === "on"
+      : undefined,
     ...Object.fromEntries(STATION_VALVE_FIELDS.map((campo) => [campo, formData.get(campo)])),
     cantidadValvulasSeguridad: formData.get("cantidadValvulasSeguridad"),
     fechaFabricacionValvulaSeguridad2: formData.get("fechaFabricacionValvulaSeguridad2"),

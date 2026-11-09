@@ -1,20 +1,8 @@
 import { getSession } from "@/lib/auth";
 import { getAccessibleCities } from "@/lib/access";
 import { CityCard } from "@/components/city/CityCard";
-import { UltrasoundAlertsPanel } from "@/components/dashboard/UltrasoundAlertsPanel";
-import { VisualInspectionAlertsPanel } from "@/components/dashboard/VisualInspectionAlertsPanel";
-import { TightnessTestAlertsPanel } from "@/components/dashboard/TightnessTestAlertsPanel";
-import { InternalVisualInspectionAlertsPanel } from "@/components/dashboard/InternalVisualInspectionAlertsPanel";
-import { HydrostaticTestAlertsPanel } from "@/components/dashboard/HydrostaticTestAlertsPanel";
-import { ExtinguisherAlertsPanel } from "@/components/dashboard/ExtinguisherAlertsPanel";
-import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlertsPanel";
-import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
-import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
-import { DictamenAlertsPanel } from "@/components/dashboard/DictamenAlertsPanel";
-import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAlertsPanel";
-import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstrumentAlertsPanel";
-import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPanel";
 import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
+import { PanelesDeAlertas } from "@/components/dashboard/PanelesDeAlertas";
 import { AvisoCopiaExterna } from "@/components/dashboard/AvisoCopiaExterna";
 import { AvisoNormasPorVencer } from "@/components/dashboard/AvisoNormasPorVencer";
 
@@ -23,39 +11,13 @@ export default async function DashboardPage() {
   const user = { userId: session.userId!, username: session.username!, role: session.role! };
   const cities = await getAccessibleCities(user);
 
-  const {
-    alertVehicles,
-    visualAlertVehicles,
-    tightnessAlertVehicles,
-    internalVisualAlertVehicles,
-    hydrostaticAlertVehicles,
-    extinguisherAlertVehicles,
-    maintenanceAlertVehicles,
-    valveAlertVehicles,
-    hoseAlertVehicles,
-    dictamenAlertVehicles,
-    stationValveAlertVehicles,
-    plantaInstrumentAlertVehicles,
-    insuranceAlertVehicles,
-  } = await getAllVehicleAlerts(cities.map((city) => city.id));
+  const alertas = await getAllVehicleAlerts(cities.map((city) => city.id));
 
   return (
     <div>
       {user.role === "ADMIN" && <AvisoCopiaExterna />}
       {user.role === "ADMIN" && <AvisoNormasPorVencer />}
-      <UltrasoundAlertsPanel vehicles={alertVehicles} />
-      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
-      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} />
-      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} />
-      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} />
-      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
-      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
-      <ValveAlertsPanel vehicles={valveAlertVehicles} />
-      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
-      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} />
-      <HoseAlertsPanel vehicles={hoseAlertVehicles} />
-      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} />
-      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} />
+      <PanelesDeAlertas alertas={alertas} />
 
       <form action="/buscar" method="GET" className="mb-8">
         <input

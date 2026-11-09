@@ -25,6 +25,7 @@ import {
   getPlantaInstrumentAlertLevel,
 } from "@/lib/planta-tank-instruments";
 import { ESTACION_LIKE_SECTION_SLUGS } from "@/lib/estacion-sections";
+import { calcularAlertasPropias, getConfigAlertas } from "@/lib/alertas-servidor";
 
 // Reúne las 9 alertas de vencimiento (ultrasonido, visual externa,
 // hermeticidad, visual interna, hidrostática, extintor, mantenimiento,
@@ -555,19 +556,32 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
           (ordenDeCiudad.get(b.cityName) ?? Number.MAX_SAFE_INTEGER) || a.cityName.localeCompare(b.cityName, "es")
     );
 
+  // Lo que el ADMIN configuró en Alertas → Configurar alertas: las de
+  // fábrica que quitó salen vacías y cada una lleva su título; las agregadas
+  // van en su propia lista (solo las rojas y amarillas).
+  const { activa, titulo } = await getConfigAlertas();
+  const si = <T,>(tipo: keyof typeof activa, lista: T[]): T[] => (activa[tipo] ? lista : []);
+  const alertasPropias = (await calcularAlertasPropias(cityIds))
+    .filter((a) => a.level !== "none")
+    .sort((a, b) => a.vencimiento.getTime() - b.vencimiento.getTime());
+
   return {
-    alertVehicles: porCiudad(alertVehicles),
-    visualAlertVehicles: porCiudad(visualAlertVehicles),
-    tightnessAlertVehicles: porCiudad(tightnessAlertVehicles),
-    internalVisualAlertVehicles: porCiudad(internalVisualAlertVehicles),
-    hydrostaticAlertVehicles: porCiudad(hydrostaticAlertVehicles),
-    extinguisherAlertVehicles: porCiudad(extinguisherAlertVehicles),
-    maintenanceAlertVehicles: porCiudad(maintenanceAlertVehicles),
-    valveAlertVehicles: porCiudad(valveAlertVehicles),
-    hoseAlertVehicles: porCiudad(hoseAlertVehicles),
-    dictamenAlertVehicles: porCiudad(dictamenAlertVehicles),
-    stationValveAlertVehicles: porCiudad(stationValveAlertVehicles),
-    plantaInstrumentAlertVehicles: porCiudad(plantaInstrumentAlertVehicles),
-    insuranceAlertVehicles: porCiudad(insuranceAlertVehicles),
+    alertVehicles: si("ultrasonido", porCiudad(alertVehicles)),
+    visualAlertVehicles: si("visualExterna", porCiudad(visualAlertVehicles)),
+    tightnessAlertVehicles: si("hermeticidad", porCiudad(tightnessAlertVehicles)),
+    internalVisualAlertVehicles: si("visualInterna", porCiudad(internalVisualAlertVehicles)),
+    hydrostaticAlertVehicles: si("hidrostatica", porCiudad(hydrostaticAlertVehicles)),
+    extinguisherAlertVehicles: si("extintor", porCiudad(extinguisherAlertVehicles)),
+    maintenanceAlertVehicles: si("mantenimiento", porCiudad(maintenanceAlertVehicles)),
+    valveAlertVehicles: si("valvulas", porCiudad(valveAlertVehicles)),
+    hoseAlertVehicles: si("mangueras", porCiudad(hoseAlertVehicles)),
+    dictamenAlertVehicles: si("dictamen", porCiudad(dictamenAlertVehicles)),
+    stationValveAlertVehicles: si("valvulasEstacion", porCiudad(stationValveAlertVehicles)),
+    plantaInstrumentAlertVehicles: si("instrumentosPlanta", porCiudad(plantaInstrumentAlertVehicles)),
+    insuranceAlertVehicles: si("poliza", porCiudad(insuranceAlertVehicles)),
+    alertasPropias: porCiudad(alertasPropias),
+    titulos: titulo,
   };
 }
+
+export type AlertasDelSistema = Awaited<ReturnType<typeof getAllVehicleAlerts>>;

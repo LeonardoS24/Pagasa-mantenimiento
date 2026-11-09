@@ -6,19 +6,7 @@ import { isAggregateCitySlug, getAllRealCityIds } from "@/lib/aggregate-city";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { SectionCard } from "@/components/city/SectionCard";
 import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
-import { UltrasoundAlertsPanel } from "@/components/dashboard/UltrasoundAlertsPanel";
-import { VisualInspectionAlertsPanel } from "@/components/dashboard/VisualInspectionAlertsPanel";
-import { TightnessTestAlertsPanel } from "@/components/dashboard/TightnessTestAlertsPanel";
-import { InternalVisualInspectionAlertsPanel } from "@/components/dashboard/InternalVisualInspectionAlertsPanel";
-import { HydrostaticTestAlertsPanel } from "@/components/dashboard/HydrostaticTestAlertsPanel";
-import { ExtinguisherAlertsPanel } from "@/components/dashboard/ExtinguisherAlertsPanel";
-import { MaintenanceAlertsPanel } from "@/components/dashboard/MaintenanceAlertsPanel";
-import { ValveAlertsPanel } from "@/components/dashboard/ValveAlertsPanel";
-import { HoseAlertsPanel } from "@/components/dashboard/HoseAlertsPanel";
-import { DictamenAlertsPanel } from "@/components/dashboard/DictamenAlertsPanel";
-import { StationValveAlertsPanel } from "@/components/dashboard/StationValveAlertsPanel";
-import { PlantaInstrumentAlertsPanel } from "@/components/dashboard/PlantaInstrumentAlertsPanel";
-import { InsuranceAlertsPanel } from "@/components/dashboard/InsuranceAlertsPanel";
+import { PanelesDeAlertas } from "@/components/dashboard/PanelesDeAlertas";
 import { ComplianceOverviewPanel } from "@/components/city/ComplianceOverviewPanel";
 import { getComplianceOverview } from "@/lib/compliance-stats";
 import { canEdit } from "@/lib/roles";
@@ -39,21 +27,7 @@ export default async function CityPage({
   // unidades (ver lib/aggregate-city.ts), sus alertas combinan las de todas
   // las ciudades reales en vez de salir vacías.
   const alertCityIds = isAggregateCitySlug(city.slug) ? await getAllRealCityIds() : [city.id];
-  const {
-    alertVehicles,
-    visualAlertVehicles,
-    tightnessAlertVehicles,
-    internalVisualAlertVehicles,
-    hydrostaticAlertVehicles,
-    extinguisherAlertVehicles,
-    maintenanceAlertVehicles,
-    valveAlertVehicles,
-    hoseAlertVehicles,
-    dictamenAlertVehicles,
-    stationValveAlertVehicles,
-    plantaInstrumentAlertVehicles,
-    insuranceAlertVehicles,
-  } = await getAllVehicleAlerts(alertCityIds);
+  const alertas = await getAllVehicleAlerts(alertCityIds);
   // Solo Administración (ciudad agregada) muestra el resumen de
   // cumplimiento de normatividad; cada ciudad real ya lo trae por unidad.
   const complianceOverview = isAggregateCitySlug(city.slug) ? await getComplianceOverview(alertCityIds) : [];
@@ -204,19 +178,7 @@ export default async function CityPage({
         </div>
       </div>
 
-      <UltrasoundAlertsPanel vehicles={alertVehicles} />
-      <VisualInspectionAlertsPanel vehicles={visualAlertVehicles} />
-      <TightnessTestAlertsPanel vehicles={tightnessAlertVehicles} />
-      <InternalVisualInspectionAlertsPanel vehicles={internalVisualAlertVehicles} />
-      <HydrostaticTestAlertsPanel vehicles={hydrostaticAlertVehicles} />
-      <ExtinguisherAlertsPanel vehicles={extinguisherAlertVehicles} />
-      <MaintenanceAlertsPanel vehicles={maintenanceAlertVehicles} />
-      <ValveAlertsPanel vehicles={valveAlertVehicles} />
-      <StationValveAlertsPanel vehicles={stationValveAlertVehicles} />
-      <PlantaInstrumentAlertsPanel vehicles={plantaInstrumentAlertVehicles} />
-      <HoseAlertsPanel vehicles={hoseAlertVehicles} />
-      <DictamenAlertsPanel vehicles={dictamenAlertVehicles} />
-      <InsuranceAlertsPanel vehicles={insuranceAlertVehicles} />
+      <PanelesDeAlertas alertas={alertas} />
       <ComplianceOverviewPanel rows={complianceOverview} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

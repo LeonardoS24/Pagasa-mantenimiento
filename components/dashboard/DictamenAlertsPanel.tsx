@@ -1,4 +1,5 @@
 import { MensajeDeAlerta } from "./MensajeDeAlerta";
+import { enlaceDeAlerta } from "@/lib/anclas-unidad";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import { dictamenAlertLabel, dictamenAlertMessage } from "@/lib/dictamen-alerts";
@@ -23,13 +24,13 @@ const badge: Record<ValveAlertLevel, string> = {
 
 // Dictámenes de vigencia anual (operación y mantenimiento, NOM-068, instalación
 // de carburación, estación): ver lib/dictamen-alerts.ts.
-export function DictamenAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
+export function DictamenAlertsPanel({ vehicles, titulo }: { vehicles: AlertVehicle[]; titulo?: string }) {
   if (vehicles.length === 0) return null;
 
   return (
     <div className="mb-8 rounded-lg border border-red-200 bg-white p-5">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
-        Alertas de vencimiento de dictámenes
+        {titulo ?? "Alertas de vencimiento de dictámenes"}
       </h2>
       <ul className="space-y-2">
         {vehicles.map((vehicle) => (
@@ -48,7 +49,7 @@ export function DictamenAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) 
                 {dictamenAlertLabel(vehicle.level, vehicle.vencimiento)}
               </span>
               <Link
-                href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}`}
+                href={enlaceDeAlerta(vehicle.citySlug, vehicle.id, "dictamen", vehicle.sectionSlug)}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 {verRecordLabel(vehicle.sectionSlug)} →

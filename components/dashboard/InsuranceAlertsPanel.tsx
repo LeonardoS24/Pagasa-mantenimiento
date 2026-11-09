@@ -1,4 +1,5 @@
 import { MensajeDeAlerta } from "./MensajeDeAlerta";
+import { enlaceDeAlerta } from "@/lib/anclas-unidad";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -21,13 +22,13 @@ type InsuranceAlertVehicle = {
 
 // Mismo formato que los demás paneles de alertas de vencimiento: la póliza de
 // seguro de la unidad (ver InsurancePolicyLog y el apartado "Documentación").
-export function InsuranceAlertsPanel({ vehicles }: { vehicles: InsuranceAlertVehicle[] }) {
+export function InsuranceAlertsPanel({ vehicles, titulo }: { vehicles: InsuranceAlertVehicle[]; titulo?: string }) {
   if (vehicles.length === 0) return null;
 
   return (
     <div className="mb-8 rounded-lg border border-red-200 bg-white p-5">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
-        Alertas de vencimiento de póliza de seguro
+        {titulo ?? "Alertas de vencimiento de póliza de seguro"}
       </h2>
       <ul className="space-y-2">
         {vehicles.map((vehicle) => (
@@ -46,7 +47,7 @@ export function InsuranceAlertsPanel({ vehicles }: { vehicles: InsuranceAlertVeh
                 {insuranceAlertLabel(vehicle.level, vehicle.vencimiento)}
               </span>
               <Link
-                href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}#documentacion`}
+                href={enlaceDeAlerta(vehicle.citySlug, vehicle.id, "poliza", vehicle.sectionSlug)}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 {verRecordLabel(vehicle.sectionSlug)} →

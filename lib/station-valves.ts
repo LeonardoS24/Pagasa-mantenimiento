@@ -63,6 +63,7 @@ export function stationValveFieldLabel(key: string): string {
 
 export type StationValveDates = Partial<Record<StationValveField, Date | null | undefined>> & {
   fechaInstalacionValvulas?: Date | null | undefined;
+  tieneBitacoraMantenimientoValvulas?: boolean | null;
   cantidadValvulasSeguridad?: number | null;
   fechaFabricacionValvulaSeguridad2?: Date | null | undefined;
   fechaFabricacionValvulaSeguridad3?: Date | null | undefined;
@@ -103,17 +104,20 @@ export function oldestStationValve(dates: StationValveDates): { key: string; fec
   return oldest;
 }
 
-// NOM-003-SEDG-2004, transitorio Cuarto: las válvulas no deben tener más de 5
-// años de INSTALADAS ni más de 7 desde su FABRICACIÓN; vence lo que ocurra
-// primero. Sin fecha de instalación capturada no se puede contar desde ahí, y
-// se cuentan los 5 años desde la fabricación (lo más pronto que puede vencer
-// según la norma: nunca avisa tarde).
+// NOM-003-SEDG-2004, transitorio Cuarto: las válvulas no deben tener más de 7
+// años desde su FABRICACIÓN y, si la estación NO lleva bitácora de
+// mantenimiento del tanque y de las válvulas, se cambian a los 5 años de
+// INSTALADAS (vence lo que ocurra primero). Con bitácora (casilla de la ficha
+// del tanque) solo cuenta el tope desde la fabricación. Sin fecha de
+// instalación capturada se cuentan los 5 años desde la fabricación (lo más
+// pronto que puede vencer: nunca avisa tarde).
 export function getStationValveVencimiento(dates: StationValveDates): Date | null {
   const oldest = oldestStationValve(dates);
   if (!oldest) return null;
   const plazos = plazosActivos();
-  const porInstalacion = addYears(dates.fechaInstalacionValvulas ?? oldest.fecha, plazos.valvulasEstacion);
   const porFabricacion = addYears(oldest.fecha, plazos.valvulasEstacionFabricacion);
+  if (dates.tieneBitacoraMantenimientoValvulas) return porFabricacion;
+  const porInstalacion = addYears(dates.fechaInstalacionValvulas ?? oldest.fecha, plazos.valvulasEstacion);
   return porInstalacion.getTime() <= porFabricacion.getTime() ? porInstalacion : porFabricacion;
 }
 

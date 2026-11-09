@@ -495,7 +495,9 @@ export function TechnicalSheetView({
                     .join(" · ") || null
                 }
               />
-              <Item label="Conector flexible (fabricación)" value={formatDate(sheet.fechaFabricacionConectorFlexible) || null} />
+              {(sheet.tieneConectorFlexible || sheet.fechaFabricacionConectorFlexible) && (
+                <Item label="Conector flexible (fabricación)" value={formatDate(sheet.fechaFabricacionConectorFlexible) || null} />
+              )}
             </dl>
           )}
         </div>

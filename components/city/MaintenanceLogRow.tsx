@@ -374,6 +374,7 @@ export function MaintenanceLogRow({
   return (
     <li
       ref={rowRef}
+      data-objetivo={isTarget ? "" : undefined}
       className={`px-4 py-3 ${isTarget ? "bg-accent/5 ring-1 ring-inset ring-accent/40" : ""}`}
     >
       <button

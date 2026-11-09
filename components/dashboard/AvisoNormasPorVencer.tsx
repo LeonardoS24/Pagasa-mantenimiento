@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { avisosDeVigencia } from "@/lib/requisitos-normativos";
+import { getNormasVigentes } from "@/lib/requisitos-runtime";
 
 // Aviso en Inicio, solo para el ADMIN: una norma de emergencia (las que
 // rigen Auto-Tanques y Semirremolques) está por vencer. Al vencer hay que
 // revisar el DOF y actualizar el catálogo de /admin/normas.
-export function AvisoNormasPorVencer() {
-  const avisos = avisosDeVigencia();
+export async function AvisoNormasPorVencer() {
+  const avisos = avisosDeVigencia(new Date(), await getNormasVigentes());
   if (avisos.length === 0) return null;
   const rojo = avisos.some((a) => a.nivel === "rojo");
   return (
@@ -21,7 +22,7 @@ export function AvisoNormasPorVencer() {
         . Revisa en el DOF si se prorrogó o se sustituyó.
       </span>
       <Link href="/admin/normas" className="font-semibold underline">
-        Ir a Normas y plazos
+        Ir a Normas y términos de referencia
       </Link>
     </div>
   );

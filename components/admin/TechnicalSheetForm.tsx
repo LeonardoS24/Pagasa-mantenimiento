@@ -445,6 +445,8 @@ export function TechnicalSheetForm({
   const [tieneGobernador, setTieneGobernador] = useState(sheet?.tieneGobernador ?? false);
   const acoplamientoInicial = !!(sheet?.tieneAcoplamientoSeco || sheet?.fechaFabricacionAcoplamientoSeco || sheet?.codigoAcoplamientoSeco);
   const [tieneAcoplamiento, setTieneAcoplamiento] = useState(acoplamientoInicial);
+  const conectorInicial = !!(sheet?.tieneConectorFlexible || sheet?.fechaFabricacionConectorFlexible);
+  const [tieneConector, setTieneConector] = useState(conectorInicial);
   const formRef = useRef<HTMLFormElement>(null);
   const rec = (clave: string, color: SectionColorKey) => propsDeRecuadro(diseno, clave, color);
   useEffect(() => {
@@ -457,6 +459,7 @@ export function TechnicalSheetForm({
     setTieneValvula85(sheet?.tieneValvulaMaximoLlenado85 ?? false);
     setTieneGobernador(sheet?.tieneGobernador ?? false);
     setTieneAcoplamiento(acoplamientoInicial);
+    setTieneConector(conectorInicial);
   }
 
   // Calidad del extintor: se puede cambiar sin desbloquear toda la ficha
@@ -1107,18 +1110,33 @@ export function TechnicalSheetForm({
                 </div>
               </div>
               <div className="mt-3 rounded-md border border-gray-200 bg-white/60 p-3">
-                <p className="mb-2 text-sm font-medium text-ink">Conector flexible</p>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <Field
-                    id="fechaFabricacionConectorFlexible"
-                    label="Fecha de fabricación (el más antiguo, si hay varios)"
-                    type="date"
-                    defaultValue={toDateInputValue(sheet?.fechaFabricacionConectorFlexible)}
+                <input type="hidden" name="tieneConectorFlexiblePresente" value="1" />
+                <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneConectorFlexible">
+                  <input
+                    id="tieneConectorFlexible"
+                    name="tieneConectorFlexible"
+                    type="checkbox"
+                    checked={tieneConector}
+                    onChange={(event) => setTieneConector(event.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
                   />
-                </div>
-                <p className="mt-2 text-xs text-ink">
-                  Se sustituye a los {plazos.conectorFlexible} años de su fabricación; longitud máxima de 1 m.
-                </p>
+                  ¿Esta unidad tiene conector flexible?
+                </label>
+                {tieneConector && (
+                  <>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <Field
+                        id="fechaFabricacionConectorFlexible"
+                        label="Fecha de fabricación (el más antiguo, si hay varios)"
+                        type="date"
+                        defaultValue={toDateInputValue(sheet?.fechaFabricacionConectorFlexible)}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-ink">
+                      Se sustituye a los {plazos.conectorFlexible} años de su fabricación; longitud máxima de 1 m.
+                    </p>
+                  </>
+                )}
               </div>
             </>
           )}

@@ -1,4 +1,5 @@
 import { MensajeDeAlerta } from "./MensajeDeAlerta";
+import { enlaceDeAlerta } from "@/lib/anclas-unidad";
 import { FundamentoNormativo } from "@/components/normas/FundamentoNormativo";
 import Link from "next/link";
 import { valveAlertBadgeStyles, valveAlertRowStyles, valveAlertLabel, type ValveAlertLevel } from "@/lib/valve-alerts";
@@ -18,13 +19,13 @@ type PlantaInstrumentAlertVehicle = {
 // Igual que StationValveAlertsPanel, pero un renglón por instrumento (ver
 // lib/planta-tank-instruments.ts) en vez de un solo vencimiento combinado
 // por tanque.
-export function PlantaInstrumentAlertsPanel({ vehicles }: { vehicles: PlantaInstrumentAlertVehicle[] }) {
+export function PlantaInstrumentAlertsPanel({ vehicles, titulo }: { vehicles: PlantaInstrumentAlertVehicle[]; titulo?: string }) {
   if (vehicles.length === 0) return null;
 
   return (
     <div className="mb-8 rounded-lg border border-red-200 bg-white p-5">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
-        Alertas de válvulas e instrumentos — Planta
+        {titulo ?? "Alertas de válvulas e instrumentos — Planta"}
       </h2>
       <ul className="space-y-2">
         {vehicles.map((vehicle, i) => (
@@ -50,7 +51,7 @@ export function PlantaInstrumentAlertsPanel({ vehicles }: { vehicles: PlantaInst
                 {valveAlertLabel(vehicle.level, vehicle.vencimiento)}
               </span>
               <Link
-                href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}#valvulas`}
+                href={enlaceDeAlerta(vehicle.citySlug, vehicle.id, "instrumentosPlanta", "planta-ficha-tecnica")}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 Ver planta →

@@ -1,3 +1,4 @@
+import { enlaceDeAlerta } from "@/lib/anclas-unidad";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { assertCityAccess } from "@/lib/access";
@@ -335,7 +336,7 @@ function ListaVencimientos({ lista, mostrarCiudad }: { lista: Vencimiento[]; mos
           <span className={`inline-block rounded border px-2 py-0.5 text-xs font-medium ${ESTILO_NIVEL[v.nivel]}`}>
             {textoDias(v.dias)}
           </span>
-          <Link href={`/ciudades/${v.citySlug}/vehiculo/${v.vehicleId}`} className="font-medium text-primary hover:underline">
+          <Link href={enlaceDeAlerta(v.citySlug, v.vehicleId, v.ancla ?? v.tipo, v.sectionSlug)} className="font-medium text-primary hover:underline">
             {v.numeroEconomico}
           </Link>
           <span className="text-ink">

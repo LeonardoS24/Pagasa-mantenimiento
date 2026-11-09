@@ -194,7 +194,7 @@ export function StationTankTechnicalSheetForm({
               lib/planta-tank-instruments.ts): cada uno con sus 3 fechas
               propias y su propia alerta, a diferencia del juego combinado de
               Estación de abajo. */
-          <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+          <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
             <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
               Válvulas e instrumentos del tanque
             </h3>
@@ -249,7 +249,7 @@ export function StationTankTechnicalSheetForm({
           /* Válvulas del tanque fijo: otro juego que el de un Auto-Tanque
               (ver lib/station-valves.ts). Se captura la fecha grabada en cada
               válvula y la fecha en que se instaló el juego completo. */
-          <div className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+          <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de válvulas</h3>
               {valveAlertLevel !== "none" && vencimiento && (
@@ -274,6 +274,23 @@ export function StationTankTechnicalSheetForm({
                 defaultValue={toDateInputValue(sheet?.fechaInstalacionValvulas)}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-gray-100"
               />
+            </div>
+            <div className="mb-4 rounded-md border border-dashed border-gray-300 bg-white/60 p-3">
+              <input type="hidden" name="tieneBitacoraMantenimientoValvulasPresente" value="1" />
+              <label className="flex items-center gap-2 text-sm font-medium text-ink" htmlFor="tieneBitacoraMantenimientoValvulas">
+                <input
+                  id="tieneBitacoraMantenimientoValvulas"
+                  name="tieneBitacoraMantenimientoValvulas"
+                  type="checkbox"
+                  defaultChecked={sheet?.tieneBitacoraMantenimientoValvulas ?? false}
+                  className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+                />
+                ¿Tiene bitácora de mantenimiento del tanque y de las válvulas?
+              </label>
+              <p className="mt-1 text-xs text-gray-500">
+                Sin bitácora, las válvulas se cambian cada {plazos.valvulasEstacion} años desde su instalación. Con bitácora,
+                el límite es de {plazos.valvulasEstacionFabricacion} años desde la fabricación de la más antigua.
+              </p>
             </div>
             <div className="mb-4 max-w-xs">
               <label className="mb-1 block text-sm font-medium text-ink" htmlFor="cantidadValvulasSeguridad">
@@ -318,15 +335,16 @@ export function StationTankTechnicalSheetForm({
               <CustomFieldInputs campos={camposExtra} seccion="valvulas" valores={valoresExtra} />
             </div>
             <p className="mt-3 text-xs text-gray-500">
-              La vigencia real del juego de válvulas depende de lo que indique el fabricante en su
-              hoja de especificaciones; los 5 años son un ciclo de referencia, no un límite fijo.
+              {sheet?.tieneBitacoraMantenimientoValvulas
+                ? `Con bitácora de mantenimiento: el juego vence a los ${plazos.valvulasEstacionFabricacion} años de la fabricación de la válvula más antigua.`
+                : `Sin bitácora de mantenimiento: el juego vence a los ${plazos.valvulasEstacion} años de instalado (o a los ${plazos.valvulasEstacionFabricacion} de fabricada la más antigua, si ocurre antes).`}
             </p>
           </div>
         )}
 
         {showInspecciones && (
           <>
-            <div className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
+            <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
               <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
                 Inspección Visual Externa
               </h3>
@@ -351,7 +369,7 @@ export function StationTankTechnicalSheetForm({
               </div>
             </div>
 
-            <div className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
+            <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.hermeticidad}`}>
               <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
                 Prueba de Hermeticidad
               </h3>
@@ -376,7 +394,7 @@ export function StationTankTechnicalSheetForm({
               </div>
             </div>
 
-            <div className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
+            <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.visualInterna}`}>
               <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
                 Inspección Visual Interna
               </h3>
@@ -406,7 +424,7 @@ export function StationTankTechnicalSheetForm({
               </p>
             </div>
 
-            <div className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
+            <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.ultrasonido}`}>
               <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
                 Ultrasonido
               </h3>
@@ -431,7 +449,7 @@ export function StationTankTechnicalSheetForm({
               </div>
             </div>
 
-            <div className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
+            <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.hidrostatica}`}>
               <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">
                 Prueba Hidrostática
               </h3>

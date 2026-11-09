@@ -1,4 +1,5 @@
 import { MensajeDeAlerta } from "./MensajeDeAlerta";
+import { enlaceDeAlerta } from "@/lib/anclas-unidad";
 import Link from "next/link";
 import { verRecordLabel } from "@/lib/section-labels";
 import {
@@ -19,13 +20,13 @@ type AlertVehicle = {
   level: TightnessTestAlertLevel;
 };
 
-export function TightnessTestAlertsPanel({ vehicles }: { vehicles: AlertVehicle[] }) {
+export function TightnessTestAlertsPanel({ vehicles, titulo }: { vehicles: AlertVehicle[]; titulo?: string }) {
   if (vehicles.length === 0) return null;
 
   return (
     <div className="mb-8 rounded-lg border border-red-200 bg-white p-5">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-red-600">
-        Alertas de prueba de hermeticidad de tanque
+        {titulo ?? "Alertas de prueba de hermeticidad de tanque"}
       </h2>
       <ul className="space-y-2">
         {vehicles.map((vehicle, i) => (
@@ -52,7 +53,7 @@ export function TightnessTestAlertsPanel({ vehicles }: { vehicles: AlertVehicle[
                 {tightnessTestAlertLabel(vehicle.level, vehicle.fechaProximaPruebaHermeticidad)}
               </span>
               <Link
-                href={`/ciudades/${vehicle.citySlug}/vehiculo/${vehicle.id}`}
+                href={enlaceDeAlerta(vehicle.citySlug, vehicle.id, "hermeticidad", vehicle.sectionSlug)}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 {verRecordLabel(vehicle.sectionSlug)} →

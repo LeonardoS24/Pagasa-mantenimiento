@@ -1,32 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { SubPestanas } from "./SubPestanas";
 
-const SUBTABS = [
-  { href: "/admin/campos/acomodar", label: "Fichas de unidades", exacto: false },
-  { href: "/admin/campos", label: "Estaciones, planta y lista de campos", exacto: true },
-];
-
+// Editar sistema: todo lo que el ADMIN cambia sin tocar el código. Alertas y
+// Normas viven en sus propias pestañas; aquí van también para encontrarlas.
 export function CamposSubTabs() {
-  const pathname = usePathname();
   return (
-    <div className="mb-5 flex flex-wrap gap-2">
-      {SUBTABS.map((t) => {
-        const activa = t.exacto ? pathname === t.href : pathname.startsWith(t.href);
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={activa ? "page" : undefined}
-            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-              activa ? "border-accent bg-accent text-white shadow-sm" : "border-gray-300 bg-white text-ink hover:border-accent hover:text-primary"
-            }`}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
-    </div>
+    <SubPestanas
+      pestanas={[
+        { href: "/admin/campos/acomodar", label: "Fichas de unidades" },
+        { href: "/admin/campos", label: "Estaciones, planta y lista de campos", exacto: true },
+        { href: "/admin/alertas/configurar", label: "Alertas" },
+        { href: "/admin/normas", label: "Normas y términos de referencia" },
+      ]}
+    />
   );
 }

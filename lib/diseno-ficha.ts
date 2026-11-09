@@ -158,6 +158,10 @@ export function propsDeRecuadro(diseno: DisenoFicha | undefined, clave: string, 
       gridColumn: a?.ancho === "mitad" ? "span 1 / span 1" : "1 / -1",
     },
     "data-recuadro": clave,
+    // Para el enlace de las alertas (#r-valvulas) y para minimizarlo en la
+    // página de la unidad (components/city/PlegadoDeSecciones.tsx).
+    id: `r-${clave}`,
+    "data-plegable": "",
   };
 }
 

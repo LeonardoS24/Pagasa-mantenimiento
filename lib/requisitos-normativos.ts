@@ -87,7 +87,7 @@ export const REQUISITOS_BASE: Requisito[] = [
     cita: "Las válvulas de alivio de presión, exceso de flujo, no retroceso, llenado y máximo llenado no deben tener más de cinco años de instaladas.",
     cuentaDesde: "instalación del juego de válvulas",
     plazoClave: "valvulasEstacion",
-    nota: "Aplica en tanto no exista la norma que valore las estaciones ya construidas (la NOM-012-ASEA-2021 se menciona como su sustituta; no se tiene su texto). Sin fecha de instalación capturada, el sistema cuenta los 5 años desde la fabricación.",
+    nota: "Solo aplica a las estaciones SIN bitácora de mantenimiento del tanque y de las válvulas (casilla en la ficha del tanque); con bitácora, cuenta solo el plazo desde la fabricación. Sin fecha de instalación capturada, el sistema cuenta los 5 años desde la fabricación.",
     verificado: true,
   },
   {
@@ -257,6 +257,8 @@ export const REQUISITOS_BASE: Requisito[] = [
 // (21-oct-2026). Estaciones (27-oct-2026): la NOM-012-ASEA-2021 solo existe
 // como proyecto, así que rige la NOM-003-SEDG-2004.
 export type NormaVigente = {
+  // Identificador estable (el área se puede renombrar). Ver getNormasVigentes.
+  clave: string;
   area: string;
   norma: string;
   detalle: string;
@@ -269,6 +271,7 @@ export type NormaVigente = {
 
 export const NORMAS_VIGENTES: NormaVigente[] = [
   {
+    clave: "transporte",
     area: "Transporte en auto-tanque y semirremolque (Kino)",
     norma: "NOM-EM-008-ASEA-2026",
     detalle:
@@ -276,6 +279,7 @@ export const NORMAS_VIGENTES: NormaVigente[] = [
     vigenteHasta: "2027-04-05",
   },
   {
+    clave: "distribucion",
     area: "Distribución con auto-tanque y vehículo de reparto",
     norma: "NOM-EM-009-ASEA-2026",
     detalle:
@@ -283,16 +287,19 @@ export const NORMAS_VIGENTES: NormaVigente[] = [
     vigenteHasta: "2027-04-05",
   },
   {
+    clave: "plantas",
     area: "Plantas de distribución de gas LP",
     norma: "NOM-018-ASEA-2023",
     detalle: "DOF 5-dic-2023; en vigor 180 días después. Cancela y sustituye a la NOM-001-SESH-2014.",
   },
   {
+    clave: "carburacion",
     area: "Equipos de carburación de vehículos",
     norma: "NOM-005-SESH-2010",
     detalle: "DOF 26-nov-2010. Cancela a la NOM-005-SEDG-1999. No se encontró aviso de cancelación.",
   },
   {
+    clave: "estaciones",
     area: "Estaciones de carburación",
     norma: "NOM-003-SEDG-2004",
     detalle:
@@ -304,9 +311,12 @@ export const NORMAS_VIGENTES: NormaVigente[] = [
 // (amarillo) y 30 días antes o ya vencida (rojo). Toca revisar el DOF: si
 // salió la prórroga, la norma definitiva o una de emergencia nueva, y
 // actualizar este catálogo.
-export function avisosDeVigencia(hoy: Date = new Date()): (NormaVigente & { dias: number; nivel: "rojo" | "amarillo" })[] {
+export function avisosDeVigencia(
+  hoy: Date = new Date(),
+  normas: NormaVigente[] = NORMAS_VIGENTES
+): (NormaVigente & { dias: number; nivel: "rojo" | "amarillo" })[] {
   const lista: (NormaVigente & { dias: number; nivel: "rojo" | "amarillo" })[] = [];
-  for (const n of NORMAS_VIGENTES) {
+  for (const n of normas) {
     if (!n.vigenteHasta) continue;
     const [a, m, d] = n.vigenteHasta.split("-").map(Number);
     const fin = new Date(a, m - 1, d, 23, 59, 59);
@@ -317,6 +327,10 @@ export function avisosDeVigencia(hoy: Date = new Date()): (NormaVigente & { dias
 }
 
 export type RequisitoVigente = Requisito & {
+  // Agregado por el ADMIN (tabla RequisitoPropio); su clave es "p-<id>".
+  propio: boolean;
+  // Quitado del catálogo por el ADMIN (solo los de fábrica; se puede reponer).
+  oculto: boolean;
   // Plazo con el que están calculando hoy las alertas (el ajustado o el base).
   plazoAnios: number | null;
   plazoBase: number | null;

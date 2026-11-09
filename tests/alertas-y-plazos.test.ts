@@ -46,6 +46,13 @@ test("estaciones: 5 años de instaladas o 7 de fabricadas, lo que ocurra primero
   assert.equal(iso(getStationValveVencimiento({ fechaFabricacionValvulaLlenado: d(2020, 1, 1) })), "2025-01-01");
 });
 
+test("estaciones con bitácora de mantenimiento: solo el tope desde la fabricación", () => {
+  const conBitacora = { fechaFabricacionValvulaLlenado: d(2020, 1, 1), fechaInstalacionValvulas: d(2020, 6, 1), tieneBitacoraMantenimientoValvulas: true };
+  assert.equal(iso(getStationValveVencimiento(conBitacora)), "2027-01-01");
+  // Sin fecha de instalación, igual: 7 desde la fabricación.
+  assert.equal(iso(getStationValveVencimiento({ fechaFabricacionValvulaLlenado: d(2020, 1, 1), tieneBitacoraMantenimientoValvulas: true })), "2027-01-01");
+});
+
 test("planta: 10 años desde el cambio o, si no hubo, desde la fabricación", () => {
   assert.equal(iso(getPlantaInstrumentVencimiento({ relevoPresionFechaFabricacion: d(2015, 2, 2) }, "relevoPresion")), "2025-02-02");
   assert.equal(

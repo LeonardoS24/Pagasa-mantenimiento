@@ -7,7 +7,7 @@ const TABS = [
   { href: "/admin/usuarios", label: "Usuarios" },
   { href: "/admin/ciudades", label: "Ciudades y apartados" },
   { href: "/admin/alertas", label: "Alertas" },
-  { href: "/admin/normas", label: "Normas y plazos" },
+  { href: "/admin/normas", label: "Normas y términos de referencia" },
   { href: "/admin/reportes", label: "Reportes por correo" },
   { href: "/admin/piezas", label: "Piezas y refacciones" },
   { href: "/admin/campos/acomodar", label: "Editar sistema", prefijo: "/admin/campos" },

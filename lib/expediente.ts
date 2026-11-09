@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { getVencimientos, type TipoVencimiento, type Vencimiento } from "./vencimientos";
-import { getRequisitos } from "./requisitos-runtime";
-import { NORMAS_VIGENTES, type RequisitoVigente } from "./requisitos-normativos";
+import { getNormasVigentes, getRequisitos } from "./requisitos-runtime";
+import { NORMAS_VIGENTES, type NormaVigente, type RequisitoVigente } from "./requisitos-normativos";
 import { DICTAMENES } from "./dictamen-alerts";
 import { esTanqueDeCarga } from "./kino-sections";
 
@@ -56,6 +56,7 @@ const NOMBRE_TIPO: Record<TipoVencimiento, string> = {
   mangueras: "Vida útil de manguera",
   dictamen: "Dictamen",
   poliza: "Póliza de seguro",
+  propia: "Alerta agregada",
 };
 
 // El catálogo junta en un requisito las dos normas cuando aplican a tipos de
@@ -81,20 +82,24 @@ function queDice(texto: string, slug: string, req: Map<string, RequisitoVigente>
   return null;
 }
 
+// Las normas que rigen hoy, como las dejó el ADMIN en /admin/normas. Se fija
+// al empezar getExpediente (las funciones de abajo son síncronas).
+let normasVigentes: NormaVigente[] = NORMAS_VIGENTES;
+
 function normaDeArea(slug: string): string {
-  const area =
+  const clave =
     slug === "planta-ficha-tecnica"
-      ? "Plantas de distribución de gas LP"
+      ? "plantas"
       : slug === "estaciones-de-carburacion"
-        ? "Estaciones de carburación"
+        ? "estaciones"
         : slug === "semirremolques" || slug === "tractocamiones"
-          ? "Transporte en auto-tanque y semirremolque (Kino)"
+          ? "transporte"
           : slug === "auto-tanques"
-            ? "Distribución con auto-tanque y vehículo de reparto"
+            ? "distribucion"
             : slug === "vehiculo-con-tanque-de-carburacion"
-              ? "Equipos de carburación de vehículos"
+              ? "carburacion"
               : null;
-  return NORMAS_VIGENTES.find((n) => n.area === area)?.norma ?? "Criterio interno de mantenimiento";
+  return normasVigentes.find((n) => n.clave === clave)?.norma ?? "Criterio interno de mantenimiento";
 }
 
 // Con qué requisito del catálogo se fundamenta cada tipo de vencimiento,
@@ -142,6 +147,8 @@ function fundamento(tipo: TipoVencimiento, slug: string, detalle: string | undef
         : "Programa interno de mantenimiento";
     case "poliza":
       return "Requisito de operación del vehículo";
+    case "propia":
+      return "Criterio interno (alerta agregada)";
   }
 }
 
@@ -240,6 +247,7 @@ export async function getExpediente(
     getVencimientos(cityIds),
     getRequisitos(),
   ]);
+  normasVigentes = await getNormasVigentes();
   const req = new Map(requisitos.map((r) => [r.clave, r]));
   const ids = registros.map((r) => r.id);
   const evid = await evidencias(ids);
@@ -253,10 +261,10 @@ export async function getExpediente(
       const e = evid.get(`${r.id}|${v.tipo}`);
       return {
         clave: v.clave,
-        requisito: v.tipo === "dictamen" && v.detalle ? v.detalle : NOMBRE_TIPO[v.tipo],
-        detalle: v.tipo === "dictamen" ? undefined : v.detalle,
-        fundamento: fundamento(v.tipo, slug, v.detalle, req),
-        queDice: queDice(fundamento(v.tipo, slug, v.detalle, req), slug, req),
+        requisito: v.tipo === "propia" ? v.tipoNombre : v.tipo === "dictamen" && v.detalle ? v.detalle : NOMBRE_TIPO[v.tipo],
+        detalle: v.tipo === "dictamen" || v.tipo === "propia" ? undefined : v.detalle,
+        fundamento: v.tipo === "propia" ? v.fundamento ?? "Criterio interno (alerta agregada)" : fundamento(v.tipo, slug, v.detalle, req),
+        queDice: v.tipo === "propia" ? null : queDice(fundamento(v.tipo, slug, v.detalle, req), slug, req),
         vence: v.fecha,
         dias: v.dias,
         estado: estadoDe(v.dias),
