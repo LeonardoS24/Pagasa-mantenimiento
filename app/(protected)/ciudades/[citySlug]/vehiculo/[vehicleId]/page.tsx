@@ -445,6 +445,7 @@ export default async function VehicleDetailPage({
   const enlacesDeLaUnidad = [
     { ancla: isEstacionLike ? "valvulas" : "ficha", texto: "Ficha técnica" },
     ...(tieneValvulasDeUnidad && !isEstacionLike ? [{ ancla: "r-valvulas", texto: "Válvulas (ficha)" }] : []),
+    { ancla: "cumplimiento", texto: "Cumplimiento" },
     ...(isEstacionCarburacion ? [{ ancla: "sellos", texto: "Sellos" }] : []),
     ...(!isEstacionLike ? [{ ancla: "documentacion", texto: "Póliza" }] : []),
     ...(isEstacionCarburacion ? [{ ancla: "equipos", texto: "Equipos" }] : []),
@@ -463,11 +464,26 @@ export default async function VehicleDetailPage({
       : []),
     ...(isEstacionCarburacion ? [{ ancla: "permisos", texto: "Permisos" }] : []),
     { ancla: "documentos", texto: "Documentos" },
-    { ancla: "cumplimiento", texto: "Cumplimiento" },
   ];
   // Gráfica del expediente de cumplimiento de este registro (reemplaza al
   // checklist que se marcaba a mano, pedido del usuario el 9-nov-2026).
   const expedienteUnidad = (await getExpediente([vehicle.section.cityId], { unidad: vehicle.id }))[0];
+  // Va dentro de la ficha técnica, después del tanque y antes de las pruebas
+  // (lib/diseno-ficha.ts → ordenAntesDeLasPruebas). Antes iba aquí el
+  // checklist que se marcaba a mano; lo marcado se conserva en la base.
+  const graficaCumplimiento = (
+    <>
+      <h3 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Cumplimiento (expediente)</h3>
+      {expedienteUnidad ? (
+        <GraficaDeUnidad
+          elementos={expedienteUnidad.elementos}
+          enlaceExpediente={`/ciudades/${params.citySlug}/expediente?unidad=${vehicle.id}`}
+        />
+      ) : (
+        <p className="text-sm text-gray-500">Un registro dado de baja no entra al expediente.</p>
+      )}
+    </>
+  );
 
   return (
     <VistosBuenosProvider vistos={vistosBuenos} userId={user.userId} puedeRevisar={canEdit(user.role)} esAdmin={user.role === "ADMIN"}>
@@ -767,6 +783,7 @@ export default async function VehicleDetailPage({
             seccionesExtra={seccionesVehiculo}
             valoresExtra={valoresCampos}
             diseno={diseno}
+            cumplimiento={graficaCumplimiento}
           />
         ) : (
           <TechnicalSheetView
@@ -787,6 +804,7 @@ export default async function VehicleDetailPage({
             seccionesExtra={seccionesVehiculo}
             valoresExtra={valoresCampos}
             diseno={diseno}
+            cumplimiento={graficaCumplimiento}
           />
         )}
       </div>
@@ -842,21 +860,6 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {/* Cumplimiento: solo la gráfica del expediente (lib/expediente.ts),
-          después de las fichas técnicas. Antes aquí iba el checklist que se
-          marcaba a mano (lib/compliance-checklist.ts); lo marcado se conserva
-          en la base pero ya no se muestra ni se usa. */}
-      <div id="cumplimiento" data-plegable="" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Cumplimiento (expediente)</h2>
-        {expedienteUnidad ? (
-          <GraficaDeUnidad
-            elementos={expedienteUnidad.elementos}
-            enlaceExpediente={`/ciudades/${params.citySlug}/expediente?unidad=${vehicle.id}`}
-          />
-        ) : (
-          <p className="text-sm text-gray-500">Un registro dado de baja no entra al expediente.</p>
-        )}
-      </div>
 
       {/* Documentación: va al terminar las fichas técnicas y antes de los
           registros. Hoy contiene la póliza de seguro, con su fecha de

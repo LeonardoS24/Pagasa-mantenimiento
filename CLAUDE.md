@@ -359,7 +359,7 @@ tipo, lo que vence en 6 meses y las unidades que requieren atención.
 - **El checklist de cumplimiento que se marcaba a mano ya no se usa**
   (9-nov-2026): en cada unidad, estación y planta ahora va solo la gráfica del
   expediente (`GraficaDeUnidad`, `components/normas/GraficasCumplimiento.tsx`,
-  id `#cumplimiento`); en la portada de Administración, cumplimiento por ciudad, y
+  id `#cumplimiento`, dentro de la ficha técnica, después del tanque y justo antes de las pruebas: `ordenAntesDeLasPruebas` en `lib/diseno-ficha.ts`); en la portada de Administración, cumplimiento por ciudad, y
   en Resumen → «Cumplimiento (expediente)», por ciudad y por requisito
   (`GraficaPorGrupo`). Lo marcado sigue en `ComplianceChecklistItem` pero no se
   muestra ni sale en el Excel.

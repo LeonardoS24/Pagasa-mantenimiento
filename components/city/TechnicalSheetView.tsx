@@ -56,7 +56,8 @@ import {
   type ValvulaDef,
 } from "@/lib/ficha-campos";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
-import { CLASE_CUADRICULA_FICHA, propsDeRecuadro, type DisenoFicha } from "@/lib/diseno-ficha";
+import { CLASE_CUADRICULA_FICHA, propsDeCumplimiento, propsDeRecuadro, type DisenoFicha } from "@/lib/diseno-ficha";
+import type { ReactNode } from "react";
 import type { SectionColorKey } from "@/lib/section-colors";
 import type { CustomFieldDef, CustomSectionDef } from "@/lib/custom-fields";
 import { CustomFieldItems, CustomSectionItems } from "@/components/admin/CustomFieldInputs";
@@ -101,7 +102,10 @@ export function TechnicalSheetView({
   seccionesExtra = [],
   diseno,
   valoresExtra = {},
+  cumplimiento,
 }: {
+  // Gráfica de cumplimiento del expediente: va entre el tanque y las pruebas.
+  cumplimiento?: ReactNode;
   sheet: VehicleTechnicalSheet | null;
   // Para no repetir la alerta de extintor/mantenimiento preventivo cuando la
   // misma unidad vive también en Vehículo con tanque de carburación (ver
@@ -151,7 +155,12 @@ export function TechnicalSheetView({
   valoresExtra?: Record<string, string>;
 }) {
   if (!sheet) {
-    return <p className="text-sm text-ink">Sin ficha técnica registrada.</p>;
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-ink">Sin ficha técnica registrada.</p>
+        {cumplimiento && <div {...propsDeCumplimiento(diseno)}>{cumplimiento}</div>}
+      </div>
+    );
   }
 
   const rec = (clave: string, color: SectionColorKey) => propsDeRecuadro(diseno, clave, color);
@@ -670,6 +679,7 @@ export function TechnicalSheetView({
       )}
 
       <CustomSectionItems secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} diseno={diseno} />
+      {cumplimiento && <div {...propsDeCumplimiento(diseno)}>{cumplimiento}</div>}
     </div>
   );
 }

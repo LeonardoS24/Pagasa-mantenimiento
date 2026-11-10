@@ -34,7 +34,8 @@ import {
 } from "@/lib/ficha-campos";
 import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel } from "@/lib/hose-alerts";
 import { FormMessage } from "./FormMessage";
-import { CLASE_CUADRICULA_FICHA, propsDeRecuadro, type DisenoFicha } from "@/lib/diseno-ficha";
+import { CLASE_CUADRICULA_FICHA, propsDeCumplimiento, propsDeRecuadro, type DisenoFicha } from "@/lib/diseno-ficha";
+import type { ReactNode } from "react";
 import type { SectionColorKey } from "@/lib/section-colors";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { VEHICLE_BRAND_CATALOG, findBrandOption } from "@/lib/vehicle-brand-catalog";
@@ -366,6 +367,7 @@ export function TechnicalSheetForm({
   camposExtra = [],
   seccionesExtra = [],
   diseno,
+  cumplimiento,
   valoresExtra = {},
   vistaPrevia = false,
 }: {
@@ -429,6 +431,8 @@ export function TechnicalSheetForm({
   seccionesExtra?: CustomSectionDef[];
   // Cómo acomodó el ADMIN los recuadros de este apartado (lib/diseno-ficha.ts).
   diseno?: DisenoFicha;
+  // Gráfica de cumplimiento del expediente: va entre el tanque y las pruebas.
+  cumplimiento?: ReactNode;
   valoresExtra?: Record<string, string>;
   // Solo para el editor de fichas (/admin/campos/acomodar): la ficha vacía de
   // ejemplo, sin poder escribir ni guardar nada (el formulario queda «inert»).
@@ -1336,6 +1340,8 @@ export function TechnicalSheetForm({
 
       <CustomSectionInputs secciones={seccionesExtra} campos={camposExtra} valores={valoresExtra} diseno={diseno} mostrarVacios={vistaPrevia} />
       </fieldset>
+
+      {cumplimiento && <div {...propsDeCumplimiento(diseno)}>{cumplimiento}</div>}
 
       <div className="col-span-full space-y-6" style={{ order: 100000 }}>
         <FormMessage state={state} />

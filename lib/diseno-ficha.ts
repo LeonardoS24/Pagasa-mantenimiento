@@ -167,3 +167,25 @@ export function propsDeRecuadro(diseno: DisenoFicha | undefined, clave: string, 
 
 // La cuadrícula que contiene los recuadros (vista y formulario).
 export const CLASE_CUADRICULA_FICHA = "grid grid-cols-1 gap-6 md:grid-cols-2";
+
+// Recuadros de las 5 pruebas de tanque.
+const CLAVES_PRUEBAS = ["visual-externa", "hermeticidad", "visual-interna", "ultrasonido", "hidrostatica"];
+
+// Lugar de la gráfica de cumplimiento dentro de la ficha (pedido del usuario,
+// 10-nov-2026): después del tanque y antes de las pruebas, aunque el ADMIN
+// haya movido los recuadros. Se toma la primera prueba que se ve.
+export function ordenAntesDeLasPruebas(diseno: DisenoFicha | undefined): number {
+  const visibles = CLAVES_PRUEBAS.filter((c) => !diseno?.[c]?.oculto);
+  const ordenes = (visibles.length > 0 ? visibles : CLAVES_PRUEBAS).map((c) => diseno?.[c]?.orden ?? ordenPorDefecto(c));
+  return Math.min(...ordenes) - 1;
+}
+
+// Caja de la gráfica de cumplimiento como un recuadro más de la cuadrícula.
+export function propsDeCumplimiento(diseno: DisenoFicha | undefined) {
+  return {
+    id: "cumplimiento",
+    "data-plegable": "",
+    className: "min-w-0 rounded-md border border-gray-200 bg-white p-4",
+    style: { order: ordenAntesDeLasPruebas(diseno), gridColumn: "1 / -1" },
+  };
+}
