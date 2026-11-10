@@ -82,7 +82,7 @@ export function GraficaPorGrupo({
             const total = ESTADOS.reduce((s, e) => s + g.conteo[e.estado], 0);
             const conFecha = total - g.conteo.sinDato;
             return (
-              <li key={g.nombre} className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(8rem,14rem)_1fr_auto] sm:gap-3">
+              <li key={g.nombre} className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(8rem,14rem)_1fr_10rem] sm:gap-3">
                 <span className="truncate text-sm text-ink" title={g.nombre}>
                   {g.nombre}
                 </span>
@@ -100,7 +100,7 @@ export function GraficaPorGrupo({
                     ))
                   )}
                 </div>
-                <span className="whitespace-nowrap text-xs text-gray-600">
+                <span className="whitespace-nowrap text-xs text-gray-600 sm:text-right">
                   {conFecha > 0 ? `${Math.round((g.conteo.vigente / conFecha) * 100)} % al corriente` : "sin fechas"}
                   <span className="text-gray-400"> · {total}</span>
                 </span>
