@@ -19,13 +19,18 @@ export interface EquipmentLogEvent {
 // o auxiliar — ver lib/equipo-enums.ts). cityId null = todas las ciudades
 // combinadas (ver el apartado "Administración", lib/aggregate-city.ts),
 // mismo patrón que getCityUnitLogFeed.
-export async function getCityEquipmentLogFeed(cityId: string | null): Promise<EquipmentLogEvent[]> {
+// range opcional (selector de mes de la bitácora): todo lo de ese mes o año.
+export async function getCityEquipmentLogFeed(
+  cityId: string | null,
+  range?: { start: Date; end: Date }
+): Promise<EquipmentLogEvent[]> {
   const logs = await prisma.equipmentLog.findMany({
     where: {
       equipo: { section: cityId ? { cityId } : { city: { slug: { not: AGGREGATE_CITY_SLUG } } } },
+      ...(range ? { fecha: { gte: range.start, lt: range.end } } : {}),
     },
     orderBy: { fecha: "desc" },
-    take: 150,
+    take: range ? 2000 : 150,
     include: {
       equipo: {
         select: { id: true, nombre: true, tipoEquipo: true, section: { select: { city: true } } },

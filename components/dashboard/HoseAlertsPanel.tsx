@@ -33,7 +33,7 @@ export function HoseAlertsPanel({ vehicles, titulo }: { vehicles: AlertVehicle[]
       <ul className="space-y-2">
         {vehicles.map((vehicle) => (
           <li
-            key={`${vehicle.id}-${vehicle.elemento ?? ""}`}
+            key={`${vehicle.id}-${vehicle.numeroEconomico}-${vehicle.elemento ?? ""}`}
             className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${
               vehicle.level === "red" ? "bg-red-50" : "bg-yellow-50"
             }`}
@@ -68,6 +68,7 @@ export function HoseAlertsPanel({ vehicles, titulo }: { vehicles: AlertVehicle[]
           ...(vehicles.some((v) => v.sectionSlug === "vehiculo-con-tanque-de-carburacion")
             ? ["manguera-carburacion"]
             : []),
+          ...(vehicles.some((v) => v.sectionSlug === "estaciones-de-carburacion") ? ["manguera-estacion"] : []),
         ]}
         className="mt-4"
       />

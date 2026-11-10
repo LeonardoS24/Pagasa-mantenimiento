@@ -14,7 +14,7 @@ import {
   oldestValve,
   valveDatesFromSheet,
 } from "@/lib/valve-alerts";
-import { conectorParaAlerta, getHoseAlertLevel, getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
+import { conectorParaAlerta, getHoseAlertLevel, getHoseVencimiento, mangueraEstacionParaAlerta, mangueraParaAlerta } from "@/lib/hose-alerts";
 import { dictamenesDeFicha, getDictamenAlertLevel } from "@/lib/dictamen-alerts";
 import { isAlertVisibleForSection } from "@/lib/alert-visibility";
 import { getInsuranceAlertLevel } from "@/lib/insurance-alerts";
@@ -397,8 +397,8 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
 
   // Mangueras y conectores flexibles: cada elemento manda su propia alerta
   // (una unidad puede tener las dos), con `elemento` para distinguirlas.
-  const hoseAlertVehicles = upcomingRecords
-    .flatMap((record) => {
+  const hoseAlertVehicles = [
+    ...upcomingRecords.flatMap((record) => {
       if (!isAlertVisibleForSection("mangueras", record.section.slug)) return [];
       const base = {
         id: record.id,
@@ -418,7 +418,31 @@ export async function getAllVehicleAlerts(cityIds: string[]) {
         if (!vencimiento) return null;
         return { ...base, elemento, vencimiento, level };
       });
-    })
+    }),
+    // Manguera de cada tanque de una Estación de carburación (7 años).
+    ...stationRecords
+      .filter((record) => record.section.slug === "estaciones-de-carburacion")
+      .flatMap((record) => {
+        if (!isAlertVisibleForSection("mangueras", record.section.slug)) return [];
+        const variosTanques = record.stationTankTechnicalSheets.length > 1;
+        return record.stationTankTechnicalSheets.map((tanque) => {
+          const { fecha, anios } = mangueraEstacionParaAlerta(tanque);
+          const level = getHoseAlertLevel(fecha, anios);
+          const vencimiento = getHoseVencimiento(fecha, anios);
+          if (level === "none" || !vencimiento) return null;
+          return {
+            id: record.id,
+            numeroEconomico: variosTanques ? `${record.numeroEconomico} — ${tanque.etiqueta}` : record.numeroEconomico,
+            sectionSlug: record.section.slug,
+            citySlug: record.section.city.slug,
+            cityName: record.section.city.name,
+            elemento: "Manguera",
+            vencimiento,
+            level,
+          };
+        });
+      }),
+  ]
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .sort((a, b) => daysUntil(a.vencimiento) - daysUntil(b.vencimiento));
 

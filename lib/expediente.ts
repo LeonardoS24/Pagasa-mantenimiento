@@ -132,6 +132,7 @@ function fundamento(tipo: TipoVencimiento, slug: string, detalle: string | undef
     case "mangueras":
       if (/conector/i.test(detalle ?? "")) return de("conectores-flexibles") ?? normaDeArea(slug);
       if (slug === "auto-tanques") return de("manguera-trasiego") ?? normaDeArea(slug);
+      if (slug === "estaciones-de-carburacion") return de("manguera-estacion") ?? normaDeArea(slug);
       return de("manguera-carburacion") ?? normaDeArea(slug);
     case "dictamen": {
       const campo = DICTAMENES.find((d) => d.nombre === detalle)?.campo;
@@ -173,7 +174,7 @@ function requisitosEsperados(slug: string): { tipo: TipoVencimiento; detalle?: s
   if (slug === "vehiculo-con-tanque-de-carburacion") return [{ tipo: "valvulas" }, { tipo: "mangueras" }, ...dictamenes];
   if (slug === "vehiculo-de-reparto") return [{ tipo: "mantenimiento" }, { tipo: "poliza" }];
   if (slug === "tractocamiones") return [...dictamenes, { tipo: "poliza" }];
-  if (slug === "estaciones-de-carburacion") return [{ tipo: "valvulas" }, ...dictamenes];
+  if (slug === "estaciones-de-carburacion") return [{ tipo: "valvulas" }, { tipo: "mangueras" }, ...dictamenes];
   return [];
 }
 

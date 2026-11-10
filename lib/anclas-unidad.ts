@@ -45,6 +45,7 @@ export function anclaDeAlerta(tipo: TipoDeAncla | string, sectionSlug: string): 
       // En carburación las mangueras tienen su registro; en el tanque de
       // carga (manguera de surtir y conector) se capturan en la ficha, en el
       // recuadro de válvulas.
+      if (sectionSlug === "estaciones-de-carburacion") return "#valvulas"; // ficha de cada tanque
       return sectionSlug === "vehiculo-con-tanque-de-carburacion" ? "#mangueras" : "#r-valvulas";
     case "dictamen":
       return "#r-dictamenes";

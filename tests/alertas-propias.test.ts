@@ -62,3 +62,15 @@ test("normas que rigen: la lista guardada se valida y una dañada no se usa", ()
   assert.equal(leerNormasVigentes(JSON.stringify([{ clave: "a", area: "A", norma: "N", detalle: "", vigenteHasta: "5/4/27" }])), null);
   assert.equal(leerNormasVigentes("{dañado"), null);
 });
+
+test("tanque que pasa a otra unidad: solo entre unidades del mismo tipo y con lo que sí es del tanque", async () => {
+  const { grupoDeTanque, datosDelTanque, resumenRegistros } = await import("../lib/traspaso-tanque");
+  assert.equal(grupoDeTanque("auto-tanques"), "carga");
+  assert.equal(grupoDeTanque("semirremolques"), "carga");
+  assert.equal(grupoDeTanque("vehiculo-con-tanque-de-carburacion"), "carburacion");
+  assert.equal(grupoDeTanque("vehiculo-de-reparto"), null);
+  const datos = datosDelTanque({ numeroSerieTanque: "950956", chofer: "Juan", numeroPoliza: "P-1", tieneConectorFlexible: false, fechaProximoUltrasonido: d(2031, 2, 11) });
+  assert.deepEqual(Object.keys(datos).sort(), ["fechaProximoUltrasonido", "numeroSerieTanque"]);
+  assert.equal(resumenRegistros({ ultrasonido: 2, valvulas: 1 }), "ultrasonido: 2, cambio de válvulas: 1");
+  assert.equal(resumenRegistros({}), "sin registros de pruebas ni válvulas");
+});

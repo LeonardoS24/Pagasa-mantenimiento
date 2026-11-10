@@ -19,6 +19,7 @@ import {
   getPlantaInstrumentAlertLevel,
 } from "@/lib/planta-tank-instruments";
 import { valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import { getHoseAlertLevel, getHoseVencimiento, hoseAlertBadgeStyles, hoseAlertLabel, mangueraEstacionParaAlerta } from "@/lib/hose-alerts";
 import { SECTION_STYLES } from "@/lib/section-colors";
 import { getVisualInspectionAlertLevel, visualInspectionAlertBadgeStyles, visualInspectionAlertLabel } from "@/lib/visual-inspection-alerts";
 import { getTightnessTestAlertLevel, tightnessTestAlertBadgeStyles, tightnessTestAlertLabel } from "@/lib/tightness-test-alerts";
@@ -191,6 +192,29 @@ export function StationTankTechnicalSheetView({
               </p>
             </div>
           )}
+
+      {!isPlanta && (() => {
+        const { fecha, anios } = mangueraEstacionParaAlerta(sheet);
+        const nivel = getHoseAlertLevel(fecha, anios);
+        const vence = getHoseVencimiento(fecha, anios);
+        return (
+          <div data-plegable="" className={`mt-4 rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de manguera</h3>
+              {nivel !== "none" && vence && (
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${hoseAlertBadgeStyles[nivel]}`}>
+                  {hoseAlertLabel(nivel, vence)}
+                </span>
+              )}
+            </div>
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Item label="Fecha de fabricación de la manguera" value={sheet?.fechaFabricacionManguera ? formatDate(sheet.fechaFabricacionManguera) : null} />
+              <Item label="Fecha de instalación de la manguera" value={sheet?.fechaInstalacionManguera ? formatDate(sheet.fechaInstalacionManguera) : null} />
+              <Item label={`Vence (cada ${anios} años)`} value={vence ? formatDate(vence) : null} />
+            </dl>
+          </div>
+        );
+      })()}
 
       {showInspecciones && sheet && (
         <>

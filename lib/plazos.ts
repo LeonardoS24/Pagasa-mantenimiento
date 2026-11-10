@@ -25,6 +25,7 @@ export type Plazos = {
   mangueraTrasiego: number; // manguera de surtir del tanque de carga
   mangueraCarburacion: number; // manguera de alta presión de carburación
   conectorFlexible: number; // conectores flexibles del tanque de carga
+  mangueraEstacion: number; // manguera de las estaciones de carburación
 };
 
 export const PLAZOS_BASE: Plazos = {
@@ -37,6 +38,7 @@ export const PLAZOS_BASE: Plazos = {
   mangueraTrasiego: 5,
   mangueraCarburacion: 2,
   conectorFlexible: 5,
+  mangueraEstacion: 7,
 };
 
 // Plazo de las válvulas de una unidad que no es de ningún grupo de arriba

@@ -69,6 +69,7 @@ import {
   listRecentMonthsWithYearOption,
 } from "@/lib/dates";
 import { MonthPicker } from "@/components/city/MonthPicker";
+import { BarraDeMes, MES_RECIENTES } from "@/components/city/BarraDeMes";
 import { ResumenPanel } from "@/components/admin/ResumenPanel";
 import { getPieceCatalog, getCategoriasPorGrupo } from "@/lib/piece-catalog-runtime";
 import { esApartadoKino, TRACTOCAMIONES_SLUG } from "@/lib/kino-sections";
@@ -218,17 +219,20 @@ export default async function SectionPage({
       }));
 
   // Selector de mes (o de todo el año, ver lib/dates.ts: MesSelection): en
-  // la Bitácora de unidades y en Orden de pieza de Administración (ver
-  // lib/aggregate-city.ts). Las ciudades reales siguen mostrando "actividad
-  // reciente" sin acotar por mes, como siempre.
-  const selectedMes = parseMesParam(searchParams.mes);
+  // las tres bitácoras (unidades, estaciones y equipos) de cada ciudad y de
+  // Administración, y en Orden de pieza de Administración. Sin ?mes= se ve el
+  // mes en curso; ?mes=recientes muestra los últimos registros sin acotar
+  // (las gráficas, del mes en curso).
+  const verRecientes = searchParams.mes === MES_RECIENTES;
+  const selectedMes = parseMesParam(verRecientes ? undefined : searchParams.mes);
   const selectedMonthRange = mesSelectionRange(selectedMes);
-  const showMonthPicker = isBitacoraFeed && isAggregateCity;
+  const feedRange = verRecientes ? undefined : selectedMonthRange;
+  const showMonthPicker = isBitacoraFeed;
   const showOrderMonthPicker = isOrdenDePieza && isAggregateCity;
-  const showEstacionesMonthPicker = isBitacoraEstacionesFeed && isAggregateCity;
+  const showEstacionesMonthPicker = isBitacoraEstacionesFeed;
 
   const cityMaintenanceLogs = isBitacoraFeed
-    ? await getCityUnitLogFeed(isAggregateCity ? null : city.id, showMonthPicker ? selectedMonthRange : undefined)
+    ? await getCityUnitLogFeed(isAggregateCity ? null : city.id, feedRange)
     : [];
   // Mismo rango que se le pasa a PieceMaintenanceChart (para el desglose al
   // hacer clic en una pieza, ver actions/piece-maintenance-actions.ts): sin
@@ -253,7 +257,7 @@ export default async function SectionPage({
   const estacionesMaintenanceLogs = isBitacoraEstacionesFeed
     ? await getCityUnitLogFeed(
         isAggregateCity ? null : city.id,
-        showEstacionesMonthPicker ? selectedMonthRange : undefined,
+        feedRange,
         ESTACION_LIKE_SECTION_SLUGS
       )
     : [];
@@ -275,17 +279,16 @@ export default async function SectionPage({
       )
     : [];
   const cityEquipmentLogs = isBitacoraEquiposFeed
-    ? await getCityEquipmentLogFeed(isAggregateCity ? null : city.id)
+    ? await getCityEquipmentLogFeed(isAggregateCity ? null : city.id, feedRange)
     : [];
   const highCriticidadEquipos =
     isBitacoraEquiposFeed && isAggregateCity ? await getHighCriticidadEquipos() : [];
-  // Mismo rango que pieceMaintenanceRange (mes en curso, sin selector de mes
-  // propio en Bitácora de equipos).
+  // Mismo mes del selector que las otras bitácoras.
   const equipmentMaintenanceTypeStats = isBitacoraEquiposFeed
-    ? await getEquipmentMaintenanceTypeStats(isAggregateCity ? null : city.id)
+    ? await getEquipmentMaintenanceTypeStats(isAggregateCity ? null : city.id, selectedMonthRange)
     : [];
   const equipmentTipoStats = isBitacoraEquiposFeed
-    ? await getEquipmentTipoStats(isAggregateCity ? null : city.id)
+    ? await getEquipmentTipoStats(isAggregateCity ? null : city.id, selectedMonthRange)
     : [];
   const decommissionedEquipos = isBitacoraEquiposFeed
     ? await getDecommissionedEquipos(isAggregateCity ? null : city.id)
@@ -456,18 +459,7 @@ export default async function SectionPage({
         </div>
       ) : isBitacoraFeed ? (
         <div className="space-y-6">
-          {showMonthPicker && (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3">
-              <p className="text-sm text-ink">
-                Viendo <span className="font-medium">{mesSelectionLabel(selectedMes)}</span>: la
-                bitácora y las gráficas de abajo son solo de {selectedMes.type === "year" ? "ese año" : "ese mes"}.
-              </p>
-              <MonthPicker
-                months={listRecentMonthsWithYearOption(12)}
-                selected={mesSelectionParamValue(selectedMes)}
-              />
-            </div>
-          )}
+          {showMonthPicker && <BarraDeMes seleccion={selectedMes} recientes={verRecientes} />}
           {isAggregateCity && (
             <>
               <VehiclesInMaintenancePanel vehicles={vehiclesInMaintenance} />
@@ -509,18 +501,7 @@ export default async function SectionPage({
         </div>
       ) : isBitacoraEstacionesFeed ? (
         <div className="space-y-6">
-          {showEstacionesMonthPicker && (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3">
-              <p className="text-sm text-ink">
-                Viendo <span className="font-medium">{mesSelectionLabel(selectedMes)}</span>: la
-                bitácora y las gráficas de abajo son solo de {selectedMes.type === "year" ? "ese año" : "ese mes"}.
-              </p>
-              <MonthPicker
-                months={listRecentMonthsWithYearOption(12)}
-                selected={mesSelectionParamValue(selectedMes)}
-              />
-            </div>
-          )}
+          {showEstacionesMonthPicker && <BarraDeMes seleccion={selectedMes} recientes={verRecientes} />}
           <MaintenanceTypePieChart
             stats={estacionesMaintenanceTypeStats}
             scope={{ type: "city", cityId: isAggregateCity ? null : city.id, sectionSlugs: ESTACION_LIKE_SECTION_SLUGS }}
@@ -537,19 +518,20 @@ export default async function SectionPage({
         </div>
       ) : isBitacoraEquiposFeed ? (
         <div className="space-y-6">
+          <BarraDeMes seleccion={selectedMes} recientes={verRecientes} />
           {isAggregateCity && <HighCriticidadEquiposPanel equipos={highCriticidadEquipos} />}
           <EquipmentMaintenanceTypePieChart
             stats={equipmentMaintenanceTypeStats}
             cityId={isAggregateCity ? null : city.id}
-            range={getCurrentMonthRange()}
-            monthLabel={currentMonthLabel()}
+            range={selectedMonthRange}
+            monthLabel={mesSelectionLabel(selectedMes)}
             showCity={isAggregateCity}
           />
           <EquipmentTipoPieChart
             stats={equipmentTipoStats}
             cityId={isAggregateCity ? null : city.id}
-            range={getCurrentMonthRange()}
-            monthLabel={currentMonthLabel()}
+            range={selectedMonthRange}
+            monthLabel={mesSelectionLabel(selectedMes)}
             showCity={isAggregateCity}
           />
           <DecommissionedEquiposPanel equipos={decommissionedEquipos} showCity={isAggregateCity} />

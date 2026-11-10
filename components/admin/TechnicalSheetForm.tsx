@@ -640,7 +640,6 @@ export function TechnicalSheetForm({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field id="chofer" label="Chofer" defaultValue={sheet?.chofer} />
             <Field id="numeroPoliza" label="Número de póliza" defaultValue={sheet?.numeroPoliza} />
-            <Field id="inciso" label="Inciso" defaultValue={sheet?.inciso} />
             {showUnidadAsignada && (
               <Field
                 id="unidadAsignada"

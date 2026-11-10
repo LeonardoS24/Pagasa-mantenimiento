@@ -7,8 +7,8 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { SectionCard } from "@/components/city/SectionCard";
 import { getAllVehicleAlerts } from "@/lib/vehicle-alerts-summary";
 import { PanelesDeAlertas } from "@/components/dashboard/PanelesDeAlertas";
-import { ComplianceOverviewPanel } from "@/components/city/ComplianceOverviewPanel";
-import { getComplianceOverview } from "@/lib/compliance-stats";
+import { GraficaPorGrupo, agruparPorCiudad } from "@/components/normas/GraficasCumplimiento";
+import { getExpediente } from "@/lib/expediente";
 import { canEdit } from "@/lib/roles";
 import { KINO_CITY_SLUG } from "@/lib/city-template";
 
@@ -30,7 +30,9 @@ export default async function CityPage({
   const alertas = await getAllVehicleAlerts(alertCityIds);
   // Solo Administración (ciudad agregada) muestra el resumen de
   // cumplimiento de normatividad; cada ciudad real ya lo trae por unidad.
-  const complianceOverview = isAggregateCitySlug(city.slug) ? await getComplianceOverview(alertCityIds) : [];
+  // Administración: cumplimiento por ciudad, del expediente (antes eran los
+  // medidores del checklist que se marcaba a mano).
+  const cumplimientoPorCiudad = isAggregateCitySlug(city.slug) ? agruparPorCiudad(await getExpediente(alertCityIds)) : null;
 
   return (
     <div>
@@ -179,7 +181,11 @@ export default async function CityPage({
       </div>
 
       <PanelesDeAlertas alertas={alertas} />
-      <ComplianceOverviewPanel rows={complianceOverview} />
+      {cumplimientoPorCiudad && (
+        <div className="mb-8">
+          <GraficaPorGrupo titulo="Cumplimiento por ciudad (expediente)" grupos={cumplimientoPorCiudad} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {children.map((section) => (

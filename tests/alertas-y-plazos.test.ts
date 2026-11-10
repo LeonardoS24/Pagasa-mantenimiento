@@ -6,7 +6,7 @@ import { PLAZOS_BASE, fijarPlazos } from "../lib/plazos";
 import { aniosVigenciaValvulas, getValveVencimiento, valveDatesFromSheet } from "../lib/valve-alerts";
 import { getStationValveVencimiento } from "../lib/station-valves";
 import { getPlantaInstrumentVencimiento } from "../lib/planta-tank-instruments";
-import { conectorParaAlerta, mangueraParaAlerta } from "../lib/hose-alerts";
+import { conectorParaAlerta, getHoseVencimiento, mangueraEstacionParaAlerta, mangueraParaAlerta } from "../lib/hose-alerts";
 import { getDictamenVencimiento, dictamenesDeApartado } from "../lib/dictamen-alerts";
 import { avisosDeVigencia } from "../lib/requisitos-normativos";
 
@@ -81,4 +81,16 @@ test("normas de emergencia: avisan 60 días antes de vencer (5-abr-2027)", () =>
   assert.equal(febrero.length, 2);
   assert.ok(febrero.every((a) => a.nivel === "amarillo"));
   assert.ok(avisosDeVigencia(new Date(2027, 2, 20)).every((a) => a.nivel === "rojo"));
+});
+
+test("manguera de estación: 7 años desde la fabricación, o desde la instalación si no hay", () => {
+  const conFab = mangueraEstacionParaAlerta({ fechaFabricacionManguera: d(2020, 5, 10), fechaInstalacionManguera: d(2021, 1, 1) });
+  assert.equal(iso(getHoseVencimiento(conFab.fecha, conFab.anios)), "2027-05-10");
+  const soloInst = mangueraEstacionParaAlerta({ fechaFabricacionManguera: null, fechaInstalacionManguera: d(2021, 1, 1) });
+  assert.equal(iso(getHoseVencimiento(soloInst.fecha, soloInst.anios)), "2028-01-01");
+  assert.equal(mangueraEstacionParaAlerta(null).fecha, null);
+  // En estaciones la ficha general no manda alerta de manguera (va por tanque).
+  assert.equal(mangueraParaAlerta("estaciones-de-carburacion", { fechaFabricacionManguera: d(2020, 1, 1) }).fecha, null);
+  fijarPlazos({ ...PLAZOS_BASE, mangueraEstacion: 5 });
+  assert.equal(mangueraEstacionParaAlerta({ fechaFabricacionManguera: d(2020, 5, 10) }).anios, 5);
 });

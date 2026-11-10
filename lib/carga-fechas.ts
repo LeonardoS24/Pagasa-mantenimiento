@@ -78,7 +78,6 @@ const AUTOMOVIL: ColumnaTexto[] = [
   { tabla: "ficha", campo: "serie", encabezado: "Automóvil — Serie", max: 100, pareja: true },
   { tabla: "ficha", campo: "chofer", encabezado: "Chofer", max: 150, pareja: true },
   { tabla: "ficha", campo: "numeroPoliza", encabezado: "Número de póliza", max: 100, pareja: true },
-  { tabla: "ficha", campo: "inciso", encabezado: "Inciso", max: 50, pareja: true },
 ];
 
 const TANQUE: ColumnaTexto[] = [

@@ -21,6 +21,11 @@ export function mangueraParaAlerta(
   }
   // La NOM-EM-008 (Semirremolques) no fija plazo para la manguera: sin alerta.
   if (sectionSlug === "semirremolques") return { fecha: null, anios: plazosActivos().mangueraTrasiego };
+  // Estaciones y planta: la manguera va en la ficha de cada tanque
+  // (mangueraEstacionParaAlerta), no en la ficha general.
+  if (sectionSlug === "estaciones-de-carburacion" || sectionSlug === "planta-ficha-tecnica") {
+    return { fecha: null, anios: plazosActivos().mangueraEstacion };
+  }
   return { fecha: sheet?.fechaFabricacionManguera ?? null, anios: plazosActivos().mangueraCarburacion };
 }
 
@@ -36,6 +41,18 @@ export function conectorParaAlerta(
     return { fecha: sheet?.fechaFabricacionConectorFlexible ?? null, anios };
   }
   return { fecha: null, anios };
+}
+
+// Manguera de una Estación de carburación (una por tanque, en su ficha):
+// plazo mangueraEstacion (7 años, criterio de quien dictamina), desde la
+// fabricación o, si no se capturó, desde la instalación.
+export function mangueraEstacionParaAlerta(
+  tanque: { fechaFabricacionManguera?: Date | null; fechaInstalacionManguera?: Date | null } | null | undefined
+): { fecha: Date | null; anios: number } {
+  return {
+    fecha: tanque?.fechaFabricacionManguera ?? tanque?.fechaInstalacionManguera ?? null,
+    anios: plazosActivos().mangueraEstacion,
+  };
 }
 
 function addYears(date: Date, years: number): Date {

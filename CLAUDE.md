@@ -156,6 +156,20 @@ Son sistemas físicos distintos y cada uno tiene su propio cálculo y su panel:
 
 Una estación puede tener 2 tanques físicos: `stationTankTechnicalSheets` es 1:N
 con `etiqueta` ("Tanque 1", "Tanque 2") y único por `[vehicleRecordId, etiqueta]`.
+La importación del Excel juntó dos tanques en una sola ficha en **Pagasita**
+(Huatabampo) y **Bourlaug II** (Cajeme) ("1613 Y 1618"); los separa
+`scripts/separar-tanques-estaciones.mts` (simula; `--apply` guarda; solo si la
+ficha sigue como la dejó la importación). Como en las demás estaciones de dos
+tanques, las fechas de válvulas quedan en los dos.
+
+**Manguera de las estaciones** (9-nov-2026): recuadro «Cambio de manguera» en la
+ficha de cada tanque de Estación de carburación (no Planta):
+`fechaFabricacionManguera` / `fechaInstalacionManguera` en
+`StationTankTechnicalSheet`. Vence a los **7 años** (plazo editable
+`mangueraEstacion`, requisito `manguera-estacion`, criterio de quien dictamina,
+la norma no da número) desde la fabricación o, sin ella, desde la instalación
+(`mangueraEstacionParaAlerta` en `lib/hose-alerts.ts`). Sale en la alerta de
+mangueras (una por tanque), el calendario y el expediente.
 
 ## Plazos normativos editables y fundamento en las alertas
 
@@ -342,9 +356,25 @@ tipo, lo que vence en 6 meses y las unidades que requieren atención.
   **% al corriente = al corriente ÷ unidades con alguna fecha**: las que no
   tienen ninguna fecha capturada se cuentan aparte (no se puede saber), para
   que un dato faltante no se disfrace de cumplimiento.
-- Es distinto del panel de checklist de normatividad
-  (`ComplianceOverviewPanel`, promedio por ámbito): ese mide el checklist, este
-  mide vencimientos.
+- **El checklist de cumplimiento que se marcaba a mano ya no se usa**
+  (9-nov-2026): en cada unidad, estación y planta ahora va solo la gráfica del
+  expediente (`GraficaDeUnidad`, `components/normas/GraficasCumplimiento.tsx`,
+  id `#cumplimiento`); en la portada de Administración, cumplimiento por ciudad, y
+  en Resumen → «Cumplimiento (expediente)», por ciudad y por requisito
+  (`GraficaPorGrupo`). Lo marcado sigue en `ComplianceChecklistItem` pero no se
+  muestra ni sale en el Excel.
+
+## Bitácoras: selector de mes
+
+Las tres bitácoras (de unidades, de estaciones y de equipos), en cada ciudad y
+en Administración, llevan `BarraDeMes` (`components/city/BarraDeMes.tsx`):
+?mes=AAAA-MM o AAAA (tres años atrás); sin ?mes= es el mes en curso, y
+?mes=recientes muestra los últimos registros sin acotar (gráficas del mes en
+curso).
+
+**Inciso** (Chofer y póliza) se quitó de la ficha, la búsqueda, el Excel y la
+plantilla (pedido del usuario): lo guardado no se borra (el formulario no lo
+manda y la acción lo conserva).
 
 ## Dictámenes anuales
 
@@ -571,6 +601,28 @@ se marca `secure` sola.
   cortados (probable causa de actualizaciones que "fallaban raro"). Los pasos
   que cambian van en `servidor-actualizar-pasos.bat`, que se lee completo
   después del pull.
+
+## Pasar el tanque de una unidad de baja a otra
+
+Pedido del usuario (9-nov-2026): el camión se da de baja pero su tanque se monta
+en otro y sigue trabajando. En la ficha de una unidad **dada de baja** con tanque
+(tanque de carga o carburación), el ADMIN tiene «Tanque de la unidad → Pasar el
+tanque a otra unidad» (`PasarTanqueForm`, `actions/traspaso-tanque-actions.ts`,
+`lib/traspaso-tanque.ts`), con su contraseña.
+
+- Destino: unidad **activa del mismo grupo** (`grupoDeTanque`: carga =
+  Auto-Tanques/Semirremolques; carburación) en sus ciudades, **sin tanque
+  capturado** (sin serie ni fecha de fabricación ni registros de tanque).
+- Los datos del tanque (`CAMPOS_TANQUE`: placa, certificado, las 5 pruebas,
+  válvulas, manómetro, conector, acoplamiento, mangueras) se copian al destino y
+  se quitan del origen. **Los registros del tanque** (`BITACORAS_TANQUE`: las 5
+  pruebas, cambio y correctivo de válvulas, cambio de manguera) se van con él,
+  con sus documentos (`sectionId`) y vistos buenos (el usuario lo eligió así).
+  Se quedan en la de baja: mantenimientos, extintor, **póliza** (pedido
+  explícito), chofer, automóvil y dictámenes.
+- Constancia en `TraspasoTanque` (foto de los datos y conteo de registros),
+  «Historial del tanque» en las dos unidades y renglón en la bitácora de
+  actividad. Nada se borra.
 
 ## Dar de baja = fuera de servicio
 

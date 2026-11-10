@@ -9,7 +9,7 @@ import {
   valveDatesFromSheet,
   valveLabels,
 } from "@/lib/valve-alerts";
-import { conectorParaAlerta, getHoseVencimiento, mangueraParaAlerta } from "@/lib/hose-alerts";
+import { conectorParaAlerta, getHoseVencimiento, mangueraEstacionParaAlerta, mangueraParaAlerta } from "@/lib/hose-alerts";
 import { dictamenesDeFicha } from "@/lib/dictamen-alerts";
 import {
   getStationValveVencimiento,
@@ -211,6 +211,12 @@ export async function getVencimientos(cityIds: string[]): Promise<Vencimiento[]>
       agregar("mangueras", getHoseVencimiento(manguera.fecha, manguera.anios));
       const conector = conectorParaAlerta(slug, r.technicalSheet);
       agregar("mangueras", getHoseVencimiento(conector.fecha, conector.anios), "Conector flexible");
+      if (slug === "estaciones-de-carburacion") {
+        for (const tanque of r.stationTankTechnicalSheets) {
+          const m = mangueraEstacionParaAlerta(tanque);
+          agregar("mangueras", getHoseVencimiento(m.fecha, m.anios), variosTanques ? `${tanque.etiqueta} · Manguera` : undefined);
+        }
+      }
     }
 
     // Dictámenes de vigencia anual (ver lib/dictamen-alerts.ts).

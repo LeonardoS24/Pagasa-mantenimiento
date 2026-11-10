@@ -220,7 +220,6 @@ export function TechnicalSheetView({
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Item label="Chofer" value={sheet.chofer} />
             <Item label="Número de póliza" value={sheet.numeroPoliza} />
-            <Item label="Inciso" value={sheet.inciso} />
             {showUnidadAsignada && (
               <Item
                 label={showTractocamionSection ? "Semirremolques asignados" : "Tractocamión asignado"}

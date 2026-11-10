@@ -93,6 +93,7 @@ model User {
   lotesDocumentos                LoteDocumentos[]
 
   traspasosUnidad TraspasoUnidad[]
+  traspasosTanque TraspasoTanque[]
 
   @@map("users")
 }
@@ -360,6 +361,8 @@ model VehicleRecord {
   conjuntoSemirremolque     ConjuntoSemirremolque?
   // Cada vez que la unidad cambió de ciudad (ver TraspasoUnidad).
   traspasos                 TraspasoUnidad[]
+  tanqueSalio               TraspasoTanque[] @relation("TanqueOrigen")
+  tanqueLlego               TraspasoTanque[] @relation("TanqueDestino")
 
   @@index([sectionId])
   @@index([createdById])
@@ -700,6 +703,13 @@ model StationTankTechnicalSheet {
   fechaFabricacionValvulaServicio    DateTime?
   fechaFabricacionValvulaCheckLock   DateTime?
   fechaFabricacionValvulaVapor       DateTime?
+
+  // Manguera de la estación (solo Estaciones de carburación, no Planta): la
+  // unidad de verificación que dictamina pide cambiarla cada 7 años (plazo
+  // editable mangueraEstacion, lib/hose-alerts.ts). Se cuenta desde la
+  // fabricación; si no se capturó, desde la instalación.
+  fechaFabricacionManguera           DateTime?
+  fechaInstalacionManguera           DateTime?
 
   // Válvulas e instrumentos de un tanque de Planta (ver
   // lib/planta-tank-instruments.ts): solo se usan cuando este registro es de
@@ -2213,4 +2223,43 @@ model DisenoFicha {
   updatedAt    DateTime @updatedAt
 
   @@map("diseno_fichas")
+}
+
+// El tanque de una unidad dada de baja pasa a otra unidad (pedido del usuario
+// el 9-nov-2026: el camión se da de baja pero su tanque se instala en otro y
+// sigue trabajando). Ver lib/traspaso-tanque.ts. Los datos del tanque se
+// copian a la unidad nueva y se quitan de la de baja (aquí queda una foto en
+// `datos`); los registros de pruebas y válvulas del tanque se van con él.
+model TraspasoTanque {
+  id String @id @default(cuid())
+
+  origenId String?
+  origen   VehicleRecord? @relation("TanqueOrigen", fields: [origenId], references: [id], onDelete: SetNull)
+  destinoId String?
+  destino   VehicleRecord? @relation("TanqueDestino", fields: [destinoId], references: [id], onDelete: SetNull)
+
+  // Copias de los nombres por si una de las dos unidades se elimina.
+  origenNumero        String
+  origenCiudadNombre  String
+  destinoNumero       String
+  destinoCiudadNombre String
+
+  numeroSerieTanque String?
+  // JSON: los datos del tanque tal como estaban en la unidad de baja.
+  datos     String
+  // JSON: cuántos registros de cada bitácora se movieron.
+  registros String
+
+  motivo String?
+
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username String
+
+  createdAt DateTime @default(now())
+
+  @@index([origenId])
+  @@index([destinoId])
+  @@index([userId])
+  @@map("traspasos_tanque")
 }

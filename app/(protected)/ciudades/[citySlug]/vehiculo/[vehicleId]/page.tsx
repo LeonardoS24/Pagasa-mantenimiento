@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { asegurarPlazos } from "@/lib/requisitos-runtime";
-import { assertCityAccess } from "@/lib/access";
+import { assertCityAccess, getAccessibleCities } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { getSectionChain, sectionBasePath } from "@/lib/section-path";
 import { canEdit } from "@/lib/roles";
@@ -25,8 +25,8 @@ import { CreateInsurancePolicyLogForm } from "@/components/admin/CreateInsurance
 import { InsurancePolicyLogTable } from "@/components/city/InsurancePolicyLogTable";
 import { CreateSealLogForm } from "@/components/admin/CreateSealLogForm";
 import { SealLogTable } from "@/components/city/SealLogTable";
-import { ComplianceChecklistPanel } from "@/components/city/ComplianceChecklistPanel";
-import type { ComplianceAmbito } from "@/lib/compliance-checklist";
+import { GraficaDeUnidad } from "@/components/normas/GraficasCumplimiento";
+import { getExpediente } from "@/lib/expediente";
 import { EquipoTable } from "@/components/city/EquipoTable";
 import { CreateMaintenanceLogForm } from "@/components/admin/CreateMaintenanceLogForm";
 import { MaintenanceLogTable } from "@/components/city/MaintenanceLogTable";
@@ -61,6 +61,10 @@ import { TraspasoUnidadForm } from "@/components/admin/TraspasoUnidadForm";
 import { TraspasosDeUnidad } from "@/components/city/TraspasosDeUnidad";
 import { esApartadoTraspasable, getOpcionesDeTraspaso } from "@/lib/traspaso-unidades";
 import { trasladarUnidadDeCiudad } from "@/actions/traspaso-actions";
+import { PasarTanqueForm } from "@/components/admin/PasarTanqueForm";
+import { TraspasosDeTanque } from "@/components/city/TraspasosDeTanque";
+import { getOpcionesTraspasoTanque, grupoDeTanque, resumenRegistros } from "@/lib/traspaso-tanque";
+import { pasarTanqueAOtraUnidad } from "@/actions/traspaso-tanque-actions";
 import {
   updateVehicleRecord,
   deleteVehicleRecord,
@@ -163,7 +167,6 @@ export default async function VehicleDetailPage({
         orderBy: { fechaInstalacion: "desc" },
         include: { deactivatedBy: { select: { username: true } } },
       },
-      complianceChecklistItems: true,
       documents: { orderBy: { createdAt: "desc" } },
       technicalSheet: true,
       stationTankTechnicalSheets: { orderBy: { etiqueta: "asc" } },
@@ -242,6 +245,24 @@ export default async function VehicleDetailPage({
   const opcionesTraspaso =
     user.role === "ADMIN" && esApartadoTraspasable(vehicle.section.slug) ? await getOpcionesDeTraspaso(vehicle.id) : null;
 
+  // El tanque de una unidad dada de baja puede pasar a otra unidad (ver
+  // lib/traspaso-tanque.ts): historial en las dos y, al ADMIN, el formulario
+  // en la de baja.
+  const traspasosTanque = (
+    await prisma.traspasoTanque.findMany({
+      where: { OR: [{ origenId: vehicle.id }, { destinoId: vehicle.id }] },
+      orderBy: { createdAt: "desc" },
+      include: {
+        origen: { select: { section: { select: { city: { select: { slug: true } } } } } },
+        destino: { select: { section: { select: { city: { select: { slug: true } } } } } },
+      },
+    })
+  ).map((t) => ({ ...t, origenCitySlug: t.origen?.section.city.slug ?? null, destinoCitySlug: t.destino?.section.city.slug ?? null }));
+  const opcionesTanque =
+    user.role === "ADMIN" && !vehicle.activo && grupoDeTanque(vehicle.section.slug)
+      ? await getOpcionesTraspasoTanque(vehicle.id, (await getAccessibleCities(user)).map((c) => c.id))
+      : null;
+
   // Piezas disponibles en el inventario de esta ciudad, para poder elegirlas
   // directo desde "Registrar mantenimiento" (ver CreateMaintenanceLogForm) en
   // vez de escribir la pieza a mano — la dirección inversa del flujo que ya
@@ -309,9 +330,6 @@ export default async function VehicleDetailPage({
   // todo lo demás, pero el bloque de "Equipos de la estación" más abajo
   // sigue gateado en isEstacionCarburacion a secas.
   const isPlanta = vehicle.section.slug === "planta-ficha-tecnica";
-  // Ver lib/compliance-checklist.ts: cuál de las 3 listas fijas de
-  // cumplimiento normativo le toca a este registro.
-  const complianceAmbito: ComplianceAmbito = isPlanta ? "PLANTA" : isEstacionCarburacion ? "ESTACION" : "UNIDAD";
   const isEstacionLike = isEstacionCarburacion || isPlanta;
   // Casi toda estación tiene un solo tanque físico ("Tanque 1"); algunas
   // tienen dos, y una Planta puede tener más (Hermosillo tiene cuatro, ver
@@ -445,7 +463,11 @@ export default async function VehicleDetailPage({
       : []),
     ...(isEstacionCarburacion ? [{ ancla: "permisos", texto: "Permisos" }] : []),
     { ancla: "documentos", texto: "Documentos" },
+    { ancla: "cumplimiento", texto: "Cumplimiento" },
   ];
+  // Gráfica del expediente de cumplimiento de este registro (reemplaza al
+  // checklist que se marcaba a mano, pedido del usuario el 9-nov-2026).
+  const expedienteUnidad = (await getExpediente([vehicle.section.cityId], { unidad: vehicle.id }))[0];
 
   return (
     <VistosBuenosProvider vistos={vistosBuenos} userId={user.userId} puedeRevisar={canEdit(user.role)} esAdmin={user.role === "ADMIN"}>
@@ -820,16 +842,20 @@ export default async function VehicleDetailPage({
         </div>
       )}
 
-      {/* El checklist de cumplimiento de normatividad va después de las
-          fichas técnicas del/de los tanque(s) (ver lib/compliance-checklist.ts). */}
-      <div className="mb-8">
-        <ComplianceChecklistPanel
-          vehicleId={vehicle.id}
-          ambito={complianceAmbito}
-          activo={vehicle.activo}
-          filas={vehicle.complianceChecklistItems}
-          isEditor={isEditor}
-        />
+      {/* Cumplimiento: solo la gráfica del expediente (lib/expediente.ts),
+          después de las fichas técnicas. Antes aquí iba el checklist que se
+          marcaba a mano (lib/compliance-checklist.ts); lo marcado se conserva
+          en la base pero ya no se muestra ni se usa. */}
+      <div id="cumplimiento" data-plegable="" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Cumplimiento (expediente)</h2>
+        {expedienteUnidad ? (
+          <GraficaDeUnidad
+            elementos={expedienteUnidad.elementos}
+            enlaceExpediente={`/ciudades/${params.citySlug}/expediente?unidad=${vehicle.id}`}
+          />
+        ) : (
+          <p className="text-sm text-gray-500">Un registro dado de baja no entra al expediente.</p>
+        )}
       </div>
 
       {/* Documentación: va al terminar las fichas técnicas y antes de los
@@ -1293,6 +1319,25 @@ export default async function VehicleDetailPage({
       )}
 
       <TraspasosDeUnidad traspasos={traspasos} />
+
+      <TraspasosDeTanque vehicleId={vehicle.id} traspasos={traspasosTanque} />
+
+      {opcionesTanque && (
+        <div id="pasar-tanque" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase text-primary-bright">Tanque de la unidad</h2>
+          {opcionesTanque.bloqueo ? (
+            <p className="text-sm text-ink">{opcionesTanque.bloqueo}</p>
+          ) : (
+            <PasarTanqueForm
+              nombre={vehicle.numeroEconomico}
+              serie={opcionesTanque.serie}
+              registros={resumenRegistros(opcionesTanque.registros ?? {})}
+              destinos={opcionesTanque.destinos}
+              action={pasarTanqueAOtraUnidad.bind(null, vehicle.id)}
+            />
+          )}
+        </div>
+      )}
 
       {opcionesTraspaso && (
         <div id="cambiar-de-ciudad" className="mb-8 rounded-lg border border-gray-200 bg-white p-5">

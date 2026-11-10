@@ -69,7 +69,6 @@ function vehicleMatchedGroups(
     // Chofer y póliza
     { group: "Ficha técnica · Chofer y póliza", value: sheet?.chofer },
     { group: "Ficha técnica · Chofer y póliza", value: sheet?.numeroPoliza },
-    { group: "Ficha técnica · Chofer y póliza", value: sheet?.inciso },
     { group: "Ficha técnica · Automóvil", value: sheet?.marca },
     { group: "Ficha técnica · Automóvil", value: sheet?.linea },
     { group: "Ficha técnica · Automóvil", value: sheet?.modelo },

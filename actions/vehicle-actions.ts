@@ -437,7 +437,9 @@ const technicalSheetSchema = z.object({
   fechaAdquisicion: optionalDate,
   chofer: optionalText(150),
   numeroPoliza: optionalText(100),
-  inciso: optionalText(50),
+  // Ya no sale en la ficha (el usuario pidió quitarlo, 9-nov-2026): si no
+  // llega en el formulario, se conserva lo guardado.
+  inciso: optionalTextConservable(50),
   capacidadTanque: optionalText(50),
   marcaTanque: optionalText(100),
   anioFabricacionTanque: optionalText(20),
@@ -635,7 +637,7 @@ export async function upsertTechnicalSheet(
     fechaAdquisicion: formData.get("fechaAdquisicion"),
     chofer: formData.get("chofer"),
     numeroPoliza: formData.get("numeroPoliza"),
-    inciso: formData.get("inciso"),
+    inciso: formData.has("inciso") ? formData.get("inciso") : undefined,
     capacidadTanque: formData.get("capacidadTanque"),
     marcaTanque: formData.get("marcaTanque"),
     anioFabricacionTanque: formData.get("anioFabricacionTanque"),
@@ -944,6 +946,9 @@ const stationTankTechnicalSheetSchema = z.object({
   // ese rango cae a 1, igual que cuando no viene.
   fechaInstalacionValvulas: optionalDate,
   tieneBitacoraMantenimientoValvulas: z.boolean().optional(),
+  // Manguera (solo estaciones; el formulario de Planta no la manda y se conserva).
+  fechaFabricacionManguera: optionalDateConservable,
+  fechaInstalacionManguera: optionalDateConservable,
   fechaFabricacionValvulaExcesoFlujo: optionalDate,
   fechaFabricacionValvulaNoRetroceso: optionalDate,
   cantidadValvulasSeguridad: z.preprocess((value) => {
@@ -1092,6 +1097,8 @@ export async function upsertStationTankTechnicalSheet(
     tieneBitacoraMantenimientoValvulas: formData.has("tieneBitacoraMantenimientoValvulasPresente")
       ? formData.get("tieneBitacoraMantenimientoValvulas") === "on"
       : undefined,
+    fechaFabricacionManguera: formData.has("fechaFabricacionManguera") ? formData.get("fechaFabricacionManguera") : undefined,
+    fechaInstalacionManguera: formData.has("fechaInstalacionManguera") ? formData.get("fechaInstalacionManguera") : undefined,
     ...Object.fromEntries(STATION_VALVE_FIELDS.map((campo) => [campo, formData.get(campo)])),
     cantidadValvulasSeguridad: formData.get("cantidadValvulasSeguridad"),
     fechaFabricacionValvulaSeguridad2: formData.get("fechaFabricacionValvulaSeguridad2"),

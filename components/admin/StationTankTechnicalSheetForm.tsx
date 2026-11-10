@@ -26,6 +26,14 @@ import {
   getPlantaInstrumentAlertLevel,
 } from "@/lib/planta-tank-instruments";
 import { valveAlertBadgeStyles, valveAlertLabel } from "@/lib/valve-alerts";
+import {
+  getHoseAlertLevel,
+  getHoseVencimiento,
+  hoseAlertBadgeStyles,
+  hoseAlertLabel,
+  mangueraEstacionParaAlerta,
+} from "@/lib/hose-alerts";
+import { formatDate } from "@/lib/dates";
 import { SECTION_STYLES } from "@/lib/section-colors";
 import { FormMessage } from "./FormMessage";
 
@@ -342,6 +350,8 @@ export function StationTankTechnicalSheetForm({
           </div>
         )}
 
+        {!isPlanta && <RecuadroManguera sheet={sheet} plazos={plazos} />}
+
         {showInspecciones && (
           <>
             <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.visualExterna}`}>
@@ -486,5 +496,44 @@ export function StationTankTechnicalSheetForm({
 
       {!locked && <SubmitButton />}
     </form>
+  );
+}
+
+// Manguera de la estación (una por tanque): se cambia cada mangueraEstacion
+// años (7, criterio de quien dictamina) desde su fabricación o, si no se
+// capturó, desde su instalación (lib/hose-alerts.ts).
+function RecuadroManguera({ sheet, plazos }: { sheet: StationTankTechnicalSheet | null; plazos: Plazos }) {
+  const { fecha, anios } = mangueraEstacionParaAlerta(sheet);
+  const nivel = getHoseAlertLevel(fecha, anios);
+  const vence = getHoseVencimiento(fecha, anios);
+  return (
+    <div data-plegable="" className={`rounded-md p-4 ${SECTION_STYLES.valvulas}`}>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h3 className="text-sm font-semibold uppercase text-primary-bright">Cambio de manguera</h3>
+        {nivel !== "none" && vence && (
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${hoseAlertBadgeStyles[nivel]}`}>
+            {hoseAlertLabel(nivel, vence)}
+          </span>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Field
+          id="fechaFabricacionManguera"
+          label="Fecha de fabricación de la manguera"
+          type="date"
+          defaultValue={toDateInputValue(sheet?.fechaFabricacionManguera)}
+        />
+        <Field
+          id="fechaInstalacionManguera"
+          label="Fecha de instalación de la manguera"
+          type="date"
+          defaultValue={toDateInputValue(sheet?.fechaInstalacionManguera)}
+        />
+      </div>
+      <p className="mt-3 text-xs text-gray-500">
+        La manguera se cambia cada {plazos.mangueraEstacion} años desde su fabricación (si no se conoce, desde su
+        instalación){vence ? `: vence el ${formatDate(vence)}` : ""}.
+      </p>
+    </div>
   );
 }

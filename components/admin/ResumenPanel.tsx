@@ -14,8 +14,8 @@ import {
   type YearlySummaryTypeId,
   type ResumenAmbito,
 } from "@/lib/yearly-change-summary";
-import { getComplianceByUnit } from "@/lib/compliance-stats";
-import { complianceGaugeLevel, complianceGaugeColors, type ComplianceAmbito } from "@/lib/compliance-checklist";
+import { getExpediente } from "@/lib/expediente";
+import { GraficaPorGrupo, agruparPorCiudad, agruparPorRequisito } from "@/components/normas/GraficasCumplimiento";
 import { verRecordLabel } from "@/lib/section-labels";
 import { getStationsForSealSelect, getStationSeals } from "@/lib/seal-stats";
 import { formatDate } from "@/lib/dates";
@@ -25,7 +25,7 @@ import { ResumenMissingSearch } from "./ResumenMissingSearch";
 function tabsForAmbito(ambito: ResumenAmbito) {
   return [
     { slug: "general", label: "Resumen general" },
-    { slug: "cumplimiento", label: "Cumplimiento normativo" },
+    { slug: "cumplimiento", label: "Cumplimiento (expediente)" },
     // Los sellos solo existen en Estaciones de carburación (ver apartado
     // "Sellos" en la página de detalle del vehículo) — ni Unidades ni Planta.
     ...(ambito === "ESTACIONES" ? [{ slug: "sellos", label: "Sellos" }] : []),
@@ -269,63 +269,22 @@ async function ResumenMissingList({ year, ambito }: { year: number; ambito: Resu
   return <ResumenMissingSearch groups={groups} />;
 }
 
-// Porcentaje del checklist de cumplimiento de normatividad, unidad por
-// unidad (ver lib/compliance-checklist.ts) — a diferencia del medidor de
-// Administración (que solo trae el promedio por ámbito), esta lista deja ver
-// exactamente cuáles unidades están más atrasadas, ordenadas de menor a
-// mayor cumplimiento.
+// Cumplimiento del ámbito elegido, del expediente (lib/expediente.ts): por
+// ciudad y por requisito, solo gráficas. Antes era el porcentaje del
+// checklist que se marcaba a mano en cada unidad (se quitó el 9-nov-2026).
 async function ResumenComplianceList({ ambito }: { ambito: ResumenAmbito }) {
   const cityIds = await getAllRealCityIds();
-  const complianceAmbitos: ComplianceAmbito[] =
-    ambito === "PLANTA" ? ["PLANTA"] : ambito === "ESTACIONES" ? ["ESTACION"] : ["UNIDAD"];
-  const filas = await getComplianceByUnit(cityIds, complianceAmbitos);
-
-  if (filas.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-ink">
-        Todavía no hay registros de este tipo para calcular su cumplimiento.
-      </p>
-    );
-  }
-
+  const unidades = (await getExpediente(cityIds)).filter((u) =>
+    ambito === "PLANTA"
+      ? u.sectionSlug === "planta-ficha-tecnica"
+      : ambito === "ESTACIONES"
+        ? u.sectionSlug === "estaciones-de-carburacion"
+        : u.sectionSlug !== "planta-ficha-tecnica" && u.sectionSlug !== "estaciones-de-carburacion"
+  );
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
-          <tr>
-            <th className="whitespace-nowrap px-4 py-2">Número económico</th>
-            <th className="whitespace-nowrap px-4 py-2">Ciudad</th>
-            <th className="whitespace-nowrap px-4 py-2">Cumplimiento</th>
-            <th className="whitespace-nowrap px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {filas.map((fila) => {
-            const nivel = complianceGaugeLevel(fila.porcentaje);
-            const colores = complianceGaugeColors[nivel];
-            return (
-              <tr key={fila.id} className="border-t border-gray-100">
-                <td className="whitespace-nowrap px-4 py-2 font-medium text-ink">
-                  {fila.numeroEconomico}
-                  {!fila.activo && <span className="ml-2 text-xs text-orange-600">(dado de baja)</span>}
-                </td>
-                <td className="whitespace-nowrap px-4 py-2 text-ink">{fila.cityName}</td>
-                <td className="whitespace-nowrap px-4 py-2">
-                  <span className={`font-semibold ${colores.text}`}>{fila.porcentaje}%</span>
-                </td>
-                <td className="whitespace-nowrap px-4 py-2 text-right">
-                  <Link
-                    href={`/ciudades/${fila.citySlug}/vehiculo/${fila.id}`}
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    {verRecordLabel(fila.sectionSlug)} →
-                  </Link>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="space-y-6">
+      <GraficaPorGrupo titulo="Por ciudad" grupos={agruparPorCiudad(unidades)} />
+      <GraficaPorGrupo titulo="Por requisito" grupos={agruparPorRequisito(unidades)} />
     </div>
   );
 }

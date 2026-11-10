@@ -94,11 +94,15 @@ function customFieldColumns(
 // el ítem extra de baja) para que las columnas salgan iguales en toda la
 // hoja aunque unas unidades estén activas y otras no; en las que no aplica
 // el ítem de baja, esa columna sale en blanco en vez de "No".
+// El checklist ya no se muestra ni se edita (9-nov-2026, se cambió por la
+// gráfica del expediente): sus columnas ya no salen en el Excel.
+const CHECKLIST_EN_EXCEL = false;
 function complianceColumns(
   ambito: ComplianceAmbito,
   activo: boolean,
   filas: { clave: string; cumple: boolean }[]
 ): Record<string, string> {
+  if (!CHECKLIST_EN_EXCEL) return {};
   const itemsQueAplican = complianceItemsFor(ambito, activo);
   const porcentaje = compliancePercentage(itemsQueAplican, filas);
   const todosLosItems = complianceItemsFor(ambito, false);
@@ -181,7 +185,6 @@ function baseColumns(v: VehicleWithSheet, useDeliveryFormat: boolean, includeCit
     "Fecha de adquisición": d(s?.fechaAdquisicion ?? null),
     Chofer: t(s?.chofer),
     "Número de póliza": t(s?.numeroPoliza),
-    Inciso: t(s?.inciso),
   };
 }
 

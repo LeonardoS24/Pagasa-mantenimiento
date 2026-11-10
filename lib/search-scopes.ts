@@ -86,7 +86,7 @@ export const SEARCH_SCOPES: SearchScope[] = [
   {
     id: "chofer",
     label: "Chofer y póliza",
-    keywords: ["chofer", "poliza", "inciso", "seguro"],
+    keywords: ["chofer", "poliza", "seguro"],
     groups: ["Ficha técnica · Chofer y póliza"],
   },
   {

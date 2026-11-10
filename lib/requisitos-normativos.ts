@@ -103,6 +103,18 @@ export const REQUISITOS_BASE: Requisito[] = [
     verificado: true,
   },
   {
+    clave: "manguera-estacion",
+    nombre: "Manguera de la estación",
+    aplicaA: "Estaciones de carburación",
+    norma: "NOM-003-SEDG-2004",
+    numeral: "Sin plazo en la norma (criterio de la unidad de verificación)",
+    cita: "La unidad de verificación que dictamina las estaciones pide cambiar las mangueras cada 7 años.",
+    cuentaDesde: "fabricación de la manguera (si no se capturó, su instalación)",
+    plazoClave: "mangueraEstacion",
+    nota: "Plazo indicado en la oficina por la persona que dictamina (9-nov-2026). Si cambia, se ajusta aquí.",
+    verificado: false,
+  },
+  {
     clave: "valvulas-planta",
     nombre: "Válvulas de seguridad del tanque de la planta",
     aplicaA: "Planta (exceso de flujo, no retroceso y relevo de presión)",
